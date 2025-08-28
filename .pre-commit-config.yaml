@@ -52,4 +52,10 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+        always_run: true
+      - id: check-hardcoded-routing
+        name: Prevent Hardcoded Routing Patterns
+        entry: bash -c 'echo "🔍 Checking for hardcoded routing patterns..."; if grep -r "INTENT_PATTERNS\|COMMAND_PATTERNS\|classify_user_intent\|_route_command_to_agent\|_extract_command_from_task" kickai/ --include="*.py" --exclude-dir=__pycache__ 2>/dev/null; then echo "❌ HARDCODED ROUTING DETECTED - USE NATIVE CREWAI ROUTING"; echo "See NATIVE_CREWAI_ROUTING.md for migration guidance"; exit 1; else echo "✅ No hardcoded routing patterns detected"; fi'
+        language: system
+        pass_filenames: false
         always_run: true 

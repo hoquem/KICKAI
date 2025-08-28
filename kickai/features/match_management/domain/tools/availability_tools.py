@@ -212,10 +212,10 @@ async def get_player_availability_history(
         history = await availability_service.get_player_history(player_id, limit)
 
         if not history:
-            return create_json_response(ResponseStatus.SUCCESS, data=f"📈 **Availability History**\n\nNo availability records found for player {player_id}.")
+            return create_json_response(ResponseStatus.SUCCESS, data=f"📈 Availability History\n\nNo availability records found for player {player_id}.")
 
         result = [
-            f"📈 **Availability History for {player_id}**",
+            f"📈 Availability History for {player_id}",
             "",
             f"**Last {len(history)} matches**:",
             "",

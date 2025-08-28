@@ -301,12 +301,8 @@ class AgenticMessageRouter:
                 message.telegram_id, self.team_id
             )
             
-            agent = self.crew_lifecycle_manager.get_agent_for_user_flow(user_flow_type)
-            if not agent:
-                return self._create_error_response("Contact processing not available", "Agent not found")
-
-            result = await agent.process_contact(context)
-            return result
+            # Contact sharing goes through unified crew task execution
+            return await self._execute_crew_task(context, user_flow_type)
             
         except Exception as e:
             logger.error(f"❌ Error in route_contact_share: {e}")

@@ -66,7 +66,7 @@ async def send_message(telegram_id: int, team_id: str, username: str, chat_type:
             return create_json_response(ResponseStatus.ERROR, message="CommunicationService is not available")
 
         # Send message using native async
-        success = await communication_service.send_message(message, chat_type_enum, team_id)
+        success = await communication_service.send_message(message, chat_type_enum, team_id, telegram_id)
 
         if not success:
             return create_json_response(ResponseStatus.ERROR, message="Failed to send message")

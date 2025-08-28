@@ -149,8 +149,8 @@ class ServiceFactory:
         team_member_repo = self.container.get_service(TeamMemberRepositoryInterface)
         logger.debug("🔍 Got team member repository from container")
 
-        # Create invite link service with database
-        invite_service = InviteLinkService(database=self.database)
+        # Create invite link service with database (global service in registry)
+        invite_service = InviteLinkService(database=self.database, team_id=None)
         logger.debug("🔍 Created InviteLinkService")
 
         # Create team member services with proper dependency injection
@@ -507,7 +507,7 @@ class ServiceFactory:
         notification_service = NotificationService(notification_repository)
 
         # Create invite link service (bot token will be set later from Firestore)
-        invite_link_service = InviteLinkService(bot_token=None, database=self.database)
+        invite_link_service = InviteLinkService(bot_token=None, database=self.database, team_id=None)
 
         # Enhanced environment-based TelegramBotService selection with auto-detection
         use_mock_telegram = self._should_use_mock_telegram_service()

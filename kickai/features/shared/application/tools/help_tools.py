@@ -153,22 +153,15 @@ async def get_command_help(
     try:
         logger.info(f"🔧 Command help request from {username} for command: {command}")
         
-        # Get domain service
-        help_service = HelpService()
-        chat_type_enum = _normalize_chat_type(chat_type)
+        # Import and use the domain function directly
+        from kickai.features.shared.domain.tools.help_tools import get_command_help as domain_get_command_help
         
-        # Generate command-specific help
-        if command:
-            help_content = help_service.get_command_specific_help(command, chat_type_enum)
-        else:
-            help_content = help_service.get_available_commands(chat_type_enum)
+        # Call the domain function
+        result = await domain_get_command_help(telegram_id, team_id, username, chat_type, command)
         
         logger.info(f"✅ Generated command help for {username}")
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            data=help_content
-        )
+        return result
         
     except Exception as e:
         logger.error(f"❌ Error getting command help: {e}")
@@ -250,19 +243,15 @@ async def get_available_commands(
     try:
         logger.info(f"🔧 Available commands request from {username}")
         
-        # Get domain service
-        help_service = HelpService()
-        chat_type_enum = _normalize_chat_type(chat_type)
+        # Import and use the domain function directly
+        from kickai.features.shared.domain.tools.help_tools import get_available_commands as domain_get_available_commands
         
-        # Get commands available for this user/context
-        available_commands = help_service.get_available_commands(chat_type_enum)
+        # Call the domain function
+        result = await domain_get_available_commands(telegram_id, team_id, username, chat_type)
         
         logger.info(f"✅ Generated available commands list for {username}")
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            data=available_commands
-        )
+        return result
         
     except Exception as e:
         logger.error(f"❌ Error getting available commands: {e}")

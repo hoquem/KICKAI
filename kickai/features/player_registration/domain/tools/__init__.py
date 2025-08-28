@@ -14,7 +14,6 @@ This module provides tools for player registration and management.
 # - get_all_players (service function)
 # - get_active_players (service function)
 # - get_player_match (service function)
-# - list_team_members_and_players (service function)
 # - update_player_field (service function)
 # - update_player_multiple_fields (service function)
 # - get_player_update_help (service function)

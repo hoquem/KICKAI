@@ -12,7 +12,9 @@ from loguru import logger
 
 from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus
+from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.features.shared.domain.services.user_service import UserService, UserRepositoryInterface
+from kickai.features.team_administration.domain.services.team_service import TeamService
 from kickai.utils.tool_helpers import create_json_response
 
 
@@ -71,17 +73,11 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
 
         logger.info(f"👤 User status request for {telegram_id} in team {team_id}")
 
-        # Get required services from container (application boundary)
+        # Get domain services from container and delegate to domain functions
         container = get_container()
-        player_service = container.get_service("PlayerService")
-        team_service = container.get_service("TeamService")
-
-        if not player_service:
-            return create_json_response(ResponseStatus.ERROR, message="PlayerService is not available")
-
-        if not team_service:
-            return create_json_response(ResponseStatus.ERROR, message="TeamService is not available")
-
+        player_service = container.get_service(PlayerService)
+        team_service = container.get_service(TeamService)
+        
         # Create repository adapter (temporary bridge pattern)
         user_repository = ExistingServicesUserRepository(player_service, team_service)
         

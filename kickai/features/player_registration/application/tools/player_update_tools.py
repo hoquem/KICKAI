@@ -13,9 +13,16 @@ from loguru import logger
 
 from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus
-from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.utils.tool_helpers import create_json_response
 from kickai.utils.field_validation import FieldValidator, ValidationError
+
+
+# Note: Pydantic schemas removed to avoid conflicts with CrewAI's automatic schema generation
+# CrewAI will automatically generate schemas from function signatures
+
+
+# Note: Parameter extraction logic removed - CrewAI handles parameter passing automatically
 
 
 @tool("update_player_field", result_as_answer=True)
@@ -34,7 +41,7 @@ async def update_player_field(
     It handles framework concerns and delegates business logic to the domain service.
     
     Args:
-        telegram_id: Player's Telegram ID
+        telegram_id: Player's Telegram ID or dictionary with all parameters
         team_id: Team identifier
         username: Player's username
         chat_type: Type of chat context
@@ -45,7 +52,7 @@ async def update_player_field(
         JSON formatted response with success status and details
     """
     try:
-        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
         if isinstance(telegram_id, dict):
             params = telegram_id
             telegram_id = params.get('telegram_id', 0)
@@ -106,7 +113,21 @@ async def update_player_field(
 
         # Get required services from container (application boundary)
         container = get_container()
-        player_service = container.get_service(IPlayerService)
+        
+        # Ensure container is initialized
+        if not container._initialized:
+            logger.warning("⚠️ Container not initialized, attempting to initialize...")
+            try:
+                await container.initialize()
+                logger.info("✅ Container initialized successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize container: {e}")
+                return create_json_response(
+                    ResponseStatus.ERROR, 
+                    message="System initialization error. Please try again."
+                )
+        
+        player_service = container.get_service(PlayerService)
         
         if not player_service:
             return create_json_response(
@@ -184,7 +205,7 @@ async def update_player_multiple_fields(
     It handles framework concerns and delegates business logic to the domain service.
     
     Args:
-        telegram_id: Player's Telegram ID
+        telegram_id: Player's Telegram ID or dictionary with all parameters
         team_id: Team identifier
         username: Player's username
         chat_type: Type of chat context
@@ -194,7 +215,7 @@ async def update_player_multiple_fields(
         JSON formatted response with success status and details
     """
     try:
-        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
         if isinstance(telegram_id, dict):
             params = telegram_id
             telegram_id = params.get('telegram_id', 0)
@@ -249,7 +270,7 @@ async def update_player_multiple_fields(
 
         # Get required services from container (application boundary)
         container = get_container()
-        player_service = container.get_service(IPlayerService)
+        player_service = container.get_service(PlayerService)
         
         if not player_service:
             return create_json_response(
@@ -325,7 +346,7 @@ async def get_player_update_help(
     It provides guidance on available fields and update formats.
     
     Args:
-        telegram_id: Player's Telegram ID
+        telegram_id: Player's Telegram ID or dictionary with all parameters
         team_id: Team identifier
         username: Player's username
         chat_type: Type of chat context
@@ -334,7 +355,7 @@ async def get_player_update_help(
         JSON formatted help information for player updates
     """
     try:
-        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
         if isinstance(telegram_id, dict):
             params = telegram_id
             telegram_id = params.get('telegram_id', 0)
@@ -418,7 +439,7 @@ async def get_player_current_info(
     It handles framework concerns and delegates business logic to the domain service.
     
     Args:
-        telegram_id: Player's Telegram ID
+        telegram_id: Player's Telegram ID or dictionary with all parameters
         team_id: Team identifier
         username: Player's username
         chat_type: Type of chat context
@@ -427,7 +448,7 @@ async def get_player_current_info(
         JSON formatted current player information
     """
     try:
-        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
         if isinstance(telegram_id, dict):
             params = telegram_id
             telegram_id = params.get('telegram_id', 0)
@@ -474,7 +495,7 @@ async def get_player_current_info(
 
         # Get required services from container (application boundary)
         container = get_container()
-        player_service = container.get_service(IPlayerService)
+        player_service = container.get_service(PlayerService)
         
         if not player_service:
             return create_json_response(
@@ -492,27 +513,25 @@ async def get_player_current_info(
             )
 
         # Format current information at application boundary
-        current_info = f"""📋 **Your Current Information**
+        current_info = f"""📋 YOUR CURRENT INFORMATION
 
-👤 **Basic Info:**
+👤 BASIC INFO:
 • Name: {player.name or 'Not set'}
 • Position: {player.position or 'Not set'}
 • Status: {player.status.title() if hasattr(player.status, 'title') else str(player.status)}
 • Player ID: {player.player_id or 'Not assigned'}
 
-📞 **Contact Info:**
+📞 CONTACT INFO:
 • Phone: {getattr(player, 'phone_number', 'Not set')}
 • Email: {getattr(player, 'email', 'Not set')}
 
-🆘 **Emergency Contact:**
+🆘 EMERGENCY CONTACT:
 • Name: {getattr(player, 'emergency_contact_name', 'Not set')}
 • Phone: {getattr(player, 'emergency_contact_phone', 'Not set')}
 
-⚽ **Playing Info:**
-• Preferred Foot: {getattr(player, 'preferred_foot', 'Not set')}
-• Jersey Number: {getattr(player, 'jersey_number', 'Not set')}
 
-🏥 **Medical Notes:**
+
+🏥 MEDICAL NOTES:
 {getattr(player, 'medical_notes', 'No medical notes recorded')}
 
 💡 To update any field, just ask: "Update my [field] to [new value]" """
@@ -528,8 +547,6 @@ async def get_player_current_info(
                 "email": getattr(player, 'email', None),
                 "emergency_contact_name": getattr(player, 'emergency_contact_name', None),
                 "emergency_contact_phone": getattr(player, 'emergency_contact_phone', None),
-                "preferred_foot": getattr(player, 'preferred_foot', None),
-                "jersey_number": getattr(player, 'jersey_number', None),
                 "medical_notes": getattr(player, 'medical_notes', None)
             }
         }

@@ -1,6 +1,6 @@
 # KICKAI Comprehensive Codebase Index
 
-**Version:** 4.1  
+**Version:** 4.2  
 **Status:** Production Ready with Feature-First Clean Architecture  
 **Last Updated:** August 2025  
 **Architecture:** Feature-First Clean Architecture with 15-Agent CrewAI System
@@ -809,6 +809,17 @@ cd kickai/features/[feature_name]
 - **Standardized Interface**: Consistent parameter order across all tools
 - **Error Prevention**: Prevents dictionary vs individual parameter passing errors
 
+### 7. NLP Tools Async Conversion & JSON Parsing Fix (August 2025)
+**Improvement**: Converted all NLP tools to async and fixed JSON parsing issues
+**Impact**: Resolves architecture violations and CrewAI tool integration problems
+**Benefits**:
+- **Async Architecture Compliance**: All NLP tools now async (2025 standards)
+- **JSON Parsing Fix**: Resolved "Expecting value: line 1 column 1 (char 0)" errors
+- **CrewAI Tool Pattern Fix**: Removed `result_as_answer=True` from routing tool
+- **Proper Tool Usage**: Tools provide prompts, agents generate JSON responses
+- **Architecture Violation Resolution**: No more "Tool is not async" errors
+- **Enhanced Error Handling**: Robust input validation and fallback parsing
+
 ---
 
 ## 📊 Project Statistics
@@ -854,5 +865,5 @@ The system demonstrates modern software engineering practices with clean archite
 ---
 
 **Last Updated:** August 2025  
-**Version:** 4.1  
+**Version:** 4.2  
 **Status:** Production Ready with Feature-First Architecture 

@@ -14,6 +14,7 @@ from loguru import logger
 from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus
 from kickai.features.team_administration.domain.services.team_member_management_service import TeamMemberManagementService
+from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
 from kickai.utils.tool_helpers import create_json_response
 
 
@@ -33,7 +34,7 @@ async def add_team_member_simplified(
     It handles framework concerns and delegates business logic to the domain service.
 
     Args:
-        telegram_id: Admin's Telegram ID
+        telegram_id: Admin's Telegram ID or dictionary with all parameters
         team_id: Team ID (required)
         username: Admin's username for logging
         chat_type: Chat type context (should be 'leadership')
@@ -44,6 +45,51 @@ async def add_team_member_simplified(
         JSON formatted response with member creation result and invite link
     """
     try:
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            member_name = params.get('member_name', '')
+            phone_number = params.get('phone_number', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid chat_type is required"
+            )
+        
         logger.info(f"👥 Adding team member '{member_name}' by {username} ({telegram_id}) in team {team_id}")
 
         # Validate inputs at application boundary
@@ -115,7 +161,7 @@ async def get_my_team_member_status(
     It handles framework concerns and delegates business logic to the domain service.
 
     Args:
-        telegram_id: User's Telegram ID
+        telegram_id: User's Telegram ID or dictionary with all parameters
         team_id: Team ID (required)
         username: Username for context
         chat_type: Chat type context
@@ -124,6 +170,49 @@ async def get_my_team_member_status(
         JSON formatted team member status information
     """
     try:
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid chat_type is required"
+            )
+        
         logger.info(f"👤 Team member status request from {username} ({telegram_id}) in team {team_id}")
 
         # Get required services from container (application boundary)
@@ -150,7 +239,7 @@ async def get_my_team_member_status(
                 "is_admin": getattr(team_member, 'is_admin', False),
                 "member_id": getattr(team_member, 'member_id', 'Not assigned'),
                 "is_registered": True,
-                "formatted_message": f"""👤 **Team Member Information**
+                "formatted_message": f"""👤 TEAM MEMBER INFORMATION
 
 📋 Name: {team_member.name or 'Not set'}
 👑 Role: {getattr(team_member, 'role', 'Member')}
@@ -168,11 +257,11 @@ async def get_my_team_member_status(
                 "telegram_id": telegram_id,
                 "team_id": team_id,
                 "is_registered": False,
-                "formatted_message": f"""👤 **Team Member Status**: Not Found
+                "formatted_message": f"""👤 TEAM MEMBER STATUS: NOT FOUND
 
-📱 **Telegram ID**: {telegram_id}
-🏆 **Team ID**: {team_id}
-ℹ️ **Info**: You are not registered as a team member
+📱 TELEGRAM ID: {telegram_id}
+🏆 TEAM ID: {team_id}
+ℹ️ INFO: You are not registered as a team member
 
 💡 Contact team leadership to be added as a team member"""
             }
@@ -199,7 +288,7 @@ async def get_team_members(
     It handles framework concerns and delegates business logic to the domain service.
 
     Args:
-        telegram_id: Requester's Telegram ID
+        telegram_id: Requester's Telegram ID or dictionary with all parameters
         team_id: Team ID (required)
         username: Username for logging
         chat_type: Chat type context
@@ -208,11 +297,54 @@ async def get_team_members(
         JSON formatted list of all team members
     """
     try:
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid chat_type is required"
+            )
+        
         logger.info(f"📋 Team members list request from {username} ({telegram_id}) in team {team_id}")
 
         # Get required services from container (application boundary)
         container = get_container()
-        team_member_service = container.get_service(ITeamMemberService)
+        team_member_service = container.get_service(TeamMemberService)
 
         if not team_member_service:
             return create_json_response(
@@ -243,10 +375,10 @@ async def get_team_members(
             formatted_members.append(member_data)
 
         # Create formatted message
-        message_lines = ["👥 **Team Members**", ""]
+        message_lines = ["👥 TEAM MEMBERS", ""]
         for i, member in enumerate(formatted_members, 1):
             admin_indicator = " 👑" if member['is_admin'] else ""
-            message_lines.append(f"{i}. **{member['name']}**{admin_indicator}")
+            message_lines.append(f"{i}. {member['name']}{admin_indicator}")
             message_lines.append(f"   🏷️ ID: {member['member_id']} | 👑 Role: {member['role']}")
             message_lines.append(f"   ✅ Status: {member['status']}")
             message_lines.append("")
@@ -282,7 +414,7 @@ async def activate_team_member(
     It handles framework concerns and delegates business logic to the domain service.
 
     Args:
-        telegram_id: Admin's Telegram ID
+        telegram_id: Admin's Telegram ID or dictionary with all parameters
         team_id: Team ID (required)
         username: Admin's username for logging
         chat_type: Chat type context
@@ -292,6 +424,59 @@ async def activate_team_member(
         JSON formatted activation result
     """
     try:
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            target_telegram_id = params.get('target_telegram_id', 0)
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
+                    
+            if isinstance(target_telegram_id, str):
+                try:
+                    target_telegram_id = int(target_telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid target_telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid chat_type is required"
+            )
+        
         logger.info(f"🔓 Activating team member {target_telegram_id} by {username} ({telegram_id}) in team {team_id}")
 
         if not target_telegram_id:
@@ -302,7 +487,7 @@ async def activate_team_member(
 
         # Get required services from container (application boundary)
         container = get_container()
-        team_member_service = container.get_service(ITeamMemberService)
+        team_member_service = container.get_service(TeamMemberService)
 
         if not team_member_service:
             return create_json_response(

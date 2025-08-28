@@ -1,32 +1,31 @@
-# KICKAI Command Routing Configuration - CrewAI Native Collaboration System
-# With pure CrewAI agent collaboration, routing is handled by MESSAGE_PROCESSOR + NLP_PROCESSOR
+# KICKAI Command Routing Configuration - CrewAI Native Routing System
+# With native CrewAI routing, intelligent routing is handled by MESSAGE_PROCESSOR using LLM intelligence
 # This file provides minimal configuration for compatibility with existing systems
 
 # Version and metadata
 version: "2.0.0"
-description: "Simplified routing configuration for CrewAI native agent collaboration"
+description: "Simplified routing configuration for CrewAI native routing with 5-agent system"
 last_updated: "2025-01-18"
 routing_method: "crewai_native_collaboration"
 
 # CrewAI Native Collaboration Configuration
 collaboration_routing:
-  # Primary agent for all requests - MESSAGE_PROCESSOR with NLP collaboration
+  # Primary agent for all requests - MESSAGE_PROCESSOR with native LLM routing
   primary_agent: "message_processor"
   
-  # Collaboration pattern: MESSAGE_PROCESSOR works with NLP_PROCESSOR for intelligent routing
-  collaboration_pattern: "primary_with_nlp_routing"
+  # Routing pattern: MESSAGE_PROCESSOR uses native CrewAI LLM intelligence for routing
+  routing_pattern: "native_llm_routing"
   
-  # Intelligent routing handled by agents, not configuration
+  # Intelligent routing handled by LLM intelligence, not configuration
   intelligent_routing: true
   
-  # Available agents for collaboration (all 6 agents)
+  # Available agents for delegation (5-agent system)
   available_agents:
-    - "message_processor"    # Primary interface and coordination
+    - "message_processor"    # Primary interface with native routing intelligence
     - "help_assistant"       # Help system and guidance
     - "player_coordinator"   # Player management and registration
     - "team_administrator"   # Team member management
     - "squad_selector"       # Match management and availability
-    - "nlp_processor"        # Intelligent routing and context analysis
 
 # Default routing behavior (minimal for compatibility)
 default_routing:

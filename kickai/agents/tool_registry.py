@@ -1202,6 +1202,8 @@ def get_tool_registry() -> ToolRegistry:
     if _tool_registry is None:
         _tool_registry = ToolRegistry()
         logger.info("🔧 Created new global ToolRegistry instance")
+    else:
+        logger.debug("🔄 Returning existing global ToolRegistry instance")
 
     return _tool_registry
 
@@ -1217,6 +1219,8 @@ def initialize_tool_registry(src_path: str = "kickai") -> ToolRegistry:
         registry.auto_discover_tools(src_path)
         _tool_registry_initialized = True
         logger.info("✅ Global ToolRegistry initialized and ready")
+    else:
+        logger.debug("🔄 ToolRegistry already initialized, skipping auto-discovery")
 
     return registry
 

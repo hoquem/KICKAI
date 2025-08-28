@@ -10,8 +10,7 @@ from .player_tools import (
     get_my_status,
     get_all_players,
     get_active_players,
-    get_player_match,
-    list_team_members_and_players
+    get_player_match
 )
 from .player_update_tools import (
     update_player_field,
@@ -28,7 +27,6 @@ __all__ = [
     "get_all_players", 
     "get_active_players",
     "get_player_match",
-    "list_team_members_and_players",
     # Player update tools
     "update_player_field",
     "update_player_multiple_fields",

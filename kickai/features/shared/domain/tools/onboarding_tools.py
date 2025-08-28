@@ -64,30 +64,30 @@ async def team_member_guidance(user_id: str, team_id: str, chat_type: str = None
 
         # Build comprehensive guidance message
         guidance = """
-🎯 **TEAM MEMBER REGISTRATION GUIDE**
+🎯 TEAM MEMBER REGISTRATION GUIDE
 
 Welcome! I'm here to help you join as a team member (administrative role).
 
-📝 **INFORMATION NEEDED:**
-1. **Full Name** - Your first and last name
-2. **Phone Number** - UK format (07123456789 or +447123456789)  
-3. **Administrative Role** - Choose from:
-   • **Coach** - Team coaching responsibilities
-   • **Manager** - Team management duties
-   • **Assistant** - Supporting role
-   • **Coordinator** - Event/logistics coordination
-   • **Volunteer** - General volunteer support
-   • **Admin** - Administrative privileges
+📝 INFORMATION NEEDED:
+1. Full Name - Your first and last name
+2. Phone Number - UK format (07123456789 or +447123456789)  
+3. Administrative Role - Choose from:
+   • Coach - Team coaching responsibilities
+   • Manager - Team management duties
+   • Assistant - Supporting role
+   • Coordinator - Event/logistics coordination
+   • Volunteer - General volunteer support
+   • Admin - Administrative privileges
 
-✅ **PROCESS:**
+✅ PROCESS:
 • No approval required - immediate activation
 • Direct access to administrative features
 • Orientation provided after registration
 
-🚀 **READY TO START?**
+🚀 READY TO START?
 Just say "I want to register as a team member" and I'll guide you through step by step!
 
-ℹ️ **Questions?** I'm here to help throughout the process.
+ℹ️ Questions? I'm here to help throughout the process.
         """
 
         logger.info(f"Team member guidance provided to user {user_id}")
@@ -211,20 +211,20 @@ Just say "I want to register as a team member" and I'll guide you through step b
 
             # Enhanced success message with next steps
             success_msg = f"""
-🎉 **REGISTRATION SUCCESSFUL!**
+🎉 REGISTRATION SUCCESSFUL!
 
-✅ **Team Member Registered:**
-• **Name:** {name}
-• **Role:** {role.title()}
-• **Status:** Active (immediate access)
+✅ Team Member Registered:
+• Name: {name}
+• Role: {role.title()}
+• Status: Active (immediate access)
 
-🚀 **WHAT'S NEXT:**
+🚀 WHAT'S NEXT:
 • You now have administrative access
 • Explore team management features
 • Contact leadership for orientation
 • Access leadership chat for admin functions
 
-💬 **NEED HELP?**
+💬 NEED HELP?
 Type /help to see available commands or ask me anything!
 
 Welcome to the team! 🤝

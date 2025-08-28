@@ -52,15 +52,16 @@ class ConfigurableAgent:
     def _initialize_components(self):
         """Initialize all required components for the agent."""
         try:
-            # 1. Tool registry
-            from kickai.agents.tool_registry import initialize_tool_registry
-            self.tool_registry = initialize_tool_registry("kickai")
+            # 1. Tool registry - get singleton instance (already initialized)
+            from kickai.agents.tool_registry import get_tool_registry
+            self.tool_registry = get_tool_registry()
 
             # 2. LLM configuration
             llm_config = get_llm_config()
             # Use per-agent model selection via llm_config
             main_llm, tool_llm = llm_config.get_llm_for_agent(self.agent_role)
             self.llm = main_llm
+            self.tool_llm = tool_llm  # Store tool_llm for function calling
 
             # 3. Agent configuration
             # Use default context for agent initialization
@@ -105,9 +106,11 @@ class ConfigurableAgent:
             backstory=self.config.backstory,
             tools=tools,
             llm=self.llm,
+            function_calling_llm=self.tool_llm,  # Use tool_llm for function calling
             verbose=True,
             max_iter=self.config.max_iterations,
             memory=agent_memory,  # Enable entity-specific memory
+            allow_delegation=(self.agent_role == AgentRole.MESSAGE_PROCESSOR),  # Only manager agent allows delegation
         )
 
         logger.debug(
@@ -119,7 +122,7 @@ class ConfigurableAgent:
         """
         Get tools for this agent using direct assignment (CrewAI best practice).
         
-        This replaces the unnecessary AgentToolsManager with direct tool lookup.
+        Now applies context injection using the existing context_wrapper.py
         """
         tools = []
         
@@ -149,12 +152,44 @@ class ConfigurableAgent:
                     else:
                         logger.warning(f"❌ Tool '{tool_name}' not found for {self.agent_role.value}")
             
-            logger.info(f"🔧 Loaded {len(tools)} tools for {self.agent_role.value}")
-            return tools
+            # For now, skip context injection to avoid callable issues
+            # Context will be passed via Task.config instead
+            if tools:
+                logger.info(f"🔧 Loaded {len(tools)} tools (context via Task.config) for {self.agent_role.value}")
+                return tools
+            else:
+                logger.info(f"🔧 No tools found for {self.agent_role.value}")
+                return []
             
         except Exception as e:
             logger.error(f"❌ Error loading tools for {self.agent_role.value}: {e}")
             return []
+
+    def _apply_context_injection_to_tools(self, tools: List[Any]) -> List[Any]:
+        """
+        Apply context injection to tools using the existing context_wrapper.py
+        """
+        try:
+            # Create default execution context for this agent
+            # This will be updated dynamically when tasks are executed
+            default_context = {
+                'telegram_id': 0,  # Will be updated per task
+                'team_id': self.team_id,
+                'username': 'user',  # Will be updated per task
+                'chat_type': 'main'  # Will be updated per task
+            }
+            
+            # Apply context injection using existing wrapper
+            from kickai.agents.context_wrapper import apply_context_injection_to_agent_tools
+            wrapped_tools = apply_context_injection_to_agent_tools(tools, default_context)
+            
+            logger.info(f"🎯 Applied context injection to {len(tools)} tools for {self.agent_role.value}")
+            return wrapped_tools
+            
+        except Exception as e:
+            logger.error(f"❌ Error applying context injection for {self.agent_role.value}: {e}")
+            # Return original tools if context injection fails
+            return tools
 
     def _get_delegation_tools(self) -> List[Any]:
         """Get delegation tools for inter-agent communication."""

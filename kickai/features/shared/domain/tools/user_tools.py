@@ -83,11 +83,11 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
                     "name": player.name,
                     "position": player.position,
                     "status": player.status.title(),
-                    "formatted_message": f"👤 **User Status**: Player\n"
-                                       f"📱 **Telegram ID**: {telegram_id_int}\n"
-                                       f"🏆 **Team ID**: {team_id}\n"
-                                       f"📋 **Player Info**: {player.name} ({player.position})\n"
-                                       f"✅ **Status**: {player.status.title()}"
+                    "formatted_message": f"👤 User Status: Player\n"
+                                       f"📱 Telegram ID: {telegram_id_int}\n"
+                                       f"🏆 Team ID: {team_id}\n"
+                                       f"📋 Player Info: {player.name} ({player.position})\n"
+                                       f"✅ Status: {player.status.title()}"
                 }
                 return create_json_response(ResponseStatus.SUCCESS, data=user_status_data)
             elif team_member:
@@ -98,12 +98,12 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
                     "name": team_member.name,
                     "role": team_member.role.title(),
                     "is_admin": team_member.is_admin,
-                    "formatted_message": f"👤 **User Status**: Team Member\n"
-                                       f"📱 **Telegram ID**: {telegram_id_int}\n"
-                                       f"🏆 **Team ID**: {team_id}\n"
-                                       f"📋 **Member Info**: {team_member.name}\n"
-                                       f"👑 **Role**: {team_member.role.title()}\n"
-                                       f"✅ **Admin**: {'Yes' if team_member.is_admin else 'No'}"
+                    "formatted_message": f"👤 User Status: Team Member\n"
+                                       f"📱 Telegram ID: {telegram_id_int}\n"
+                                       f"🏆 Team ID: {team_id}\n"
+                                       f"📋 Member Info: {team_member.name}\n"
+                                       f"👑 Role: {team_member.role.title()}\n"
+                                       f"✅ Admin: {'Yes' if team_member.is_admin else 'No'}"
                 }
                 return create_json_response(ResponseStatus.SUCCESS, data=user_status_data)
             else:
@@ -111,10 +111,10 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
                     "user_type": "Not Registered",
                     "telegram_id": telegram_id_int,
                     "team_id": team_id,
-                    "formatted_message": f"👤 **User Status**: Not Registered\n"
-                                       f"📱 **Telegram ID**: {telegram_id_int}\n"
-                                       f"🏆 **Team ID**: {team_id}\n"
-                                       f"ℹ️ **Info**: User is not registered as a player or team member"
+                    "formatted_message": f"👤 User Status: Not Registered\n"
+                                       f"📱 Telegram ID: {telegram_id_int}\n"
+                                       f"🏆 Team ID: {team_id}\n"
+                                       f"ℹ️ Info: User is not registered as a player or team member"
                 }
                 return create_json_response(ResponseStatus.SUCCESS, data=user_status_data)
 

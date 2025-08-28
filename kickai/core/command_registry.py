@@ -187,6 +187,11 @@ class CommandRegistry:
                 elif existing_cmd.feature == feature:
                     # Same feature registering the same command again, skip silently
                     return
+                elif existing_cmd.chat_type:
+                    # Existing command is chat-specific, this is universal - allow overwrite
+                    logger.info(
+                        f"Command '{name}' already registered as chat-specific by {existing_cmd.feature}, overwriting with universal {feature}"
+                    )
                 else:
                     # Different registration, log warning but allow overwrite
                     logger.warning(

@@ -12,6 +12,7 @@ from loguru import logger
 
 from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus
+from kickai.features.communication.domain.services.communication_service import CommunicationService
 from kickai.utils.tool_helpers import create_json_response
 
 
@@ -51,22 +52,24 @@ async def send_message(
                 message="Message content is required"
             )
 
-        # Get required services from container (application boundary)
+        # Get domain service from container and delegate to domain function
         container = get_container()
-        communication_service = container.get_service("CommunicationService")
-
-        if not communication_service:
+        communication_service = container.get_service(CommunicationService)
+        
+        # Execute domain operation
+        success = await communication_service.send_message(message, chat_type, team_id)
+        
+        if not success:
             return create_json_response(
                 ResponseStatus.ERROR,
-                message="CommunicationService is not available"
+                message="Failed to send message"
             )
-
-        # Execute domain operation (simplified for now)
+        
         response_data = {
             "message_sent": True,
             "sender": username,
             "message_content": message[:100] + "..." if len(message) > 100 else message,
-            "target_chat": target_chat or "default",
+            "target_chat": chat_type,
             "team_id": team_id,
             "message": f"✅ Message sent successfully by {username}"
         }
@@ -113,17 +116,19 @@ async def send_announcement(
                 message="Announcement content is required"
             )
 
-        # Get required services from container (application boundary)
+        # Get domain service from container and delegate to domain function
         container = get_container()
-        communication_service = container.get_service("CommunicationService")
-
-        if not communication_service:
+        communication_service = container.get_service(CommunicationService)
+        
+        # Execute domain operation
+        success = await communication_service.send_announcement(announcement, team_id)
+        
+        if not success:
             return create_json_response(
                 ResponseStatus.ERROR,
-                message="CommunicationService is not available"
+                message="Failed to send announcement"
             )
-
-        # Execute domain operation (simplified for now)
+        
         response_data = {
             "announcement_sent": True,
             "sender": username,
@@ -183,16 +188,6 @@ async def send_poll(
                 message="Poll options are required"
             )
 
-        # Get required services from container (application boundary)
-        container = get_container()
-        communication_service = container.get_service("CommunicationService")
-
-        if not communication_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="CommunicationService is not available"
-            )
-
         # Parse poll options
         options_list = [opt.strip() for opt in poll_options.split(',') if opt.strip()]
         
@@ -202,7 +197,19 @@ async def send_poll(
                 message="At least 2 poll options are required"
             )
 
-        # Execute domain operation (simplified for now)
+        # Get domain service from container and delegate to domain function
+        container = get_container()
+        communication_service = container.get_service(CommunicationService)
+        
+        # Execute domain operation
+        success = await communication_service.send_poll(poll_question, poll_options, team_id)
+        
+        if not success:
+            return create_json_response(
+                ResponseStatus.ERROR,
+                message="Failed to send poll"
+            )
+        
         response_data = {
             "poll_created": True,
             "sender": username,

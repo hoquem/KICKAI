@@ -45,11 +45,11 @@ async def permission_denied_message(
         
         # Base permission denied message
         message_parts = [
-            "❌ **Access Denied**",
+            "❌ ACCESS DENIED",
             "",
-            f"🚫 **Command**: {command_attempted}",
-            f"🔒 **Required Access**: {required_permission}",
-            f"👤 **Your Context**: {chat_type.title()} Chat"
+            f"🚫 Command: {command_attempted}",
+            f"🔒 Required Access: {required_permission}",
+            f"👤 Your Context: {chat_type.title()} Chat"
         ]
         
         # Add specific guidance based on command and context
@@ -57,11 +57,11 @@ async def permission_denied_message(
             if required_permission.lower() in ["leadership", "admin"]:
                 message_parts.extend([
                     "",
-                    "💡 **Why was this blocked?**",
+                    "💡 WHY WAS THIS BLOCKED?",
                     f"• {command_attempted} requires leadership or admin access",
                     "• This command is only available in the leadership chat",
                     "",
-                    "🔧 **What you can do:**",
+                    "🔧 WHAT YOU CAN DO:",
                     "• Contact your team leadership for access",
                     "• Ask leadership to promote you if appropriate",
                     "• Use leadership chat if you already have access"
@@ -69,10 +69,10 @@ async def permission_denied_message(
             else:
                 message_parts.extend([
                     "",
-                    "💡 **Why was this blocked?**",
+                    "💡 WHY WAS THIS BLOCKED?",
                     f"• You don't have the required permissions for {command_attempted}",
                     "",
-                    "🔧 **What you can do:**",
+                    "🔧 WHAT YOU CAN DO:",
                     "• Contact your team admin for access",
                     "• Check if you're registered as a player or team member",
                     "• Use /help to see available commands"
@@ -81,10 +81,10 @@ async def permission_denied_message(
         elif chat_type.lower() in ["leadership", "leadership_chat"]:
             message_parts.extend([
                 "",
-                "💡 **Why was this blocked?**",
+                "💡 WHY WAS THIS BLOCKED?",
                 f"• {command_attempted} requires higher permissions than your current role",
                 "",
-                "🔧 **What you can do:**",
+                "🔧 WHAT YOU CAN DO:",
                 "• Contact your team admin for access",
                 "• Verify your leadership role is properly configured",
                 "• Use /help to see available commands"
@@ -93,10 +93,10 @@ async def permission_denied_message(
         else:  # Private chat
             message_parts.extend([
                 "",
-                "💡 **Why was this blocked?**",
+                "💡 WHY WAS THIS BLOCKED?",
                 f"• {command_attempted} is not available in private chat",
                 "",
-                "🔧 **What you can do:**",
+                "🔧 WHAT YOU CAN DO:",
                 "• Use the main team chat for player commands",
                 "• Use the leadership chat for admin commands",
                 "• Use /help to see available commands"
@@ -106,7 +106,7 @@ async def permission_denied_message(
         message_parts.extend([
             "",
             "---",
-            "💬 **Need Help?**",
+            "💬 NEED HELP?",
             "• Type /help for available commands",
             "• Contact your team leadership",
             "• Check pinned messages for team info"
@@ -154,23 +154,23 @@ async def command_not_available(
         logger.info(f"🔧 [COMMAND] Generating command not available message for {username}, command: {command_attempted}")
         
         message_parts = [
-            "❓ **Command Not Found**",
+            "❓ COMMAND NOT FOUND",
             "",
-            f"🔍 **Command**: {command_attempted}",
-            f"📍 **Context**: {chat_type.title()} Chat",
+            f"🔍 Command: {command_attempted}",
+            f"📍 Context: {chat_type.title()} Chat",
             "",
-            "💡 **Possible Issues:**",
+            "💡 POSSIBLE ISSUES:",
             "• Command doesn't exist or was mistyped",
             f"• Command not available in {chat_type.lower()} chat",
             "• You might be looking for a different command",
             "",
-            "🔧 **What you can try:**",
+            "🔧 WHAT YOU CAN TRY:",
             "• Check your spelling and try again",
             "• Use /help to see all available commands",
             "• Try the command in a different chat if appropriate",
             "• Contact team leadership if you need assistance",
             "",
-            "💬 **Popular Commands:**",
+            "💬 POPULAR COMMANDS:",
             "• /help - Show available commands",
             "• /myinfo - Show your status", 
             "• /list - Show team/player list",

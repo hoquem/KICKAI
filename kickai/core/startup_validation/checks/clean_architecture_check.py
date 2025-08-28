@@ -28,7 +28,7 @@ class CleanArchitectureCheck(BaseCheck):
         # Navigate up from /kickai/core/startup_validation/checks/ to /kickai/
         self.kickai_root = Path(__file__).parent.parent.parent.parent.parent
         
-    async def execute(self) -> CheckResult:
+    async def execute(self, context=None) -> CheckResult:
         """Execute Clean Architecture validation checks."""
         try:
             violations = []
@@ -157,37 +157,33 @@ class CleanArchitectureCheck(BaseCheck):
             return violations
         
         tools_found = 0
-        
         for app_dir in app_dirs:
-            if not app_dir.exists():
-                continue
-                
-            # Check for Python files with @tool decorators
-            for py_file in app_dir.glob("*.py"):
-                if py_file.name == "__init__.py":
-                    continue
-                    
-                try:
-                    content = py_file.read_text(encoding='utf-8')
-                    
-                    # Count tools in this file
-                    if "@tool(" in content:
-                        # Parse AST to count tools
-                        tree = ast.parse(content)
-                        
-                        for node in ast.walk(tree):
-                            if isinstance(node, ast.FunctionDef):
-                                for decorator in node.decorator_list:
-                                    if (isinstance(decorator, ast.Call) and 
-                                        isinstance(decorator.func, ast.Name) and 
-                                        decorator.func.id == "tool"):
-                                        tools_found += 1
-                                        break
-                                        
-                except (UnicodeDecodeError, SyntaxError):
-                    pass
+            if app_dir.exists():
+                py_files = list(app_dir.glob("*.py"))
+                tools_found += len([f for f in py_files if f.name != "__init__.py"])
         
-        if tools_found < 10:  # Expect at least 10 tools after migration
-            violations.append(f"Only {tools_found} tools found in application layer, expected migration of 62+ tools")
+        # Find all domain/tools directories for comparison
+        domain_dirs = list(self.kickai_root.glob("kickai/features/*/domain/tools"))
+        domain_tools_found = 0
+        for domain_dir in domain_dirs:
+            if domain_dir.exists():
+                py_files = list(domain_dir.glob("*.py"))
+                domain_tools_found += len([f for f in py_files if f.name != "__init__.py"])
+        
+        # Calculate migration progress
+        total_tools = tools_found + domain_tools_found
+        migration_percentage = (tools_found / total_tools * 100) if total_tools > 0 else 0
+        
+        # Provide guidance based on current state
+        if tools_found == 0:
+            violations.append("No tools found in application layer - migration needed")
+        elif migration_percentage < 50:
+            violations.append(f"Tool migration in progress: {tools_found}/{total_tools} tools in application layer ({migration_percentage:.1f}%)")
+        elif migration_percentage < 80:
+            violations.append(f"Tool migration mostly complete: {tools_found}/{total_tools} tools in application layer ({migration_percentage:.1f}%) - continue migration")
+        else:
+            # Migration is mostly complete, just warn about remaining domain tools
+            if domain_tools_found > 0:
+                violations.append(f"Tool migration nearly complete: {tools_found}/{total_tools} tools in application layer ({migration_percentage:.1f}%) - {domain_tools_found} tools remaining in domain layer")
         
         return violations

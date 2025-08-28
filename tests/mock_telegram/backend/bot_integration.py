@@ -5,6 +5,10 @@ This module provides integration between the mock Telegram service
 and the real KICKAI CrewAI system using Groq LLM.
 """
 
+# Set required environment variables BEFORE any imports
+import os
+os.environ.setdefault("KICKAI_INVITE_SECRET_KEY", "test_secret_key_for_debugging_only_32_chars_long")
+
 # Standard library imports
 import logging
 from datetime import datetime
@@ -274,11 +278,20 @@ async def _get_available_team_id() -> str:
 async def _create_telegram_message(message_data: Dict[str, Any]) -> TelegramMessage:
     """Convert mock message data to TelegramMessage format for real agent processing."""
     
-    # Extract message components
+    # Extract message components - handle both "from" and "user" fields
     text = message_data.get("text", "")
-    user_id = message_data.get("from", {}).get("id")
-    username = message_data.get("from", {}).get("username", f"user_{user_id}")
-    chat_id = message_data.get("chat", {}).get("id")
+    
+    # Try "user" field first (our test format), then "from" field (Telegram format)
+    user_data = message_data.get("user") or message_data.get("from", {})
+    user_id = user_data.get("id")
+    username = user_data.get("username", f"user_{user_id}")
+    
+    # Try "chat_id" field first, then "chat" object
+    chat_id = message_data.get("chat_id")
+    if not chat_id:
+        chat_data = message_data.get("chat", {})
+        chat_id = chat_data.get("id")
+    
     chat_context = message_data.get("chat_context", "main")
     
     # Determine chat type

@@ -65,15 +65,15 @@ class TeamMemberAutoActivationService:
         # Initialize team member service
         self.team_member_service = TeamMemberService(team_repository)
         
-        # Initialize invite service with database
+        # Initialize invite service with database and team_id
         if database is not None:
-            self.invite_service = InviteLinkService(database=database)
+            self.invite_service = InviteLinkService(database=database, team_id=team_id)
         else:
             # Get database from container if not provided
             from kickai.core.dependency_container import get_container
             container = get_container()
             db = container.get_database()
-            self.invite_service = InviteLinkService(database=db)
+            self.invite_service = InviteLinkService(database=db, team_id=team_id)
         
         logger.info(f"🔧 TeamMemberAutoActivationService initialized for team: {team_id}")
 
@@ -335,9 +335,12 @@ class TeamMemberAutoActivationService:
                 "success": activation_result.success
             }
             
-            # Store in audit log collection
+            # Store in audit log collection with team-specific naming
+            from kickai.core.firestore_constants import get_team_specific_collection_name
+            collection_name = get_team_specific_collection_name(self.team_id, "team_member_activation_logs")
+            
             await self.database.create_document(
-                "kickai_team_member_activation_logs",
+                collection_name,
                 event_data,
                 f"activation_{activation_result.member_id}_{int(datetime.utcnow().timestamp())}"
             )
