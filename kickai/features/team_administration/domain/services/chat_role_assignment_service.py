@@ -42,8 +42,17 @@ class ChatRoleAssignmentService:
             # Fallback to mock service
             self.player_service = self._create_mock_player_service()
 
-        # TeamMemberService removed - using mock service instead
-        self.team_member_service = self._create_mock_team_member_service()
+        # Get real TeamMemberService from container
+        try:
+            from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
+            self.team_member_service = container.get_service(TeamMemberService)
+            if not self.team_member_service:
+                logger.warning("⚠️ TeamMemberService not available, using mock service")
+                self.team_member_service = self._create_mock_team_member_service()
+        except Exception as e:
+            logger.warning(f"⚠️ Could not get TeamMemberService from dependency container: {e}")
+            # Fallback to mock service
+            self.team_member_service = self._create_mock_team_member_service()
 
         logger.info("✅ ChatRoleAssignmentService initialized")
 
@@ -109,25 +118,34 @@ class ChatRoleAssignmentService:
                 from kickai.features.team_administration.domain.entities.team_member import (
                     TeamMember,
                 )
+                from kickai.core.enums import MemberStatus
 
                 roles = self._determine_initial_roles(chat_type, is_first_user)
                 team_member = TeamMember(
                     team_id=team_id,
-                    user_id=user_id,
-                    telegram_id=user_id,
-                    telegram_username=username,
-                    roles=roles,
-                    chat_access={chat_type: True},
-                    joined_at=datetime.now(),
+                    telegram_id=int(user_id),
+                    name=username or f"User {user_id}",
+                    username=username,
+                    role="Team Member",  # Default role
+                    status=MemberStatus.ACTIVE,  # Automatically activate when joining chat
+                    is_admin=is_first_user,  # First user becomes admin
+                    created_at=datetime.now(),
+                    updated_at=datetime.now(),
+                    source="chat_join"
                 )
 
                 member_id = await self.team_member_service.create_team_member(team_member)
-                # Note: team_member.user_id should already be set, member_id should match
-                logger.info(f"Created new team member {user_id} with roles: {roles}")
+                logger.info(f"✅ Created and activated new team member {user_id} with roles: {roles}")
             else:
-                # Update existing team member
-                await self._update_existing_member_roles(team_member, chat_type)
-                team_member.chat_access[chat_type] = True
+                # Update existing team member and activate if pending
+                from kickai.core.enums import MemberStatus
+                
+                # Automatically activate if status is pending
+                if team_member.status.value == "pending":
+                    team_member.status = MemberStatus.ACTIVE
+                    logger.info(f"✅ Automatically activated pending team member {user_id}")
+                
+                team_member.updated_at = datetime.now()
                 await self.team_member_service.update_team_member(team_member)
                 logger.info(f"Updated existing team member {user_id} for {chat_type}")
 
@@ -269,7 +287,7 @@ class ChatRoleAssignmentService:
     async def _ensure_player_role(
         self, team_id: str, user_id: str, username: Optional[str] = None
     ) -> None:
-        """Ensure user has a player record if they're in the main chat."""
+        """Ensure user has a player record if they're in the main chat and activate if pending."""
         try:
             # Check if player already exists
             existing_player = await self.player_service.get_player_by_telegram_id(user_id, team_id)
@@ -290,8 +308,17 @@ class ChatRoleAssignmentService:
 
                 await self.player_service.create_player(params)
                 logger.info(f"Created player record for user {user_id}")
+            else:
+                # Player exists, check if they need activation
+                if existing_player.status == "pending":
+                    # Automatically activate pending player when they join main chat
+                    from kickai.features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
+                    player_service = container.get_service(PlayerRegistrationService)
+                    if player_service:
+                        await player_service.approve_player(player_id=existing_player.player_id, team_id=team_id)
+                        logger.info(f"✅ Automatically activated pending player {user_id} when joining main chat")
         except Exception as e:
-            logger.warning(f"Failed to create player record for user {user_id}: {e}")
+            logger.warning(f"Failed to create/activate player record for user {user_id}: {e}")
 
     async def _assign_first_user_admin(self, team_id: str, user_id: str) -> None:
         """Assign admin role to the first user of a team."""

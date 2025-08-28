@@ -180,6 +180,9 @@ agents:
       # Team administration
       - create_team
       - add_player
+      # Approval tools
+      - approve_user
+      - get_pending_users
       # Team member update tools (specialized for team member records)
       - update_team_member_field
       - update_team_member_multiple_fields
