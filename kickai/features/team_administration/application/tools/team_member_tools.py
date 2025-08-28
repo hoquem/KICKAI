@@ -13,7 +13,6 @@ from loguru import logger
 
 from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus
-from kickai.features.team_administration.domain.services.team_member_management_service import TeamMemberManagementService
 from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
 from kickai.utils.tool_helpers import create_json_response
 
@@ -217,16 +216,16 @@ async def get_my_team_member_status(
 
         # Get required services from container (application boundary)
         container = get_container()
-        management_service = container.get_service(TeamMemberManagementService)
+        team_member_service = container.get_service(TeamMemberService)
 
-        if not management_service:
+        if not team_member_service:
             return create_json_response(
                 ResponseStatus.ERROR,
-                message="TeamMemberManagementService is not available"
+                message="TeamMemberService is not available"
             )
 
         # Execute domain operation
-        team_member = await management_service.get_team_member_by_telegram_id(telegram_id, team_id)
+        team_member = await team_member_service.get_team_member_by_telegram_id(telegram_id, team_id)
 
         if team_member:
             status_data = {
@@ -239,14 +238,7 @@ async def get_my_team_member_status(
                 "is_admin": getattr(team_member, 'is_admin', False),
                 "member_id": getattr(team_member, 'member_id', 'Not assigned'),
                 "is_registered": True,
-                "formatted_message": f"""👤 TEAM MEMBER INFORMATION
-
-📋 Name: {team_member.name or 'Not set'}
-👑 Role: {getattr(team_member, 'role', 'Member')}
-🏷️ Member ID: {getattr(team_member, 'member_id', 'Not assigned')}
-✅ Status: {str(team_member.status) if hasattr(team_member, 'status') else 'Active'}
-🔐 Admin: {'Yes' if getattr(team_member, 'is_admin', False) else 'No'}
-🏢 Team: {team_id}"""
+                "formatted_message": f"👤 TEAM MEMBER INFORMATION\n\n📋 Name: {team_member.name or 'Not set'}\n👑 Role: {getattr(team_member, 'role', 'Member')}\n🏷️ Member ID: {getattr(team_member, 'member_id', 'Not assigned')}\n✅ Status: {str(team_member.status) if hasattr(team_member, 'status') else 'Active'}\n🔐 Admin: {'Yes' if getattr(team_member, 'is_admin', False) else 'No'}\n🏢 Team: {team_id}"
             }
 
             logger.info(f"✅ Team member status retrieved for {username}")
@@ -257,13 +249,7 @@ async def get_my_team_member_status(
                 "telegram_id": telegram_id,
                 "team_id": team_id,
                 "is_registered": False,
-                "formatted_message": f"""👤 TEAM MEMBER STATUS: NOT FOUND
-
-📱 TELEGRAM ID: {telegram_id}
-🏆 TEAM ID: {team_id}
-ℹ️ INFO: You are not registered as a team member
-
-💡 Contact team leadership to be added as a team member"""
+                "formatted_message": f"👤 TEAM MEMBER STATUS: NOT FOUND\n\n📱 TELEGRAM ID: {telegram_id}\n🏆 TEAM ID: {team_id}\nℹ️ INFO: You are not registered as a team member\n\n💡 Contact team leadership to be added as a team member"
             }
 
             logger.info(f"✅ User {username} is not a team member")

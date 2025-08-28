@@ -245,6 +245,16 @@
             font-weight: 500;
         }
         
+        .message-content {
+            line-height: 1.5;
+            white-space: pre-line;
+            word-wrap: break-word;
+        }
+        
+        .message-content br {
+            margin-bottom: 4px;
+        }
+        
         .chat-input {
             padding: 20px 24px;
             border-top: 2px solid var(--lfc-light-gray);
@@ -1218,13 +1228,13 @@
                 }
             }
             
-            // Robust sender name and message text
+            // Robust sender name and message text with proper newline handling
             const senderName = message.from?.first_name || 'Unknown User';
-            const messageText = message.text || ''; // Fallback to empty string if text is null/undefined
+            const messageText = (message.text || '').replace(/\n/g, '<br>'); // Convert \n to <br> for proper line breaks
             
             messageDiv.innerHTML = `
                 <div class="message-info">${senderName} • ${displayTime}</div>
-                ${messageText}
+                <div class="message-content">${messageText}</div>
             `;
             
             chatMessages.appendChild(messageDiv);
@@ -1249,12 +1259,12 @@
                 }
             }
             
-            // Robust message text
-            const messageText = message.text || ''; // Fallback to empty string if text is null/undefined
+            // Robust message text with proper newline handling
+            const messageText = (message.text || '').replace(/\n/g, '<br>'); // Convert \n to <br> for proper line breaks
             
             messageDiv.innerHTML = `
                 <div class="message-info">🤖 KickAI Bot • ${displayTime}</div>
-                ${messageText}
+                <div class="message-content">${messageText}</div>
             `;
             
             chatMessages.appendChild(messageDiv);
