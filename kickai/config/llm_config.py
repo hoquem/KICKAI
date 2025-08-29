@@ -1,170 +1,129 @@
-from typing import List, Optional, Dict, Any
 """
-CrewAI Native LLM Configuration for KICKAI
+CrewAI Native LLM Configuration for KICKAI - Clean Implementation
 
 This module provides a single source of truth for LLM configuration using
-only CrewAI-supported parameters. Removed unsupported parameters that cause
-BadRequestError with providers like Groq.
+only CrewAI-supported parameters. No fallbacks, no defaults, fail-fast approach.
 
 Features:
-- Native CrewAI LLM configuration with supported parameters only
-- Thread-safe configuration management
-- Production-ready async compatibility
-- Provider-specific parameter optimization
+- Direct CrewAI LLM configuration with supported parameters only
+- Thread-safe singleton pattern
+- Production-ready provider-specific optimizations
+- Fail-fast validation with no silent failures
 """
 
-import asyncio
 import logging
 from functools import lru_cache
-
+from typing import Dict, Any
 
 from crewai import LLM
-
 from kickai.core.enums import AgentRole, AIProvider
 from kickai.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 
-
 class LLMConfiguration:
     """
     Centralized LLM configuration following CrewAI best practices.
-
-    This class provides direct LLM instantiation as recommended by CrewAI,
-    with agent-specific optimization and function calling LLM support.
-    It dynamically selects the LLM provider based on settings.
+    
+    Clean implementation with:
+    - No fallbacks or defaults
+    - Direct provider-specific configurations
+    - Fail-fast validation
+    - Single responsibility for each method
     """
 
     def __init__(self):
-        """Initialize LLM configuration from settings with rate limiting."""
+        """Initialize LLM configuration from settings."""
         self.settings = get_settings()
         self.ai_provider = self.settings.ai_provider
-        # Determine default model: prefer simple/advanced pair, fallback to legacy
-        self.default_model = (
-            self.settings.ai_model_simple
-            or self.settings.ai_model_advanced
-            or self.settings.ai_model_name  # DEPRECATED fallback
-            or ""
-        )
-        self.simple_model = self.settings.ai_model_simple or self.default_model
-        self.advanced_model = self.settings.ai_model_advanced or self.default_model
-        self.nlp_model = self.settings.ai_model_nlp or self.advanced_model
-        self.groq_api_key = self.settings.groq_api_key
-        self.ollama_base_url = self.settings.ollama_base_url
-
-        logger.info(
-            f"🤖 LLM Configuration initialized: provider={self.ai_provider.value}, model={self.default_model}"
-
-        )
-
-    def _create_llm(
-        self, 
-        temperature: float, 
-        max_tokens: int,
-        use_case: str = "default",
-        override_model: Optional[str] = None
-    ) -> LLM:
-        """
-        Create an LLM instance using only CrewAI-supported parameters.
         
-        Args:
-            temperature: Model temperature
-            max_tokens: Maximum tokens to generate
-            use_case: Use case identifier for logging and monitoring
-            
-        Returns:
-            LLM: CrewAI LLM instance configured with supported parameters only
-            
-        Raises:
-            ValueError: If AI provider is not supported or API key missing
-        """
-
-        model_name = override_model or self.default_model
-
-        logger.info(
-            f"Creating {use_case} LLM: provider={self.ai_provider.value}, "
-            f"model={model_name}, temp={temperature}, "
-            f"max_tokens={max_tokens}"
-        )
+        # Model selection - fail if not configured
+        self.simple_model = self._get_required_setting('ai_model_simple')
+        self.advanced_model = self._get_required_setting('ai_model_advanced')
+        self.nlp_model = getattr(self.settings, 'ai_model_nlp', self.advanced_model)
         
-        # Base LLM configuration with CrewAI native parameters only
-        base_config = {
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            # Use only CrewAI-supported parameters
-            "timeout": self.settings.ai_timeout,
-            # Note: max_retries is handled differently per provider
-        }
+        # Provider-specific settings
+        self._validate_provider_requirements()
         
+        logger.info(f"🤖 LLM Configuration: provider={self.ai_provider.value}, "
+                   f"simple={self.simple_model}, advanced={self.advanced_model}")
+
+    def _get_required_setting(self, setting_name: str) -> str:
+        """Get required setting value or fail."""
+        value = getattr(self.settings, setting_name, None)
+        if not value:
+            raise ValueError(f"Required setting {setting_name} is not configured")
+        return value
+
+    def _validate_provider_requirements(self) -> None:
+        """Validate provider-specific requirements."""
         if self.ai_provider == AIProvider.GROQ:
-            if not self.groq_api_key:
+            if not self.settings.groq_api_key:
                 raise ValueError("GROQ_API_KEY is required for Groq provider")
                 
-
-            # Groq-specific configuration with only CrewAI-supported parameters
-            groq_config = {
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "timeout": self.settings.ai_timeout,
-            }
-            
-            logger.info(f"Creating GROQ LLM with config: {groq_config}")
-            
-
-            return LLM(
-                model=f"groq/{model_name}",
-                api_key=self.groq_api_key,
-                **groq_config
-            )
-            
-        elif self.ai_provider == AIProvider.OLLAMA:
-            # Ollama-specific configuration
-            ollama_config = {
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "timeout": self.settings.ai_timeout,
-            }
-            
-            return LLM(
-                model=f"ollama/{model_name}",
-                base_url=self.ollama_base_url,
-                **ollama_config
-            )
-            
-        elif self.ai_provider == AIProvider.GOOGLE_GEMINI:
-            gemini_api_key = getattr(self.settings, 'gemini_api_key', None)
-            if not gemini_api_key:
-                raise ValueError("GEMINI_API_KEY is required for Gemini provider")
-                
-            # Gemini-specific configuration
-            gemini_config = {
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "timeout": self.settings.ai_timeout,
-            }
-                
-            return LLM(
-                model=f"gemini/{model_name}",
-                api_key=gemini_api_key,
-                **gemini_config
-            )
-            
         elif self.ai_provider == AIProvider.OPENAI:
             if not getattr(self.settings, 'openai_api_key', None):
                 raise ValueError("OPENAI_API_KEY is required for OpenAI provider")
                 
-            # OpenAI-specific configuration
-            openai_config = {
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "timeout": self.settings.ai_timeout,
-            }
+        elif self.ai_provider == AIProvider.GOOGLE_GEMINI:
+            if not getattr(self.settings, 'gemini_api_key', None):
+                raise ValueError("GOOGLE_API_KEY is required for Gemini provider")
                 
+        elif self.ai_provider == AIProvider.OLLAMA:
+            if not self.settings.ollama_base_url:
+                raise ValueError("OLLAMA_BASE_URL is required for Ollama provider")
+
+    def create_llm(self, model_name: str, temperature: float, max_tokens: int) -> LLM:
+        """
+        Create LLM instance with provider-specific configuration.
+        
+        Args:
+            model_name: Name of the model to use
+            temperature: Model temperature (0.0-1.0)
+            max_tokens: Maximum tokens to generate
+            
+        Returns:
+            LLM: Configured CrewAI LLM instance
+            
+        Raises:
+            ValueError: If provider configuration is invalid
+        """
+        # Base configuration
+        config = {
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "timeout": self.settings.ai_timeout,
+            "stream": False,  # Disable streaming for CrewAI compatibility
+        }
+        
+        # Provider-specific configuration
+        if self.ai_provider == AIProvider.GROQ:
+            return LLM(
+                model=f"groq/{model_name}",
+                api_key=self.settings.groq_api_key,
+                **config
+            )
+            
+        elif self.ai_provider == AIProvider.OPENAI:
             return LLM(
                 model=f"openai/{model_name}",
                 api_key=self.settings.openai_api_key,
-                **openai_config
+                **config
+            )
+            
+        elif self.ai_provider == AIProvider.GOOGLE_GEMINI:
+            return LLM(
+                model=f"gemini/{model_name}",
+                api_key=self.settings.gemini_api_key,
+                **config
+            )
+            
+        elif self.ai_provider == AIProvider.OLLAMA:
+            return LLM(
+                model=f"ollama/{model_name}",
+                base_url=self.settings.ollama_base_url,
+                **config
             )
             
         else:
@@ -173,298 +132,90 @@ class LLMConfiguration:
     @property
     @lru_cache(maxsize=1)
     def main_llm(self) -> LLM:
-        """
-        Primary LLM for complex reasoning tasks.
-
-        Returns:
-            LLM: Configured for balanced reasoning with moderate temperature
-        """
-        return self._create_llm(
+        """Primary LLM for complex reasoning tasks."""
+        return self.create_llm(
+            model_name=self.advanced_model,
             temperature=self.settings.ai_temperature,
-            max_tokens=self.settings.ai_max_tokens,
-            use_case="main"
+            max_tokens=self.settings.ai_max_tokens
         )
 
     @property
     @lru_cache(maxsize=1)
     def tool_llm(self) -> LLM:
-        """
-
-        Optimized LLM for tool calling and function execution.
-
-        Uses lower temperature for precise tool calling as recommended by CrewAI.
-
-        Returns:
-            LLM: Configured for precise tool calling
-        """
-        return self._create_llm(
+        """Optimized LLM for tool calling with lower temperature."""
+        return self.create_llm(
+            model_name=self.simple_model,
             temperature=self.settings.ai_temperature_tools,
-            max_tokens=self.settings.ai_max_tokens_tools,
-            use_case="tool"
-        )
-
-    @property
-    @lru_cache(maxsize=1)
-    def creative_llm(self) -> LLM:
-        """
-        Higher temperature LLM for creative and analytical tasks.
-
-
-        Returns:
-            LLM: Configured for creative reasoning
-        """
-        return self._create_llm(
-            temperature=self.settings.ai_temperature_creative,
-            max_tokens=self.settings.ai_max_tokens_creative,
-            use_case="creative"
-        )
-
-    @property
-    @lru_cache(maxsize=1)
-    def data_critical_llm(self) -> LLM:
-        """
-        Ultra-precise LLM for data-critical operations.
-
-
-        Uses very low temperature for anti-hallucination in critical operations.
-
-        Returns:
-            LLM: Configured for maximum precision
-        """
-        return self._create_llm(
-            temperature=self.settings.ai_temperature_tools,  # Ultra-low temperature
-            max_tokens=self.settings.ai_max_tokens_tools,  # Use settings value for consistency
-            use_case="data_critical"
-        )
-
-    @property
-    @lru_cache(maxsize=1)
-    def nlp_llm(self) -> LLM:
-        """
-        Specialized LLM for NLP processing and intent recognition.
-
-        Uses GPT-OSS 20B or advanced model for intelligent language understanding.
-        Optimized for 2x faster processing with balanced temperature.
-
-        Returns:
-            LLM: Configured for NLP processing
-        """
-        return self._create_llm(
-            temperature=0.2,  # Balanced for understanding
-            max_tokens=600,   # Sufficient for analysis
-            use_case="nlp",
-            override_model=self.nlp_model
+            max_tokens=self.settings.ai_max_tokens_tools
         )
 
     def get_llm_for_agent(self, agent_role: AgentRole) -> tuple[LLM, LLM]:
         """
-        Get optimal LLM configuration for specific agent role.
-
-        Returns tuple of (main_llm, function_calling_llm) as recommended by CrewAI.
-
-        Args:
-            agent_role: The agent role to get LLM configuration for
-
-        Returns:
-            tuple[LLM, LLM]: (main_llm, function_calling_llm)
-        """
-        # Map to simple/advanced models via env overrides
-        if agent_role in [
-            AgentRole.MESSAGE_PROCESSOR,
-            AgentRole.HELP_ASSISTANT,
-            AgentRole.PLAYER_COORDINATOR,
-        ]:
-            simple_llm = self._create_llm(
-                temperature=self.settings.ai_temperature_tools,
-                max_tokens=self.settings.ai_max_tokens_tools,
-                use_case="simple_agent",
-                override_model=self.simple_model,
-            )
-            tool_llm = self._create_llm(
-                temperature=self.settings.ai_temperature_tools,
-                max_tokens=self.settings.ai_max_tokens_tools,
-                use_case="tool",
-                override_model=self.simple_model,
-            )
-            return simple_llm, tool_llm
-
-        if agent_role in [
-            AgentRole.TEAM_ADMINISTRATOR,
-            AgentRole.SQUAD_SELECTOR,
-        ]:
-            advanced_llm = self._create_llm(
-                temperature=self.settings.ai_temperature,
-                max_tokens=self.settings.ai_max_tokens,
-                use_case="advanced_agent",
-                override_model=self.advanced_model,
-            )
-            tool_llm = self._create_llm(
-                temperature=self.settings.ai_temperature_tools,
-                max_tokens=self.settings.ai_max_tokens_tools,
-                use_case="tool",
-                override_model=self.advanced_model,
-            )
-            return advanced_llm, tool_llm
-
-        if agent_role == AgentRole.NLP_PROCESSOR:
-            # For NLP processor, use simple Groq model without complex tool calling
-            # This addresses the Groq tool calling error
-            nlp_llm = self._create_llm(
-                temperature=0.2,  # Balanced for understanding
-                max_tokens=600,   # Sufficient for analysis
-                use_case="nlp_agent",
-                override_model=self.simple_model,  # Use simple model instead of nlp_model
-            )
-            tool_llm = self._create_llm(
-                temperature=0.1,  # Precise for tool calls
-                max_tokens=400,   # Focused tool responses
-                use_case="nlp_tool",
-                override_model=self.simple_model,  # Use simple model instead of nlp_model
-            )
-            return nlp_llm, tool_llm
-
-        # Default fallback
-        default_main = self._create_llm(
-            temperature=self.settings.ai_temperature,
-            max_tokens=self.settings.ai_max_tokens,
-            use_case="main",
-        )
-        default_tool = self._create_llm(
-            temperature=self.settings.ai_temperature_tools,
-            max_tokens=self.settings.ai_max_tokens_tools,
-            use_case="tool",
-        )
-        return default_main, default_tool
-
-    def validate_configuration(self) -> list[str]:
-        """
-        Validate LLM configuration and return any errors.
-
-        Returns:
-            list[str]: List of validation error messages (empty if valid)
-        """
-        errors = []
-
-        # Validate base URL for Ollama provider
-        if self.ai_provider == AIProvider.OLLAMA:
-            if not self.ollama_base_url:
-                errors.append("OLLAMA_BASE_URL is required but not configured")
-
-            if not self.ollama_base_url.startswith(('http://', 'https://')):
-                errors.append(f"OLLAMA_BASE_URL must start with http:// or https://, got: {self.ollama_base_url}")
+        Get LLM instances for agent and tool calling.
         
-        # Validate API keys for providers that need them
-        if self.ai_provider == AIProvider.GROQ and not self.groq_api_key:
-            errors.append("GROQ_API_KEY is required for Groq provider")
-
-        # Validate model name
-        if not self.default_model:
-            errors.append("AI_MODEL_NAME is required but not configured")
-
-        # Validate model format for Ollama (only if using Ollama)
-        if self.ai_provider == AIProvider.OLLAMA and self.default_model and not self.default_model.startswith('llama'):
-            logger.warning(f"Model name '{self.default_model}' may not be compatible with Ollama")
-
-        return errors
-
-    def test_connection(self) -> bool:
-        """
-        Test connection to the configured LLM provider using CrewAI native calls.
-
+        Args:
+            agent_role: The role of the agent
+            
         Returns:
-            bool: True if connection successful, False otherwise
+            tuple[LLM, LLM]: Tuple of (agent_llm, tool_llm)
         """
-        try:
-            # Create a test LLM using CrewAI with minimal tokens for testing
-            test_llm = self._create_llm(
-                temperature=0.1,
-                max_tokens=10,
-                use_case="connection_test"
-            )
+        # Agent-specific model and temperature selection
+        agent_configs = {
+            AgentRole.MESSAGE_PROCESSOR: {
+                'model_name': self.simple_model,
+                'temperature': self.settings.ai_temperature_tools,
+                'max_tokens': self.settings.ai_max_tokens_tools
+            },
+            AgentRole.HELP_ASSISTANT: {
+                'model_name': self.simple_model,
+                'temperature': self.settings.ai_temperature_tools,
+                'max_tokens': self.settings.ai_max_tokens_tools
+            },
+            AgentRole.PLAYER_COORDINATOR: {
+                'model_name': self.simple_model,
+                'temperature': self.settings.ai_temperature_tools,
+                'max_tokens': self.settings.ai_max_tokens_tools
+            },
+            AgentRole.TEAM_ADMINISTRATOR: {
+                'model_name': self.advanced_model,
+                'temperature': self.settings.ai_temperature,
+                'max_tokens': self.settings.ai_max_tokens
+            },
+            AgentRole.SQUAD_SELECTOR: {
+                'model_name': self.advanced_model,
+                'temperature': self.settings.ai_temperature,
+                'max_tokens': self.settings.ai_max_tokens
+            }
+        }
+        
+        config = agent_configs.get(agent_role)
+        if not config:
+            raise ValueError(f"No LLM configuration found for agent role: {agent_role}")
+        
+        # Create agent LLM
+        agent_llm = self.create_llm(**config)
+        
+        # Create tool LLM with lower temperature
+        tool_config = config.copy()
+        tool_config['temperature'] = self.settings.ai_temperature_tools
+        tool_llm = self.create_llm(**tool_config)
             
-            # Test with a simple prompt
-            test_prompt = "Hi"
-            
-            # Use CrewAI native invocation (synchronous)
-            if hasattr(test_llm, 'invoke'):
-                response = test_llm.invoke(test_prompt)
-            else:
-                # Fallback for different CrewAI LLM implementations
-                response = str(test_llm)
-                
-            if response and len(str(response).strip()) > 0:
-                logger.info(f"✅ {self.ai_provider.value} connection test successful")
-                return True
-            else:
-                logger.error(f"❌ {self.ai_provider.value} connection test failed: No content in response")
-                return False
-                
-        except Exception as e:
-            logger.error(f"❌ {self.ai_provider.value} connection test failed: {e}")
-            return False
-
-    async def test_connection_async(self) -> bool:
-        """
-        Test connection to the configured LLM provider asynchronously using CrewAI.
-
-        Returns:
-            bool: True if connection successful, False otherwise
-        """
-        try:
-            # Create a test LLM using CrewAI with minimal tokens for testing
-            test_llm = self._create_llm(
-                temperature=0.1,
-                max_tokens=10,
-                use_case="async_connection_test"
-            )
-            
-            # Test with a simple prompt
-            test_prompt = "Hi"
-            
-            # Use CrewAI native async invocation if available
-            if hasattr(test_llm, 'ainvoke'):
-                response = await test_llm.ainvoke(test_prompt)
-            else:
-                # Fallback to sync version in thread pool
-                loop = asyncio.get_event_loop()
-                response = await loop.run_in_executor(None, self.test_connection)
-                return response
-                
-            if response and len(str(response).strip()) > 0:
-                logger.info(f"✅ {self.ai_provider.value} async connection test successful")
-                return True
-            else:
-                logger.error(f"❌ {self.ai_provider.value} async connection test failed: No content in response")
-                return False
-                
-        except Exception as e:
-            logger.error(f"❌ {self.ai_provider.value} async connection test failed: {e}")
-            return False
-
-    def get_available_models(self) -> list[str]:
-        """
-        Get list of available models from the configured LLM provider.
-
-        Note: This is a placeholder. LiteLLM does not have a direct API to list models.
-        You would typically query the provider's API directly or maintain a local list.
-
-        Returns:
-            List[str]: List of available model names (placeholder)
-        """
-        logger.warning("Listing available models is not directly supported via LiteLLM for all providers.")
-        return [self.default_model] # Return configured model as a placeholder
+        return agent_llm, tool_llm
 
 
-# Global instance - single source of truth
-_llm_config: Optional[LLMConfiguration] = None
+# Singleton instance
+_llm_config = None
 
 
 def get_llm_config() -> LLMConfiguration:
     """
     Get the global LLM configuration instance.
-
+    
     Returns:
         LLMConfiguration: The singleton LLM configuration instance
+        
+    Raises:
+        ValueError: If configuration is invalid
     """
     global _llm_config
     if _llm_config is None:
@@ -472,25 +223,24 @@ def get_llm_config() -> LLMConfiguration:
     return _llm_config
 
 
-def initialize_llm_config() -> LLMConfiguration:
+def get_llm(model_type: str = "main") -> LLM:
     """
-    Initialize and validate LLM configuration.
-
+    Get LLM instance by type.
+    
+    Args:
+        model_type: Type of LLM ('main', 'tool')
+        
     Returns:
-        LLMConfiguration: Initialized and validated configuration
-
+        LLM: Configured LLM instance
+        
     Raises:
-        ValueError: If configuration is invalid
+        ValueError: If model type is not supported
     """
-    global _llm_config
-    _llm_config = LLMConfiguration()
-
-    # Validate configuration
-    errors = _llm_config.validate_configuration()
-    if errors:
-        error_msg = "LLM Configuration validation failed:\n" + "\n".join(f"  - {error}" for error in errors)
-        logger.error(error_msg)
-        raise ValueError(error_msg)
-
-    logger.info("✅ LLM Configuration initialized and validated successfully")
-    return _llm_config
+    config = get_llm_config()
+    
+    if model_type == "main":
+        return config.main_llm
+    elif model_type == "tool":
+        return config.tool_llm
+    else:
+        raise ValueError(f"Unsupported model type: {model_type}")

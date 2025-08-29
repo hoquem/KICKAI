@@ -1,5 +1,5 @@
-# KICKAI Tasks Configuration - Updated for 6-Agent CrewAI Native Implementation
-# This file defines task templates aligned with the current 6-agent system
+# KICKAI Tasks Configuration - Updated for 5-Agent CrewAI Native Implementation
+# This file defines task templates aligned with the optimized 5-agent system
 
 # NOTE: With CrewAI native implementation, tasks are now created dynamically 
 # with structured descriptions. These templates serve as reference patterns.

@@ -11,6 +11,7 @@ import os
 from dataclasses import dataclass
 
 from loguru import logger
+from dotenv import load_dotenv
 
 
 @dataclass
@@ -48,7 +49,7 @@ class EnvironmentValidator:
                 "description": "Secret key for secure invite link generation"
             },
             "AI_PROVIDER": {
-                "allowed_values": ["ollama", "openai", "google", "mock"],
+                "allowed_values": ["ollama", "openai", "google", "google_gemini", "mock"],
                 "description": "AI provider for the system"
             },
             "OLLAMA_BASE_URL": {
@@ -63,6 +64,9 @@ class EnvironmentValidator:
 
     def validate_environment(self) -> EnvironmentValidationResult:
         """Validate all environment variables."""
+        # Load environment variables from .env file
+        load_dotenv()
+        
         errors = []
         warnings = []
         missing_vars = []

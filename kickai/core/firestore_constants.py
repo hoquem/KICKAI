@@ -26,6 +26,8 @@ COLLECTION_HEALTH_CHECKS = "health_checks"
 COLLECTION_ATTENDANCE = "attendance"
 COLLECTION_NOTIFICATIONS = "notifications"
 COLLECTION_INVITE_LINKS = "invite_links"
+COLLECTION_PLAYER_ACTIVATION_LOGS = "player_activation_logs"
+COLLECTION_TEAM_MEMBER_ACTIVATION_LOGS = "team_member_activation_logs"
 
 
 # Full collection names (with prefix)

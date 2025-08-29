@@ -24,11 +24,17 @@ from kickai.database.interfaces import DataStoreInterface
 class InviteLinkService:
     """Service for creating and managing secure invite links."""
 
-    def __init__(self, bot_token: str = None, database: DataStoreInterface = None):
+    def __init__(self, bot_token: str = None, database: DataStoreInterface = None, team_id: str = None):
         self.database = database
-        self.collection_name = (
-            "kickai_invite_links"  # TODO: Use constant from firestore_constants.py
-        )
+        self.team_id = team_id
+        
+        # Use team-specific collection name
+        if team_id:
+            from kickai.core.firestore_constants import get_team_specific_collection_name
+            self.collection_name = get_team_specific_collection_name(team_id, "invite_links")
+        else:
+            # Fallback to global collection (backward compatibility)
+            self.collection_name = "kickai_invite_links"
         self.bot_token = bot_token
         self._bot = None
 

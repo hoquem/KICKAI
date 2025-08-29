@@ -1,92 +1,52 @@
-# Mock Testing - Mock Telegram UI & Testing Framework
+# Mock Testing - Interactive Development UI
 
 ## Mock Telegram UI
-Interactive web-based testing interface that simulates Telegram interactions:
+**Interactive testing interface for KICKAI development**
 
-```bash
-# Start Mock Telegram UI
-PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
-# Access at: http://localhost:8001 (Liverpool FC themed)
-```
+**Start:** `PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py`
+**Access:** http://localhost:8001
 
-## Mock UI Features
-- **Multi-User Simulation**: Switch between different user roles
-- **Chat Type Testing**: Main, leadership, and private chat simulation
-- **Real-Time Interaction**: Direct communication with KICKAI agents
-- **Visual Feedback**: Liverpool FC themed interface with response visualization
-- **Command Testing**: All bot commands available through web interface
+## Features
+- **Multiple User Types:** Leadership, Player, Unregistered users
+- **Real-time Testing:** Test commands instantly without real Telegram
+- **Command Validation:** Verify agent routing and responses
+- **Interactive:** Click-to-send common commands
 
-## User Role Simulation
-The Mock UI supports testing with different user personas:
-
-```python
-# Available test users
-users = {
-    "leadership": {
-        "telegram_id": 999999999,
-        "username": "admin_user",
-        "chat_type": "leadership"
-    },
-    "player": {
-        "telegram_id": 888888888,
-        "username": "player_user", 
-        "chat_type": "main"
-    },
-    "unregistered": {
-        "telegram_id": 777777777,
-        "username": "new_user",
-        "chat_type": "main"
-    }
+## User Types & Permissions
+```javascript
+// Switch between user types for testing
+users: {
+  leadership: { telegram_id: 999999999, permissions: ['ALL'] },
+  player: { telegram_id: 123456789, permissions: ['PLAYER'] },
+  unregistered: { telegram_id: 555555555, permissions: ['PUBLIC'] }
 }
 ```
 
-## Testing Frameworks
+## Testing Workflow
+1. **Start Mock UI:** `PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py`
+2. **Switch User Type:** Leadership/Player/Unregistered
+3. **Test Commands:** Click buttons or type commands
+4. **Verify Responses:** Check agent routing and response format
 
-### Mock UI Controller
-```python
-from tests.functional.mock_ui_controller import MockUIController
+## Command Testing Examples
+**Leadership Commands:**
+- `/addplayer "Test Player" "+447123456789"`
+- `/addmember "Test Member" "+447123456789"`
 
-async def test_scenario():
-    controller = MockUIController()
-    await controller.initialize()
-    
-    # Switch to leadership user
-    controller.set_user('leadership')
-    result = await controller.send_command('/addplayer "Test Player" "+447123456789"')
-    
-    # Verify response
-    assert "Team Member Added Successfully" in result['response_text']
-```
+**Player Commands:**
+- `/update position goalkeeper`
+- `/myinfo`
+- `/help`
 
-### Test Categories
-1. **Unit Tests**: Component isolation (`tests/unit/`)
-2. **Integration Tests**: Service interactions (`tests/integration/`)
-3. **E2E Tests**: Complete workflows (`tests/e2e/`)
-4. **Mock UI Tests**: Interactive testing (`tests/mock_telegram/`)
-5. **Functional Tests**: Real bot integration (`tests/functional/`)
+**Natural Language:**
+- "What is my current status?"
+- "I want to update my availability"
 
-### Clean Architecture Testing
-The Mock UI automatically discovers and tests all application layer tools:
-```python
-# Tools are discovered from kickai/features/*/application/tools/
-# No changes needed to Mock UI for new tool locations
-# All @tool decorators are automatically available for testing
-```
+## System Integration
+- **Routes through:** `AgenticMessageRouter`
+- **Uses real:** 6-agent CrewAI system, Firebase database
+- **Mocks only:** Telegram API calls
 
-## Key Mock Testing Files
-- `tests/mock_telegram/start_mock_tester.py` - Main UI launcher
-- `tests/mock_telegram/backend/mock_telegram_service.py` - Mock service implementation
-- `tests/functional/mock_ui_controller.py` - Programmatic test controller
-- `tests/mock_telegram/backend/bot_integration.py` - Bot integration layer
-- `mock_tester.html` - Web interface template
-
-## Mock Service Configuration
-```python
-# Mock service settings
-MOCK_BOT_TOKEN = "mock_bot_token_for_testing"
-MOCK_CHAT_IDS = {
-    "main": -1001001,
-    "leadership": -1002002,
-    "private": 123456789
-}
-```
+**Files:**
+- `tests/mock_telegram/start_mock_tester.py` - Main interface
+- `tests/mock_telegram/backend/` - Mock service backend

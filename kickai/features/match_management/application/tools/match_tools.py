@@ -14,7 +14,7 @@ from datetime import datetime, time
 
 from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus
-from kickai.features.match_management.domain.interfaces.match_service_interface import IMatchService
+from kickai.features.match_management.domain.services.match_service import MatchService
 from kickai.utils.tool_helpers import create_json_response
 
 
@@ -40,26 +40,20 @@ async def list_matches(telegram_id: int, team_id: str, username: str, chat_type:
     try:
         logger.info(f"📅 Match list request from {username} ({telegram_id}) in team {team_id}")
 
-        # Get required services from container (application boundary)
+        # Get domain service from container and delegate to domain function
         container = get_container()
-        match_service = container.get_service(IMatchService)
-        
-        if not match_service:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="MatchService is not available"
-            )
+        match_service = container.get_service(MatchService)
 
         # Execute domain operation based on status
         if status == "upcoming":
             matches = await match_service.get_upcoming_matches(team_id, limit)
-            title = f"📅 **Upcoming Matches** (Next {len(matches)})"
+            title = f"📅 UPCOMING MATCHES (Next {len(matches)})"
         elif status == "past":
             matches = await match_service.get_past_matches(team_id, limit)
-            title = f"📅 **Past Matches** (Last {len(matches)})"
+            title = f"📅 PAST MATCHES (Last {len(matches)})"
         else:
             matches = await match_service.list_matches(team_id, limit=limit)
-            title = f"📅 **All Matches** (Last {len(matches)})"
+            title = f"📅 ALL MATCHES (Last {len(matches)})"
 
         if not matches:
             return create_json_response(ResponseStatus.SUCCESS, data=f"{title}\n\nNo matches found.")
@@ -68,13 +62,13 @@ async def list_matches(telegram_id: int, team_id: str, username: str, chat_type:
         result = [title, ""]
         for i, match in enumerate(matches, 1):
             result.append(
-                f"{i}️⃣ **{match.match_id}** - vs {match.opponent}\n"
+                f"{i}️⃣ {match.match_id} - vs {match.opponent}\n"
                 f"   📅 {match.formatted_date}\n"
                 f"   🕐 {match.formatted_time} | 🏟️ {match.venue}\n"
                 f"   📊 Status: {match.status.value.title()}"
             )
 
-        result.append("\n📋 **Quick Actions**")
+        result.append("\n📋 QUICK ACTIONS")
         result.append("• /matchdetails [match_id] - View full details")
         result.append("• /markattendance [match_id] - Mark availability")
 
@@ -129,15 +123,9 @@ async def create_match(
                 message="Missing required fields: opponent, match_date, match_time, venue"
             )
 
-        # Get required services from container (application boundary)
+        # Get domain service from container and delegate to domain function
         container = get_container()
-        match_service = container.get_service(IMatchService)
-        
-        if not match_service:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="MatchService is not available"
-            )
+        match_service = container.get_service(MatchService)
 
         # Parse date and time at application boundary
         try:
@@ -164,10 +152,10 @@ async def create_match(
         # Format response at application boundary
         message = (
             "Match created successfully!\n\n"
-            f"🏆 **Match Details**\n• **Opponent**: {created_match.opponent}\n"
-            f"• **Date**: {created_match.formatted_date}\n• **Time**: {created_match.formatted_time}\n"
-            f"• **Venue**: {created_match.venue}\n• **Competition**: {created_match.competition}\n"
-            f"• **Match ID**: {created_match.match_id}"
+            f"🏆 MATCH DETAILS\n• OPPONENT: {created_match.opponent}\n"
+            f"• DATE: {created_match.formatted_date}\n• TIME: {created_match.formatted_time}\n"
+            f"• VENUE: {created_match.venue}\n• COMPETITION: {created_match.competition}\n"
+            f"• MATCH ID: {created_match.match_id}"
         )
 
         logger.info(f"✅ Match created successfully: {created_match.match_id}")
@@ -205,15 +193,9 @@ async def get_match_details(telegram_id: int, team_id: str, username: str, chat_
                 message="Match ID is required"
             )
 
-        # Get required services from container (application boundary)
+        # Get domain service from container and delegate to domain function
         container = get_container()
-        match_service = container.get_service(IMatchService)
-        
-        if not match_service:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="MatchService is not available"
-            )
+        match_service = container.get_service(MatchService)
 
         # Execute domain operation
         match = await match_service.get_match(match_id)
@@ -226,30 +208,30 @@ async def get_match_details(telegram_id: int, team_id: str, username: str, chat_
 
         # Format response at application boundary
         result = [
-            f"🏆 **Match Details: {match.match_id}**",
+            f"🏆 MATCH DETAILS: {match.match_id}",
             "",
-            f"**Opponent**: {match.opponent}",
-            f"**Date**: {match.formatted_date}",
-            f"**Time**: {match.formatted_time}",
-            f"**Venue**: {match.venue}",
-            f"**Competition**: {match.competition}",
-            f"**Status**: {match.status.value.title()}",
+            f"OPPONENT: {match.opponent}",
+            f"DATE: {match.formatted_date}",
+            f"TIME: {match.formatted_time}",
+            f"VENUE: {match.venue}",
+            f"COMPETITION: {match.competition}",
+            f"STATUS: {match.status.value.title()}",
         ]
 
         if match.notes:
-            result.append(f"**Notes**: {match.notes}")
+            result.append(f"NOTES: {match.notes}")
 
         if hasattr(match, 'result') and match.result:
             result.append("")
-            result.append("📊 **Match Result**")
-            result.append(f"**Score**: {match.result.home_score} - {match.result.away_score}")
+            result.append("📊 MATCH RESULT")
+            result.append(f"SCORE: {match.result.home_score} - {match.result.away_score}")
             if hasattr(match.result, 'scorers') and match.result.scorers:
-                result.append(f"**Scorers**: {', '.join(match.result.scorers)}")
+                result.append(f"SCORERS: {', '.join(match.result.scorers)}")
             if hasattr(match.result, 'notes') and match.result.notes:
-                result.append(f"**Notes**: {match.result.notes}")
+                result.append(f"NOTES: {match.result.notes}")
 
         result.append("")
-        result.append("📋 **Actions**")
+        result.append("📋 ACTIONS")
         result.append("• /markattendance [match_id] - Mark availability")
         result.append("• /selectsquad [match_id] - Select final squad (Leadership only)")
 
@@ -306,7 +288,7 @@ async def record_match_result(
 
         # Get required services from container (application boundary)
         container = get_container()
-        match_service = container.get_service(IMatchService)
+        match_service = container.get_service(MatchService)
         
         if not match_service:
             return create_json_response(
@@ -327,19 +309,19 @@ async def record_match_result(
 
         # Format response at application boundary
         result = [
-            "🏆 **Match Result Recorded**",
+            "🏆 MATCH RESULT RECORDED",
             "",
-            f"**Match**: vs {updated_match.opponent}",
-            f"**Date**: {updated_match.formatted_date}",
-            f"**Score**: {home_score} - {away_score}",
+            f"MATCH: vs {updated_match.opponent}",
+            f"DATE: {updated_match.formatted_date}",
+            f"SCORE: {home_score} - {away_score}",
         ]
 
         if scorers:
-            result.append(f"**Scorers**: {', '.join(scorers)}")
+            result.append(f"SCORERS: {', '.join(scorers)}")
         if assists:
-            result.append(f"**Assists**: {', '.join(assists)}")
+            result.append(f"ASSISTS: {', '.join(assists)}")
         if notes:
-            result.append(f"**Notes**: {notes}")
+            result.append(f"NOTES: {notes}")
 
         result.append("")
         result.append("Match result has been recorded and match status updated to completed.")
@@ -382,7 +364,7 @@ async def select_squad(telegram_id: int, team_id: str, username: str, chat_type:
 
         # Get required services from container (application boundary)
         container = get_container()
-        match_service = container.get_service(IMatchService)
+        match_service = container.get_service(MatchService)
         
         if not match_service:
             return create_json_response(
@@ -407,19 +389,19 @@ async def select_squad(telegram_id: int, team_id: str, username: str, chat_type:
 
         # Format response at application boundary (placeholder implementation)
         result = [
-            f"👥 **Squad Selection: {match.match_id}**",
+            f"👥 SQUAD SELECTION: {match.match_id}",
             "",
-            f"**Match**: vs {match.opponent}",
-            f"**Date**: {match.formatted_date}",
-            f"**Time**: {match.formatted_time}",
+            f"MATCH: vs {match.opponent}",
+            f"DATE: {match.formatted_date}",
+            f"TIME: {match.formatted_time}",
             "",
-            "📋 **Squad Selection**",
+            "📋 SQUAD SELECTION",
             "Squad selection functionality will be implemented in the next phase.",
             "",
-            "**Available Players**: To be determined from availability data",
-            "**Selected Squad**: To be selected",
+            "AVAILABLE PLAYERS: To be determined from availability data",
+            "SELECTED SQUAD: To be selected",
             "",
-            "📋 **Actions**",
+            "📋 ACTIONS",
             "• /markattendance [match_id] - Mark availability",
             "• /attendance [match_id] - View current availability",
         ]
@@ -461,7 +443,7 @@ async def get_available_players_for_match(telegram_id: int, team_id: str, userna
 
         # Get required services from container (application boundary)
         container = get_container()
-        match_service = container.get_service(IMatchService)
+        match_service = container.get_service(MatchService)
         
         if not match_service:
             return create_json_response(
@@ -480,20 +462,20 @@ async def get_available_players_for_match(telegram_id: int, team_id: str, userna
 
         # Format response at application boundary (placeholder implementation)
         result = [
-            f"👥 **Available Players: {match.match_id}**",
+            f"👥 AVAILABLE PLAYERS: {match.match_id}",
             "",
-            f"**Match**: vs {match.opponent}",
-            f"**Date**: {match.formatted_date}",
-            f"**Time**: {match.formatted_time}",
+            f"MATCH: vs {match.opponent}",
+            f"DATE: {match.formatted_date}",
+            f"TIME: {match.formatted_time}",
             "",
-            "📋 **Player Availability**",
+            "📋 PLAYER AVAILABILITY",
             "Player availability functionality will be integrated with attendance management.",
             "",
-            "**Available**: To be determined from attendance data",
-            "**Unavailable**: To be determined from attendance data",
-            "**Pending Response**: To be determined from attendance data",
+            "AVAILABLE: To be determined from attendance data",
+            "UNAVAILABLE: To be determined from attendance data",
+            "PENDING RESPONSE: To be determined from attendance data",
             "",
-            "📋 **Actions**",
+            "📋 ACTIONS",
             "• /markattendance [match_id] - Mark availability",
             "• /selectsquad [match_id] - Select squad (Leadership only)",
         ]

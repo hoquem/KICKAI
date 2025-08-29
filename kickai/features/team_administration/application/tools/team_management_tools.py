@@ -12,9 +12,10 @@ from loguru import logger
 
 from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus
-from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
-from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
+from kickai.features.player_registration.domain.services.player_service import PlayerService
+from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
 from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 @tool("list_team_members_and_players", result_as_answer=True)
@@ -31,7 +32,7 @@ async def list_team_members_and_players(
     It handles framework concerns and delegates business logic to the domain services.
 
     Args:
-        telegram_id: Requester's Telegram ID
+        telegram_id: Requester's Telegram ID or dictionary with all parameters
         team_id: Team ID (required)
         username: Username for logging
         chat_type: Chat type context
@@ -40,17 +41,60 @@ async def list_team_members_and_players(
         JSON formatted combined list of team members and players
     """
     try:
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_tool_response(
+                        False, 
+                        "Invalid telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_tool_response(
+                False, 
+                "Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_tool_response(
+                False, 
+                "Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_tool_response(
+                False, 
+                "Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_tool_response(
+                False, 
+                "Valid chat_type is required"
+            )
+        
         logger.info(f"📋 Complete team list request from {username} ({telegram_id}) in team {team_id}")
 
         # Get required services from container (application boundary)
         container = get_container()
-        player_service = container.get_service(IPlayerService)
-        team_member_service = container.get_service(ITeamMemberService)
+        player_service = container.get_service(PlayerService)
+        team_member_service = container.get_service(TeamMemberService)
 
         if not player_service or not team_member_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Required services are not available"
+            return create_tool_response(
+                False,
+                "Required services are not available"
             )
 
         # Execute domain operations
@@ -76,31 +120,75 @@ async def list_team_members_and_players(
                 "type": "Team Member",
                 "name": member.name or "Unknown",
                 "identifier": getattr(member, 'member_id', 'Not assigned'),
-                "status": str(member.status) if hasattr(member, 'status') else 'Active',
+                "status": member.status.value if hasattr(member.status, 'value') else str(member.status),
                 "role": getattr(member, 'role', 'Member'),
                 "is_admin": getattr(member, 'is_admin', False),
                 "phone_number": getattr(member, 'phone_number', 'Not provided')
             }
             formatted_members.append(member_data)
 
-        # Create formatted message
-        message_lines = ["🏆 **Complete Team Roster**", ""]
+        # Create formatted message (clean, no markdown)
+        message_lines = ["🏆 Complete Team Roster", ""]
+        
+        # Group and organize data by type and status
+        if formatted_members:
+            message_lines.extend([f"👥 TEAM MEMBERS ({len(formatted_members)}):", ""])
+            
+            # Group members by status
+            active_members = [m for m in formatted_members if m['status'].lower() == 'active']
+            pending_members = [m for m in formatted_members if m['status'].lower() == 'pending']
+            inactive_members = [m for m in formatted_members if m['status'].lower() not in ['active', 'pending']]
+            
+            if active_members:
+                message_lines.append(f"Active ({len(active_members)}):")
+                for i, member in enumerate(active_members, 1):
+                    admin_indicator = " 👑" if member['is_admin'] else ""
+                    message_lines.append(f"{i}. {member['name']}{admin_indicator} ({member['role']}) - ID: {member['identifier']}")
+                message_lines.append("")
+                
+            if pending_members:
+                message_lines.append(f"Pending ({len(pending_members)}):")
+                for i, member in enumerate(pending_members, 1):
+                    admin_indicator = " 👑" if member['is_admin'] else ""
+                    message_lines.append(f"{i}. {member['name']}{admin_indicator} ({member['role']}) - ID: {member['identifier']}")
+                message_lines.append("")
+                
+            if inactive_members:
+                message_lines.append(f"Inactive ({len(inactive_members)}):")
+                for i, member in enumerate(inactive_members, 1):
+                    admin_indicator = " 👑" if member['is_admin'] else ""
+                    message_lines.append(f"{i}. {member['name']}{admin_indicator} ({member['role']}) - ID: {member['identifier']}")
+                message_lines.append("")
+        else:
+            message_lines.extend(["👥 TEAM MEMBERS (0):", "No team members found.", ""])
 
         if formatted_players:
-            message_lines.extend(["🏃‍♂️ **Players:**", ""])
-            for i, player in enumerate(formatted_players, 1):
-                message_lines.append(f"{i}. **{player['name']}** ({player['position']})")
-                message_lines.append(f"   🏷️ ID: {player['identifier']} | ✅ Status: {player['status']}")
+            message_lines.extend([f"⚽ PLAYERS ({len(formatted_players)}):", ""])
+            
+            # Group players by status
+            active_players = [p for p in formatted_players if p['status'].lower() == 'active']
+            pending_players = [p for p in formatted_players if p['status'].lower() == 'pending']
+            inactive_players = [p for p in formatted_players if p['status'].lower() not in ['active', 'pending']]
+            
+            if active_players:
+                message_lines.append(f"Active ({len(active_players)}):")
+                for i, player in enumerate(active_players, 1):
+                    message_lines.append(f"{i}. {player['name']} ({player['position']}) - ID: {player['identifier']}")
                 message_lines.append("")
-
-        if formatted_members:
-            message_lines.extend(["👥 **Team Members:**", ""])
-            for i, member in enumerate(formatted_members, 1):
-                admin_indicator = " 👑" if member['is_admin'] else ""
-                message_lines.append(f"{i}. **{member['name']}**{admin_indicator}")
-                message_lines.append(f"   🏷️ ID: {member['identifier']} | 👑 Role: {member['role']}")
-                message_lines.append(f"   ✅ Status: {member['status']}")
+                
+            if pending_players:
+                message_lines.append(f"Pending ({len(pending_players)}):")
+                for i, player in enumerate(pending_players, 1):
+                    message_lines.append(f"{i}. {player['name']} ({player['position']}) - ID: {player['identifier']}")
                 message_lines.append("")
+                
+            if inactive_players:
+                message_lines.append(f"Inactive ({len(inactive_players)}):")
+                for i, player in enumerate(inactive_players, 1):
+                    message_lines.append(f"{i}. {player['name']} ({player['position']}) - ID: {player['identifier']}")
+                message_lines.append("")
+        else:
+            message_lines.extend(["⚽ PLAYERS (0):", "No players found.", ""])
 
         if not formatted_players and not formatted_members:
             message_lines.extend(["ℹ️ No players or team members found in the team."])
@@ -108,8 +196,6 @@ async def list_team_members_and_players(
         formatted_message = "\n".join(message_lines)
 
         response_data = {
-            "players": formatted_players,
-            "team_members": formatted_members,
             "total_players": len(formatted_players),
             "total_members": len(formatted_members),
             "total_count": len(formatted_players) + len(formatted_members),
@@ -117,8 +203,8 @@ async def list_team_members_and_players(
         }
 
         logger.info(f"✅ Retrieved complete team roster: {len(formatted_players)} players, {len(formatted_members)} members")
-        return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+        return create_tool_response(True, f"Team roster for {username}", response_data)
 
     except Exception as e:
         logger.error(f"❌ Error getting complete team roster: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get team roster: {e}")
+        return create_tool_response(False, f"Failed to get team roster: {e}")

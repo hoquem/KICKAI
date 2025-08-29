@@ -149,7 +149,7 @@ async def add_player(
 
         validation_errors = [error for error in validations if error]
         if validation_errors:
-            return create_json_response(ResponseStatus.ERROR, message=f"❌ **Missing Information**\n\n💡 I need complete details to add a player:\n{'; '.join(validation_errors)}")
+            return create_json_response(ResponseStatus.ERROR, message=f"❌ Missing Information\n\n💡 I need complete details to add a player:\n{'; '.join(validation_errors)}")
 
         # Validate chat type is leadership
         if chat_type.lower() != ChatType.LEADERSHIP.value:
@@ -232,9 +232,9 @@ async def add_player(
         created_player = await player_service.create_player(player_params)
         logger.info(f"✅ Created player record: {created_player.player_id}")
 
-        # Generate invite link using InviteLinkService
+        # Generate invite link using InviteLinkService with team-specific collections
         database = container.get_database()  # Get database for invite service
-        invite_service = InviteLinkService(bot_token=team.bot_token, database=database)
+        invite_service = InviteLinkService(bot_token=team.bot_token, database=database, team_id=team_id)
 
         # Create player invite link using the actual player_id from the created player
         invite_data = await invite_service.create_player_invite_link(
@@ -261,6 +261,7 @@ async def add_player(
             expires_at=expires_at
         )
 
+        # Return JSON response with properly formatted message
         return create_json_response(ResponseStatus.SUCCESS, data=success_response)
 
     except Exception as e:

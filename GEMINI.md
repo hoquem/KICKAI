@@ -2,16 +2,17 @@
 
 ## Project Overview
 
-KICKAI is a sophisticated, AI-powered football team management system designed for Telegram. It leverages a 6-agent CrewAI native collaboration architecture, adhering to Clean Architecture principles for a modular, scalable, and maintainable codebase. The system is built in Python 3.11 and utilizes Firebase/Firestore for its database.
+KICKAI is a sophisticated, AI-powered football team management system designed for Telegram. It leverages a 5-agent CrewAI native collaboration architecture, adhering to Clean Architecture principles for a modular, scalable, and maintainable codebase. The system is built in Python 3.11 and utilizes Firebase/Firestore for its database.
 
 The core of KICKAI is its multi-agent system, where each agent has a specialized role:
 
-*   **MESSAGE_PROCESSOR**: The primary interface for user interactions.
+*   **MESSAGE_PROCESSOR**: The primary interface for user interactions, now with native LLM routing intelligence.
 *   **HELP_ASSISTANT**: Provides help and guidance to users.
 *   **PLAYER_COORDINATOR**: Manages player registration and status.
 *   **TEAM_ADMINISTRATOR**: Handles team member management and administration.
 *   **SQUAD_SELECTOR**: Manages matches, player availability, and squad selection.
-*   **NLP_PROCESSOR**: Performs natural language processing for intelligent routing.
+
+Command routing is now handled via pure CrewAI agent collaboration, with the `MESSAGE_PROCESSOR` agent taking the lead in understanding user intent.
 
 ## Building and Running
 

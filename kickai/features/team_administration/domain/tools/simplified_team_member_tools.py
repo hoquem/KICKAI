@@ -235,7 +235,7 @@ async def add_team_member_simplified(
                 # Member added but invite link failed - still return success with error note
                 logger.warning(f"⚠️ Invite link creation failed for {result.member.name}: {result.error_message}")
                 
-                fallback_response = f"""✅ **Team Member Added Successfully!**
+                fallback_response = f"""✅ TEAM MEMBER ADDED SUCCESSFULLY!
 
 👔 MEMBER DETAILS:
 • Name: {result.member.name}
@@ -243,10 +243,10 @@ async def add_team_member_simplified(
 • Role: {result.member.role}
 • Status: Active
 
-⚠️ **Invite Link Issue:**
+⚠️ INVITE LINK ISSUE:
 Could not generate invite link: {result.error_message or "Unknown error"}
 
-📋 **Next Steps:**
+📋 NEXT STEPS:
 1. Member has been added to the team
 2. You may need to manually add them to the leadership chat
 3. Contact system administrator if invite link issues persist"""

@@ -301,16 +301,92 @@ class AgenticMessageRouter:
                 message.telegram_id, self.team_id
             )
             
-            agent = self.crew_lifecycle_manager.get_agent_for_user_flow(user_flow_type)
-            if not agent:
-                return self._create_error_response("Contact processing not available", "Agent not found")
-
-            result = await agent.process_contact(context)
-            return result
+            # Contact sharing goes through unified crew task execution
+            return await self._execute_crew_task(context, user_flow_type)
             
         except Exception as e:
             logger.error(f"❌ Error in route_contact_share: {e}")
             return self._create_error_response("Contact processing failed", str(e))
+
+    def convert_telegram_update_to_message(self, update: Any, command_name: str = None) -> TelegramMessage:
+        """
+        Convert Telegram update to TelegramMessage format.
+        
+        Args:
+            update: Telegram update object
+            command_name: Optional command name for command messages
+            
+        Returns:
+            TelegramMessage object
+        """
+        try:
+            # Extract basic message information
+            text = update.message.text if update.message and update.message.text else ""
+            telegram_id = update.effective_user.id
+            username = update.effective_user.username or update.effective_user.first_name or "unknown"
+            chat_id = str(update.effective_chat.id)
+            
+            # Determine chat type
+            chat_type = self._determine_chat_type(chat_id)
+            
+            # Handle new chat members data
+            new_chat_members = None
+            if update.message and hasattr(update.message, 'new_chat_members') and update.message.new_chat_members:
+                new_chat_members = [{
+                    'id': member.id,
+                    'username': member.username,
+                    'first_name': member.first_name,
+                    'last_name': member.last_name,
+                    'is_bot': member.is_bot
+                } for member in update.message.new_chat_members if not member.is_bot]
+            
+            return TelegramMessage(
+                telegram_id=telegram_id,
+                text=text,
+                chat_id=chat_id,
+                chat_type=chat_type,
+                team_id=self.team_id,
+                username=username,
+                name=update.effective_user.first_name,
+                raw_update=update,
+                new_chat_members=new_chat_members
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ Error converting Telegram update to message: {e}")
+            # Return a basic message with error handling
+            return TelegramMessage(
+                telegram_id=update.effective_user.id if update.effective_user else 0,
+                text=update.message.text if update.message and update.message.text else "",
+                chat_id=str(update.effective_chat.id) if update.effective_chat else "",
+                chat_type=ChatType.MAIN,  # Default to main chat
+                team_id=self.team_id,
+                username="unknown",
+                name="Unknown",
+                raw_update=update
+            )
+
+    def _determine_chat_type(self, chat_id: str) -> ChatType:
+        """
+        Determine chat type based on chat ID.
+        
+        Args:
+            chat_id: Chat ID to determine type for
+            
+        Returns:
+            ChatType enum value
+        """
+        try:
+            if chat_id == self.main_chat_id:
+                return ChatType.MAIN
+            elif chat_id == self.leadership_chat_id:
+                return ChatType.LEADERSHIP
+            else:
+                return ChatType.MAIN  # Default to main chat
+                
+        except Exception as e:
+            logger.error(f"❌ Error determining chat type: {e}")
+            return ChatType.MAIN  # Default fallback
 
     def set_chat_ids(self, main_chat_id: str, leadership_chat_id: str) -> None:
         """

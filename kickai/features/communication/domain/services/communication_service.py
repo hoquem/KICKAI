@@ -20,7 +20,7 @@ class CommunicationService:
         self.telegram_bot_service = telegram_bot_service
         logger.info("✅ CommunicationService: TelegramBotService set")
 
-    async def send_message(self, message: str, chat_type: Union[str, ChatType], team_id: str) -> bool:
+    async def send_message(self, message: str, chat_type: Union[str, ChatType], team_id: str, telegram_id: Optional[int] = None) -> bool:
         """
         Send a message to a specific chat type.
 
@@ -52,6 +52,12 @@ class CommunicationService:
                 chat_id = self.telegram_bot_service.main_chat_id
             elif chat_type_enum == ChatType.LEADERSHIP:
                 chat_id = self.telegram_bot_service.leadership_chat_id
+            elif chat_type_enum == ChatType.PRIVATE:
+                # For private chat, send to the user's private chat using telegram_id
+                if telegram_id is None:
+                    logger.error(f"Private chat messaging requires telegram_id parameter")
+                    return False
+                chat_id = str(telegram_id)  # Convert to string for consistency
             else:
                 logger.error(f"Unsupported chat_type: {chat_type_enum}")
                 return False

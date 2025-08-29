@@ -16,6 +16,7 @@ from kickai.core.enums import ResponseStatus
 from kickai.features.team_administration.domain.services.team_member_management_service import TeamMemberManagementService
 from kickai.features.team_administration.domain.services.team_service import TeamService
 from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 @tool("add_team_member_role", result_as_answer=True)
@@ -34,7 +35,7 @@ async def add_team_member_role(
     It handles framework concerns and delegates business logic to the domain service.
 
     Args:
-        telegram_id: Admin's Telegram ID
+        telegram_id: Admin's Telegram ID or dictionary with all parameters
         team_id: Team ID (required)
         username: Admin's username for logging
         chat_type: Chat type context (should be 'leadership')
@@ -45,13 +46,58 @@ async def add_team_member_role(
         JSON formatted response with role assignment result
     """
     try:
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            member_id = params.get('member_id', '')
+            role = params.get('role', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_tool_response(
+                        False, 
+                        "Invalid telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_tool_response(
+                False, 
+                "Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_tool_response(
+                False, 
+                "Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_tool_response(
+                False, 
+                "Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_tool_response(
+                False, 
+                "Valid chat_type is required"
+            )
+        
         logger.info(f"🎭 Adding role '{role}' to member {member_id} by {username} ({telegram_id}) in team {team_id}")
 
         # Validate inputs at application boundary
         if not member_id or not role:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Both member ID and role are required"
+            return create_tool_response(
+                False,
+                "Both member ID and role are required"
             )
 
         # Get required services from container (application boundary)
@@ -76,16 +122,16 @@ async def add_team_member_role(
             }
 
             logger.info(f"✅ Role '{role}' added to member {member_id} by {username}")
-            return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+            return create_tool_response(True, f"Role '{role}' added to member {member_id}", response_data)
         else:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message=f"Failed to add role '{role}' to member {member_id}"
+            return create_tool_response(
+                False,
+                f"Failed to add role '{role}' to member {member_id}"
             )
 
     except Exception as e:
         logger.error(f"❌ Error adding role '{role}' to member {member_id}: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to add role: {e}")
+        return create_tool_response(False, f"Failed to add role: {e}")
 
 
 @tool("remove_team_member_role", result_as_answer=True)
@@ -242,7 +288,7 @@ async def create_team(
     It handles framework concerns and delegates business logic to the domain service.
 
     Args:
-        telegram_id: Creator's Telegram ID
+        telegram_id: Creator's Telegram ID or dictionary with all parameters
         team_id: Unique team identifier
         username: Creator's username for logging
         chat_type: Chat type context
@@ -253,6 +299,51 @@ async def create_team(
         JSON formatted response with team creation result
     """
     try:
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            team_name = params.get('team_name', '')
+            admin_user_id = params.get('admin_user_id', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid chat_type is required"
+            )
+        
         logger.info(f"🏆 Creating team '{team_name}' (ID: {team_id}) by {username} ({telegram_id})")
 
         # Validate inputs at application boundary

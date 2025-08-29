@@ -14,6 +14,7 @@ from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus, ChatType
 from kickai.features.shared.domain.services.help_service import HelpService
 from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 @tool("help_response", result_as_answer=True)
@@ -41,9 +42,9 @@ async def help_response(
     try:
         # Validate required parameters at application boundary
         if not all([chat_type, telegram_id, team_id, username]):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Missing required parameters for help generation"
+            return create_tool_response(
+                False, 
+                "Missing required parameters for help generation"
             )
 
         logger.info(
@@ -62,16 +63,17 @@ async def help_response(
 
         logger.info(f"✅ Generated help message for {username} in {chat_type} chat")
         
-        return create_json_response(
-            ResponseStatus.SUCCESS, 
-            data=formatted_message
+        return create_tool_response(
+            True, 
+            f"Help information for {username}",
+            {"help_content": formatted_message}
         )
 
     except Exception as e:
         logger.error(f"❌ Error generating help response: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR, 
-            message=f"Failed to generate help response: {e}"
+        return create_tool_response(
+            False, 
+            f"Failed to generate help response: {e}"
         )
 
 
@@ -153,28 +155,21 @@ async def get_command_help(
     try:
         logger.info(f"🔧 Command help request from {username} for command: {command}")
         
-        # Get domain service
-        help_service = HelpService()
-        chat_type_enum = _normalize_chat_type(chat_type)
+        # Import and use the domain function directly
+        from kickai.features.shared.domain.tools.help_tools import get_command_help as domain_get_command_help
         
-        # Generate command-specific help
-        if command:
-            help_content = help_service.get_command_specific_help(command, chat_type_enum)
-        else:
-            help_content = help_service.get_available_commands(chat_type_enum)
+        # Call the domain function
+        result = await domain_get_command_help(telegram_id, team_id, username, chat_type, command)
         
         logger.info(f"✅ Generated command help for {username}")
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            data=help_content
-        )
+        return result
         
     except Exception as e:
         logger.error(f"❌ Error getting command help: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message="Unable to retrieve command help. Please try '/help' for general assistance."
+        return create_tool_response(
+            False,
+            "Unable to retrieve command help. Please try '/help' for general assistance."
         )
 
 
@@ -212,16 +207,17 @@ async def get_welcome_message(
         
         logger.info(f"✅ Generated welcome message for {username}")
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            data=welcome_content
+        return create_tool_response(
+            True,
+            f"Welcome message for {username}",
+            {"welcome_content": welcome_content}
         )
         
     except Exception as e:
         logger.error(f"❌ Error generating welcome message: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message="Welcome to KICKAI! Use '/help' to get started."
+        return create_tool_response(
+            False,
+            "Welcome to KICKAI! Use '/help' to get started."
         )
 
 
@@ -250,19 +246,15 @@ async def get_available_commands(
     try:
         logger.info(f"🔧 Available commands request from {username}")
         
-        # Get domain service
-        help_service = HelpService()
-        chat_type_enum = _normalize_chat_type(chat_type)
+        # Import and use the domain function directly
+        from kickai.features.shared.domain.tools.help_tools import get_available_commands as domain_get_available_commands
         
-        # Get commands available for this user/context
-        available_commands = help_service.get_available_commands(chat_type_enum)
+        # Call the domain function
+        result = await domain_get_available_commands(telegram_id, team_id, username, chat_type)
         
         logger.info(f"✅ Generated available commands list for {username}")
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            data=available_commands
-        )
+        return result
         
     except Exception as e:
         logger.error(f"❌ Error getting available commands: {e}")

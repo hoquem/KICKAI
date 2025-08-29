@@ -826,6 +826,29 @@ class ToolRegistry:
                 feature_module="shared",
             )
 
+            # Register approve tools
+            from kickai.features.team_administration.application.tools.approve_tools import approve_user, get_pending_users
+            
+            self.register_tool(
+                tool_id="approve_user",
+                tool_type=ToolType.TEAM_MANAGEMENT,
+                category=ToolCategory.CORE,
+                name="approve_user",
+                description="Approve a user (player or team member) by changing status to active",
+                tool_function=approve_user,
+                feature_module="team_administration",
+            )
+
+            self.register_tool(
+                tool_id="get_pending_users",
+                tool_type=ToolType.TEAM_MANAGEMENT,
+                category=ToolCategory.CORE,
+                name="get_pending_users",
+                description="Get all pending users (players and team members) that need approval",
+                tool_function=get_pending_users,
+                feature_module="team_administration",
+            )
+
             logger.info(f"✅ Manually registered {len(self._tools)} essential tools")
 
         except Exception as e:
@@ -1202,6 +1225,8 @@ def get_tool_registry() -> ToolRegistry:
     if _tool_registry is None:
         _tool_registry = ToolRegistry()
         logger.info("🔧 Created new global ToolRegistry instance")
+    else:
+        logger.debug("🔄 Returning existing global ToolRegistry instance")
 
     return _tool_registry
 
@@ -1217,6 +1242,8 @@ def initialize_tool_registry(src_path: str = "kickai") -> ToolRegistry:
         registry.auto_discover_tools(src_path)
         _tool_registry_initialized = True
         logger.info("✅ Global ToolRegistry initialized and ready")
+    else:
+        logger.debug("🔄 ToolRegistry already initialized, skipping auto-discovery")
 
     return registry
 

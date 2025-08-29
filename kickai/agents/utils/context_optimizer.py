@@ -68,13 +68,6 @@ class ContextOptimizer:
             "chat_id",
             "message_text",
             "username"
-        },
-        AgentRole.NLP_PROCESSOR: {
-            "telegram_id",
-            "team_id",
-            "chat_type",
-            "message_text",
-            "username"
         }
     }
 

@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>KickAI - Liverpool FC Mock Tester</title>
     <style>
         :root {
@@ -243,6 +246,16 @@
             opacity: 0.8;
             margin-bottom: 6px;
             font-weight: 500;
+        }
+        
+        .message-content {
+            line-height: 1.5;
+            white-space: pre-line;
+            word-wrap: break-word;
+        }
+        
+        .message-content br {
+            margin-bottom: 4px;
         }
         
         .chat-input {
@@ -816,6 +829,9 @@
         // API base URL
         const API_BASE = 'http://localhost:8001/api';
         
+        // Cache busting parameter
+        const CACHE_BUST = '?v=' + Date.now();
+        
         // Initialize the application
         async function init() {
             await loadUsers();
@@ -831,7 +847,7 @@
         // Load users from API
         async function loadUsers() {
             try {
-                const response = await fetch(`${API_BASE}/users`);
+                const response = await fetch(`${API_BASE}/users${CACHE_BUST}`);
                 users = await response.json();
                 renderUsers();
                 updateSystemInfo();
@@ -844,7 +860,7 @@
         // Load chats from API
         async function loadChats() {
             try {
-                const response = await fetch(`${API_BASE}/chats`);
+                const response = await fetch(`${API_BASE}/chats${CACHE_BUST}`);
                 chats = await response.json();
                 renderChatSelector();
                 updateSystemInfo();
@@ -1218,13 +1234,13 @@
                 }
             }
             
-            // Robust sender name and message text
+            // Robust sender name and message text with proper newline handling
             const senderName = message.from?.first_name || 'Unknown User';
-            const messageText = message.text || ''; // Fallback to empty string if text is null/undefined
+            const messageText = (message.text || '').replace(/\n/g, '<br>'); // Convert \n to <br> for proper line breaks
             
             messageDiv.innerHTML = `
                 <div class="message-info">${senderName} • ${displayTime}</div>
-                ${messageText}
+                <div class="message-content">${messageText}</div>
             `;
             
             chatMessages.appendChild(messageDiv);
@@ -1249,12 +1265,12 @@
                 }
             }
             
-            // Robust message text
-            const messageText = message.text || ''; // Fallback to empty string if text is null/undefined
+            // Robust message text with proper newline handling
+            const messageText = (message.text || '').replace(/\n/g, '<br>'); // Convert \n to <br> for proper line breaks
             
             messageDiv.innerHTML = `
                 <div class="message-info">🤖 KickAI Bot • ${displayTime}</div>
-                ${messageText}
+                <div class="message-content">${messageText}</div>
             `;
             
             chatMessages.appendChild(messageDiv);
@@ -1500,6 +1516,9 @@
     </script>
 </body>
 </html>
+
+
+
 
 
 

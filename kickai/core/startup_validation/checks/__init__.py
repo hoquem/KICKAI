@@ -9,6 +9,7 @@ from .base_check import BaseCheck
 from .clean_architecture_check import CleanArchitectureCheck
 from .command_registry_check import CommandRegistryCheck
 from .configuration_check import ConfigurationCheck
+from .context_validation_check import ContextValidationCheck
 from .crewai_agent_health_check import CrewAIAgentHealthCheck
 from .enhanced_registry_check import EnhancedRegistryCheck
 from .initialization_sequence_check import InitializationSequenceCheck
@@ -23,6 +24,7 @@ __all__ = [
     "CleanArchitectureCheck",
     "CommandRegistryCheck",
     "ConfigurationCheck",
+    "ContextValidationCheck",
     "CrewAIAgentHealthCheck",
     "EnhancedRegistryCheck",
     "InitializationSequenceCheck",

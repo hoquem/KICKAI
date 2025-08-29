@@ -1,360 +1,355 @@
-from typing import Optional, List, Dict
-#!/usr/bin/env python3
 """
-Comprehensive Startup Validation System
+Comprehensive startup validation for the KICKAI system.
 
-This module provides comprehensive system startup validation including:
-- Environment variable validation
-- Database connectivity validation  
-- Registry validation
-- Service dependency validation
-- File system permission validation
-
-All validation is performed synchronously and sequentially for safe startup.
+This module provides a comprehensive validation system that checks all critical
+components before the bot starts accepting requests.
 """
 
-import os
+import asyncio
 import time
-from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
 
 from loguru import logger
 
-from .checks.database_check import DatabaseValidationResult, DatabaseValidator
-from .checks.environment_check import EnvironmentValidationResult, EnvironmentValidator
-from .registry_validator import RegistryStartupValidator, RegistryValidationResult
+from kickai.core.startup_validation.checks.database_check import DatabaseValidator
+from kickai.core.startup_validation.checks.environment_check import EnvironmentValidator
+from kickai.core.startup_validation.registry_validator import RegistryStartupValidator
 
 
 @dataclass
 class ComprehensiveValidationResult:
-    """Result of comprehensive validation."""
-
+    """Result of comprehensive system validation."""
+    
     success: bool
-    timestamp: datetime
     total_checks: int
     passed_checks: int
     failed_checks: int
-    warnings: List[str]
-
-    # Individual check results
-    environment_result: Optional[EnvironmentValidationResult] = None
-    database_result: Optional[DatabaseValidationResult] = None
-    registry_result: Optional[RegistryValidationResult] = None
-
-    # Performance metrics
-    total_duration: float = 0.0
-    check_durations: Dict[str, float] = None
-
-    def __post_init__(self):
-        if self.check_durations is None:
-            self.check_durations = {}
+    warnings: List[str] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)
+    critical_failures: List[str] = field(default_factory=list)
+    recommendations: List[str] = field(default_factory=list)
+    validation_duration: float = 0.0
+    component_results: Dict[str, Dict[str, any]] = field(default_factory=dict)
+    
+    def __post_init__(self) -> None:
+        """Initialize default values after dataclass creation."""
+        if self.critical_failures is None:
+            self.critical_failures = []
+        if self.warnings is None:
+            self.warnings = []
+        if self.errors is None:
+            self.errors = []
+        if self.recommendations is None:
+            self.recommendations = []
+        if self.component_results is None:
+            self.component_results = {}
 
 
 class ComprehensiveStartupValidator:
-    """Comprehensive startup validation system."""
-
-    def __init__(self):
-        self.environment_validator = EnvironmentValidator()
-        self.database_validator = DatabaseValidator()
-        self.registry_validator = RegistryStartupValidator()
-
-        # Performance thresholds
-        self.max_connection_time = 10.0  # seconds
-        self.max_total_duration = 30.0   # seconds
-
-        # Critical checks that must pass
-        self.critical_checks = [
-            "environment",
-            "database_connection",
-            "service_registry"
-        ]
-
+    """
+    Comprehensive startup validator for the KICKAI system.
+    
+    Performs validation of all critical system components including:
+    - Environment configuration
+    - Database connectivity
+    - Registry initialization
+    - Service availability
+    - Filesystem permissions
+    """
+    
+    def __init__(self) -> None:
+        """Initialize the comprehensive validator."""
+        self.start_time: float = 0.0
+        self.component_results: Dict[str, Dict[str, any]] = {}
+        
     def validate_system_startup(self) -> ComprehensiveValidationResult:
-        """Perform comprehensive system startup validation."""
-        start_time = datetime.now()
-        total_start_time = time.time()
-
-        logger.info("🚀 Starting comprehensive system validation...")
-
-        # Initialize results
-        all_results = []
-        check_durations = {}
-        warnings = []
-
-        # Check 1: Environment Variables
-        logger.info("🔧 Validating environment variables...")
-        env_start_time = time.time()
-
+        """
+        Perform comprehensive system startup validation.
+        
+        Returns:
+            ComprehensiveValidationResult: Detailed validation results
+        """
+        logger.info("🚀 Starting comprehensive system startup validation...")
+        self.start_time = time.time()
+        
+        # Initialize result tracking
+        total_checks = 0
+        passed_checks = 0
+        failed_checks = 0
+        warnings: List[str] = []
+        errors: List[str] = []
+        critical_failures: List[str] = []
+        recommendations: List[str] = []
+        
+        # 1. Environment Validation
+        logger.info("🔍 Validating environment configuration...")
+        env_start = time.time()
         try:
-            env_result = self.environment_validator.validate_environment()
-            env_duration = time.time() - env_start_time
-            check_durations["environment"] = env_duration
-
+            env_check = EnvironmentValidator()
+            env_result = env_check.validate_environment()
+            env_duration = time.time() - env_start
+            
+            self.component_results["environment"] = {
+                "success": env_result.success,
+                "duration": env_duration,
+                "errors": env_result.errors,
+                "warnings": env_result.warnings
+            }
+            
+            # Environment validation doesn't have total_checks, passed_checks, failed_checks
+            # It only has success, errors, warnings
             if env_result.success:
-                logger.info("✅ Environment validation passed")
-                all_results.append(("environment", True))
+                passed_checks += 1
             else:
-                logger.error(f"❌ Environment validation failed: {len(env_result.errors)} errors")
-                all_results.append(("environment", False))
-
-            if env_duration > 2.0:
-                warnings.append(f"Environment validation took {env_duration:.2f}s (slow)")
-
+                failed_checks += 1
+            total_checks += 1
+            errors.extend(env_result.errors)
+            warnings.extend(env_result.warnings)
+            
+            if not env_result.success:
+                critical_failures.extend(env_result.errors)
+                logger.error(f"❌ Environment validation failed: {env_result.errors}")
+            else:
+                logger.info(f"✅ Environment validation passed in {env_duration:.2f}s")
+                
         except Exception as e:
-            logger.error(f"❌ Environment validation crashed: {e}")
-            all_results.append(("environment", False))
-            env_result = None
-
-        # Check 2: Database Connectivity
+            env_duration = time.time() - env_start
+            error_msg = f"Environment validation crashed: {str(e)}"
+            critical_failures.append(error_msg)
+            errors.append(error_msg)
+            failed_checks += 1
+            total_checks += 1
+            logger.error(f"❌ {error_msg}")
+            
+            self.component_results["environment"] = {
+                "success": False,
+                "duration": env_duration,
+                "errors": [error_msg],
+                "warnings": []
+            }
+        
+        # 2. Database Validation
         logger.info("🗄️ Validating database connectivity...")
-        db_start_time = time.time()
-
+        db_start = time.time()
         try:
-            db_result = self.database_validator.validate_database()
-            db_duration = time.time() - db_start_time
-            check_durations["database"] = db_duration
-
+            db_check = DatabaseValidator()
+            db_result = db_check.validate_database()
+            db_duration = time.time() - db_start
+            
+            self.component_results["database"] = {
+                "success": db_result.success,
+                "duration": db_duration,
+                "errors": db_result.errors,
+                "warnings": db_result.warnings
+            }
+            
+            # Database validation doesn't have total_checks, passed_checks, failed_checks
+            # It only has success, errors, warnings
             if db_result.success:
-                logger.info("✅ Database validation passed")
-                all_results.append(("database", True))
+                passed_checks += 1
             else:
-                logger.error(f"❌ Database validation failed: {len(db_result.errors)} errors")
-                all_results.append(("database", False))
-
-            if db_result.connection_time > self.max_connection_time:
-                warnings.append(f"Database connection took {db_result.connection_time:.2f}s (exceeds threshold)")
-
+                failed_checks += 1
+            total_checks += 1
+            errors.extend(db_result.errors)
+            warnings.extend(db_result.warnings)
+            
+            if not db_result.success:
+                critical_failures.extend(db_result.errors)
+                logger.error(f"❌ Database validation failed: {db_result.errors}")
+            else:
+                logger.info(f"✅ Database validation passed in {db_duration:.2f}s")
+                
         except Exception as e:
-            logger.error(f"❌ Database validation crashed: {e}")
-            all_results.append(("database", False))
-            db_result = None
-
-        # Check 3: Registry Validation
-        logger.info("📋 Validating system registries...")
-        registry_start_time = time.time()
-
+            db_duration = time.time() - db_start
+            error_msg = f"Database validation crashed: {str(e)}"
+            critical_failures.append(error_msg)
+            errors.append(error_msg)
+            failed_checks += 1
+            total_checks += 1
+            logger.error(f"❌ {error_msg}")
+            
+            self.component_results["database"] = {
+                "success": False,
+                "duration": db_duration,
+                "errors": [error_msg],
+                "warnings": []
+            }
+        
+        # 3. Registry Validation
+        logger.info("📋 Validating registry initialization...")
+        registry_start = time.time()
         try:
-            registry_result = self.registry_validator.validate_all_registries()
-            registry_duration = time.time() - registry_start_time
-            check_durations["registry"] = registry_duration
-
+            registry_check = RegistryStartupValidator()
+            registry_result = registry_check.validate_all_registries()
+            registry_duration = time.time() - registry_start
+            
+            self.component_results["registry"] = {
+                "success": registry_result.success,
+                "duration": registry_duration,
+                "errors": registry_result.errors,
+                "warnings": registry_result.warnings
+            }
+            
+            # Registry validation doesn't have total_checks, passed_checks, failed_checks
+            # It only has success, errors, warnings
             if registry_result.success:
-                logger.info("✅ Registry validation passed")
-                all_results.append(("registry", True))
+                passed_checks += 1
             else:
-                logger.error("❌ Registry validation failed")
-                all_results.append(("registry", False))
-
+                failed_checks += 1
+            total_checks += 1
+            errors.extend(registry_result.errors)
+            warnings.extend(registry_result.warnings)
+            
+            if not registry_result.success:
+                critical_failures.extend(registry_result.errors)
+                logger.error(f"❌ Registry validation failed: {registry_result.errors}")
+            else:
+                logger.info(f"✅ Registry validation passed in {registry_duration:.2f}s")
+                
         except Exception as e:
-            logger.error(f"❌ Registry validation crashed: {e}")
-            all_results.append(("registry", False))
-            registry_result = None
-
-        # Check 4: Service Dependencies
-        logger.info("🔗 Validating service dependencies...")
-        service_start_time = time.time()
-
+            registry_duration = time.time() - registry_start
+            error_msg = f"Registry validation crashed: {str(e)}"
+            critical_failures.append(error_msg)
+            errors.append(error_msg)
+            failed_checks += 1
+            total_checks += 1
+            logger.error(f"❌ {error_msg}")
+            
+            self.component_results["registry"] = {
+                "success": False,
+                "duration": registry_duration,
+                "errors": [error_msg],
+                "warnings": []
+            }
+        
+        # 4. Service Validation
+        logger.info("🔧 Validating service availability...")
+        service_start = time.time()
         try:
             from kickai.core.dependency_container import get_container
-
+            
             container = get_container()
-            container.initialize()
-
+            
+            # Initialize container asynchronously
+            try:
+                asyncio.run(container.initialize())
+            except RuntimeError:
+                # If already in event loop, use create_task
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Create a task and wait for it
+                    task = loop.create_task(container.initialize())
+                    loop.run_until_complete(task)
+                else:
+                    # Run in new event loop
+                    asyncio.run(container.initialize())
+            
             # Check critical services
             critical_services = [
                 "DataStoreInterface",
-                "PlayerRepositoryInterface",
+                "PlayerRepositoryInterface", 
                 "TeamRepositoryInterface"
             ]
-
+            
             service_errors = []
+            service_warnings = []
+            service_checks = 0
+            service_passed = 0
+            
             for service_name in critical_services:
+                service_checks += 1
                 try:
                     service = container.get_service(service_name)
                     if service is None:
-                        service_errors.append(f"Service {service_name} is None")
+                        error_msg = f"Service {service_name} is None"
+                        service_errors.append(error_msg)
+                        critical_failures.append(error_msg)
+                        logger.error(f"❌ {error_msg}")
                     else:
+                        service_passed += 1
                         logger.info(f"✅ Service {service_name} available")
                 except Exception as e:
-                    service_errors.append(f"Service {service_name} failed: {e}")
-
-            service_duration = time.time() - service_start_time
-            check_durations["services"] = service_duration
-
-            if not service_errors:
-                logger.info("✅ Service dependencies validation passed")
-                all_results.append(("services", True))
+                    error_msg = f"Service {service_name} failed: {str(e)}"
+                    service_errors.append(error_msg)
+                    critical_failures.append(error_msg)
+                    logger.error(f"❌ {error_msg}")
+            
+            service_duration = time.time() - service_start
+            service_success = len(service_errors) == 0
+            
+            self.component_results["services"] = {
+                "success": service_success,
+                "duration": service_duration,
+                "errors": service_errors,
+                "warnings": service_warnings
+            }
+            
+            total_checks += service_checks
+            passed_checks += service_passed
+            failed_checks += (service_checks - service_passed)
+            errors.extend(service_errors)
+            warnings.extend(service_warnings)
+            
+            if service_success:
+                logger.info(f"✅ Service validation passed in {service_duration:.2f}s")
             else:
-                logger.error(f"❌ Service dependencies validation failed: {len(service_errors)} errors")
-                all_results.append(("services", False))
-                warnings.extend(service_errors)
-
+                logger.error(f"❌ Service validation failed: {service_errors}")
+                
         except Exception as e:
-            logger.error(f"❌ Service dependencies validation crashed: {e}")
-            all_results.append(("services", False))
+            service_duration = time.time() - service_start
+            error_msg = f"Service validation crashed: {str(e)}"
+            critical_failures.append(error_msg)
+            errors.append(error_msg)
+            failed_checks += 1
+            total_checks += 1
+            logger.error(f"❌ {error_msg}")
+            
+            self.component_results["services"] = {
+                "success": False,
+                "duration": service_duration,
+                "errors": [error_msg],
+                "warnings": []
+            }
+        
 
-        # Check 5: File System Permissions
-        logger.info("📁 Validating file system permissions...")
-        fs_start_time = time.time()
-
-        try:
-            fs_errors = []
-
-            # Check critical directories
-            critical_dirs = ["logs", "config", "credentials"]
-            for dir_name in critical_dirs:
-                dir_path = Path(dir_name)
-                if not dir_path.exists():
-                    fs_errors.append(f"Directory {dir_name} does not exist")
-                elif not dir_path.is_dir():
-                    fs_errors.append(f"{dir_name} is not a directory")
-                elif not os.access(dir_path, os.R_OK | os.W_OK):
-                    fs_errors.append(f"Insufficient permissions for directory {dir_name}")
-
-            # Check critical files
-            critical_files = [".env", "requirements.txt"]
-            for file_name in critical_files:
-                file_path = Path(file_name)
-                if not file_path.exists():
-                    fs_errors.append(f"File {file_name} does not exist")
-                elif not file_path.is_file():
-                    fs_errors.append(f"{file_name} is not a file")
-                elif not os.access(file_path, os.R_OK):
-                    fs_errors.append(f"Cannot read file {file_name}")
-
-            fs_duration = time.time() - fs_start_time
-            check_durations["filesystem"] = fs_duration
-
-            if not fs_errors:
-                logger.info("✅ File system validation passed")
-                all_results.append(("filesystem", True))
-            else:
-                logger.error(f"❌ File system validation failed: {len(fs_errors)} errors")
-                all_results.append(("filesystem", False))
-                warnings.extend(fs_errors)
-
-        except Exception as e:
-            logger.error(f"❌ File system validation crashed: {e}")
-            all_results.append(("filesystem", False))
-
-        # Calculate final results
-        total_duration = time.time() - total_start_time
-        passed_checks = len([r for r in all_results if r[1]])
-        failed_checks = len([r for r in all_results if not r[1]])
-        total_checks = len(all_results)
-
-        # Check if any critical checks failed
-        critical_failures = [r[0] for r in all_results if not r[1] and r[0] in self.critical_checks]
-        overall_success = len(critical_failures) == 0 and total_checks > 0
-
-        if overall_success:
-            logger.info(f"✅ System validation completed successfully in {total_duration:.2f}s")
-        else:
-            logger.error(f"❌ System validation failed: {len(critical_failures)} critical failures")
-
-        return ComprehensiveValidationResult(
+        
+        # Calculate overall success and duration
+        total_duration = time.time() - self.start_time
+        overall_success = len(critical_failures) == 0
+        
+        # Generate recommendations based on results
+        if not overall_success:
+            recommendations.append("Fix critical failures before starting the bot")
+        if warnings:
+            recommendations.append("Review warnings for potential issues")
+        if failed_checks > 0:
+            recommendations.append(f"Address {failed_checks} failed validation checks")
+        
+        # Create final result
+        result = ComprehensiveValidationResult(
             success=overall_success,
-            timestamp=start_time,
             total_checks=total_checks,
             passed_checks=passed_checks,
             failed_checks=failed_checks,
             warnings=warnings,
-            environment_result=env_result,
-            database_result=db_result,
-            registry_result=registry_result,
-            total_duration=total_duration,
-            check_durations=check_durations
+            errors=errors,
+            critical_failures=critical_failures,
+            recommendations=recommendations,
+            validation_duration=total_duration,
+            component_results=self.component_results
         )
-
-    def get_validation_report(self, result: Optional[ComprehensiveValidationResult] = None) -> str:
-        """Generate a comprehensive validation report."""
-        if result is None:
-            result = self.validate_system_startup()
-
-        report = []
-        report.append("🔧 COMPREHENSIVE SYSTEM VALIDATION REPORT")
-        report.append("=" * 60)
-        report.append(f"Timestamp: {result.timestamp}")
-        report.append(f"Overall Status: {'✅ PASS' if result.success else '❌ FAIL'}")
-        report.append(f"Total Duration: {result.total_duration:.2f}s")
-        report.append("")
-
-        # Environment Report
-        if result.environment_result:
-            report.append("🔧 ENVIRONMENT VALIDATION")
-            if result.environment_result.success:
-                report.append("✅ Environment validation passed")
-            else:
-                report.append("❌ Environment validation failed:")
-                for error in result.environment_result.errors:
-                    report.append(f"   - {error}")
-            report.append("")
-
-        # Database Report
-        if result.database_result:
-            report.append("🗄️ DATABASE VALIDATION")
-            if result.database_result.success:
-                report.append("✅ Database validation passed")
-                report.append(f"   Connection Time: {result.database_result.connection_time:.2f}s")
-                for operation, success in result.database_result.test_operations.items():
-                    status = "✅" if success else "❌"
-                    report.append(f"   {status} {operation}")
-            else:
-                report.append("❌ Database validation failed:")
-                for error in result.database_result.errors:
-                    report.append(f"   - {error}")
-            report.append("")
-
-        # Registry Report
-        if result.registry_result:
-            report.append("📋 REGISTRY VALIDATION")
-            if result.registry_result.success:
-                report.append("✅ Registry validation passed")
-            else:
-                report.append("❌ Registry validation failed:")
-                for error in result.registry_result.errors:
-                    report.append(f"   - {error}")
-            report.append("")
-
-        # Performance Report
-        if result.check_durations:
-            report.append("⏱️ PERFORMANCE METRICS")
-            for check_name, duration in result.check_durations.items():
-                report.append(f"   {check_name}: {duration:.2f}s")
-            report.append("")
-
-        # Warnings Report
-        if result.warnings:
-            report.append("⚠️ WARNINGS")
-            for warning in result.warnings:
-                report.append(f"   - {warning}")
-            report.append("")
-
-        # Recommendations
-        report.append("📋 RECOMMENDATIONS")
-        if result.success:
-            report.append("✅ System is ready for production deployment")
+        
+        # Log final results
+        if overall_success:
+            logger.info(f"🎉 Comprehensive validation PASSED in {total_duration:.2f}s")
+            logger.info(f"📊 Results: {passed_checks}/{total_checks} checks passed")
         else:
-            report.append("❌ Critical issues must be resolved before deployment:")
-            if result.environment_result and not result.environment_result.success:
-                report.append("   - Fix environment variable configuration")
-            if result.database_result and not result.database_result.success:
-                report.append("   - Resolve database connectivity issues")
-            if result.registry_result and not result.registry_result.success:
-                report.append("   - Fix registry configuration issues")
-
-        return "\n".join(report)
-
-
-def validate_system_startup() -> ComprehensiveValidationResult:
-    """Convenience function to validate system startup."""
-    validator = ComprehensiveStartupValidator()
-    return validator.validate_system_startup()
-
-
-def get_startup_validation_report() -> str:
-    """Convenience function to get validation report."""
-    validator = ComprehensiveStartupValidator()
-    result = validator.validate_system_startup()
-    return validator.get_validation_report()
+            logger.error(f"💥 Comprehensive validation FAILED in {total_duration:.2f}s")
+            logger.error(f"📊 Results: {failed_checks}/{total_checks} checks failed")
+            logger.error(f"🚨 Critical failures: {len(critical_failures)}")
+        
+        if warnings:
+            logger.warning(f"⚠️ Warnings: {len(warnings)}")
+        
+        return result

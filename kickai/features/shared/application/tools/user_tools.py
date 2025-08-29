@@ -12,8 +12,11 @@ from loguru import logger
 
 from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus
+from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.features.shared.domain.services.user_service import UserService, UserRepositoryInterface
+from kickai.features.team_administration.domain.services.team_service import TeamService
 from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 # Adapter to bridge existing services to our user repository interface
@@ -34,7 +37,7 @@ class ExistingServicesUserRepository:
 
 
 @tool("get_user_status", result_as_answer=True)
-async def get_user_status(telegram_id: int, team_id: str, username: str, chat_type: str, target_name: str = None) -> str:
+async def get_user_status(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get user status and information by Telegram ID lookup.
 
@@ -46,7 +49,6 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
         team_id: Team ID (required)
         username: Username of the requesting user (for logging)
         chat_type: Chat type context
-        target_name: Name of the user to look up (legacy parameter, ignored)
 
     Returns:
         JSON formatted user status information or error message
@@ -54,9 +56,9 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
     try:
         # Validate required parameters at application boundary
         if not telegram_id or not team_id:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Missing required parameters: telegram_id and team_id"
+            return create_tool_response(
+                False, 
+                "Missing required parameters: telegram_id and team_id"
             )
 
         # Ensure telegram_id is integer
@@ -64,24 +66,18 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
             try:
                 telegram_id = int(telegram_id)
             except (ValueError, TypeError):
-                return create_json_response(
-                    ResponseStatus.ERROR, 
-                    message=f"Invalid Telegram ID format: {telegram_id}. Must be an integer."
+                return create_tool_response(
+                    False, 
+                    f"Invalid Telegram ID format: {telegram_id}. Must be an integer."
                 )
 
         logger.info(f"👤 User status request for {telegram_id} in team {team_id}")
 
-        # Get required services from container (application boundary)
+        # Get domain services from container and delegate to domain functions
         container = get_container()
-        player_service = container.get_service("PlayerService")
-        team_service = container.get_service("TeamService")
-
-        if not player_service:
-            return create_json_response(ResponseStatus.ERROR, message="PlayerService is not available")
-
-        if not team_service:
-            return create_json_response(ResponseStatus.ERROR, message="TeamService is not available")
-
+        player_service = container.get_service(PlayerService)
+        team_service = container.get_service(TeamService)
+        
         # Create repository adapter (temporary bridge pattern)
         user_repository = ExistingServicesUserRepository(player_service, team_service)
         
@@ -108,8 +104,8 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
 
         logger.info(f"✅ User status retrieved for {telegram_id}: {user_status.user_type}")
         
-        return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+        return create_tool_response(True, f"User status for {telegram_id}", response_data)
 
     except Exception as e:
         logger.error(f"❌ Error in get_user_status tool: {e}")
-        return create_json_response(ResponseStatus.ERROR, message="Failed to get user status")
+        return create_tool_response(False, "Failed to get user status")

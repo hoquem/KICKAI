@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-NLP Tools - Clean Architecture Application Layer
+NLP Tools - Clean Architecture Application Layer [DEPRECATED]
 
-This module provides CrewAI tools for Natural Language Processing functionality.
-These tools serve as the application boundary and delegate to the NLP processor agent.
+DEPRECATED: These NLP tools are no longer needed after migration to native CrewAI routing.
+The MESSAGE_PROCESSOR agent now handles intent understanding natively using CrewAI's LLM intelligence.
+
+This module provided CrewAI tools for Natural Language Processing functionality.
 All framework dependencies (@tool decorators, container access) are confined to this layer.
 """
 
@@ -16,7 +18,7 @@ from kickai.utils.tool_helpers import create_json_response
 
 
 @tool("advanced_intent_recognition", result_as_answer=True)
-def advanced_intent_recognition(
+async def advanced_intent_recognition(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -25,10 +27,10 @@ def advanced_intent_recognition(
     conversation_history: str = ""
 ) -> str:
     """
-    LLM-powered intent recognition using CrewAI native reasoning.
+    Intent recognition and routing analysis using intent-based classification.
     
-    This tool serves as the application boundary for intent recognition functionality.
-    It handles framework concerns and delegates to the NLP processor service.
+    This tool analyzes user messages and returns concrete agent routing decisions
+    with intent classification and confidence scores.
     
     Args:
         telegram_id: Telegram ID of the requesting user
@@ -36,25 +38,75 @@ def advanced_intent_recognition(
         username: Username of the requesting user  
         chat_type: Chat context (main/leadership/private)
         message: User message to analyze
-        conversation_history: Previous conversation context
+        conversation_history: Previous conversation context (optional)
         
     Returns:
-        JSON response string with LLM-analyzed intent classification
+        JSON response with routing decision: {"agent": "name", "confidence": 0.9, "intent": "type", "reasoning": "explanation"}
     """
     try:
+        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            message = params.get('message', '')
+            conversation_history = params.get('conversation_history', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid chat_type is required"
+            )
+            
+        if not message or not isinstance(message, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid message is required"
+            )
+        
         logger.info(f"🔧 [NLP_INTENT] Processing intent recognition for {username}: {message[:50]}")
         
-        # Import the NLP processor domain function dynamically to avoid circular imports
-        from kickai.agents.nlp_processor import advanced_intent_recognition_domain as nlp_intent_recognition
+        # Import the actual routing decision function
+        from kickai.agents.nlp_processor import routing_recommendation_domain
         
-        # Execute NLP processing (synchronous)
-        result = nlp_intent_recognition(
+        # Execute NLP routing analysis (async) - use message as intent_data
+        result = await routing_recommendation_domain(
             telegram_id=telegram_id,
             team_id=team_id,
             username=username,
             chat_type=chat_type,
-            message=message,
-            conversation_history=conversation_history
+            intent_data=message
         )
         
         logger.info(f"✅ [NLP_INTENT] Intent recognition completed for {username}")
@@ -77,30 +129,79 @@ async def routing_recommendation_tool(
     intent_data: str
 ) -> str:
     """
-    CrewAI-native intelligent routing recommendations using LLM-powered analysis.
+    CrewAI-native intelligent routing recommendations using intent-based analysis.
     
-    This tool provides structured context for the NLP_PROCESSOR agent's LLM to make
-    intelligent routing decisions. Follows CrewAI best practices by letting the LLM
-    analyze and decide rather than pre-determining outcomes.
+    This tool analyzes user requests and returns concrete agent routing decisions
+    in JSON format for the NLP_PROCESSOR agent.
     
     Args:
-        telegram_id: Telegram ID of the requesting user
+        telegram_id: Telegram ID of the requesting user  
         team_id: Team identifier for context
         username: Username of the requesting user
         chat_type: Chat context (main/leadership/private)
-        intent_data: Intent analysis data (user message/command)
+        intent_data: The user's request to analyze (REQUIRED)
         
     Returns:
-        Structured prompt for LLM analysis and routing decision
+        JSON response with routing decision: {"agent": "name", "confidence": 0.9, "intent": "type", "reasoning": "explanation"}
     """
     try:
-        logger.info(f"🔧 [NLP_ROUTING] Generating LLM routing context for {username}: {intent_data}")
+        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            intent_data = params.get('intent_data', '') or params.get('message', '') or params.get('message_text', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
         
-        # Import the NLP processor domain function dynamically
-        from kickai.agents.nlp_processor import routing_recommendation_domain as nlp_routing_tool
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid telegram_id is required"
+            )
         
-        # Execute NLP processing (async) - returns structured prompt for LLM analysis
-        routing_context = await nlp_routing_tool(
+        if not team_id or not isinstance(team_id, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid chat_type is required"
+            )
+            
+        if not intent_data or not isinstance(intent_data, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid intent_data is required"
+            )
+        
+        logger.info(f"🔧 [NLP_ROUTING] Analyzing request: '{intent_data[:50]}...' from {username} (ID: {telegram_id}) in {chat_type}")
+        
+        # Import the actual routing decision function
+        from kickai.agents.nlp_processor import routing_recommendation_domain
+        
+        # Call the domain function that returns proper JSON routing decisions
+        result = await routing_recommendation_domain(
             telegram_id=telegram_id,
             team_id=team_id,
             username=username,
@@ -108,44 +209,19 @@ async def routing_recommendation_tool(
             intent_data=intent_data
         )
         
-        logger.info(f"✅ [NLP_ROUTING] LLM routing context generated for {username}")
-        return routing_context
+        logger.info(f"✅ [NLP_ROUTING] Routing decision completed for '{intent_data[:30]}...'")
+        return result
         
     except Exception as e:
-        logger.error(f"❌ [NLP_ROUTING] Error in routing context generation: {e}")
-        # Return fallback routing context for LLM analysis
-        fallback_context = f"""
-KICKAI Emergency Routing Analysis
-
-REQUEST: {intent_data}
-CHAT TYPE: {chat_type}
-USER: {username}
-
-ERROR: {str(e)}
-
-AVAILABLE AGENTS:
-• message_processor: General communication and system operations
-• help_assistant: Help system and guidance
-• player_coordinator: Player management and personal information
-
-EMERGENCY ROUTING DECISION:
-Due to system error, analyze this request and route to the most appropriate agent.
-For safety, consider message_processor as the fallback option.
-
-RESPONSE FORMAT:
-AGENT_RECOMMENDATION: [agent_name]
-
-Analysis:
-- Error Encountered: {str(e)}
-- Safe Routing: Analyze user intent and route accordingly
-- Confidence: [1-10]/10
-- Reasoning: [your emergency routing decision]
-"""
-        return fallback_context
+        logger.error(f"❌ [NLP_ROUTING] Error generating routing prompt: {e}")
+        return create_json_response(
+            ResponseStatus.ERROR,
+            message="Unable to analyze routing request. Please try rephrasing your request."
+        )
 
 
 @tool("analyze_update_context", result_as_answer=True)
-def analyze_update_context(
+async def analyze_update_context(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -169,13 +245,63 @@ def analyze_update_context(
         JSON response with LLM-based update context analysis
     """
     try:
+        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            message = params.get('message', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid chat_type is required"
+            )
+            
+        if not message or not isinstance(message, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid message is required"
+            )
+        
         logger.info(f"🔧 [NLP_UPDATE] Processing update context analysis for {username}")
         
         # Import the NLP processor domain function dynamically
         from kickai.agents.nlp_processor import analyze_update_context_domain as nlp_analyze_update
         
-        # Execute NLP processing (synchronous)
-        result = nlp_analyze_update(
+        # Execute NLP processing (async)
+        result = await nlp_analyze_update(
             telegram_id=telegram_id,
             team_id=team_id,
             username=username,
@@ -195,7 +321,7 @@ def analyze_update_context(
 
 
 @tool("validate_routing_permissions", result_as_answer=True)
-def validate_routing_permissions(
+async def validate_routing_permissions(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -221,13 +347,70 @@ def validate_routing_permissions(
         JSON response with LLM-based permission validation
     """
     try:
+        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            user_role = params.get('user_role', '')
+            requested_action = params.get('requested_action', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid chat_type is required"
+            )
+            
+        if not user_role or not isinstance(user_role, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid user_role is required"
+            )
+            
+        if not requested_action or not isinstance(requested_action, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid requested_action is required"
+            )
+        
         logger.info(f"🔧 [NLP_PERM] Processing permission validation for {username}, action: {requested_action}")
         
         # Import the NLP processor domain function dynamically
         from kickai.agents.nlp_processor import validate_routing_permissions_domain as nlp_validate_permissions
         
-        # Execute NLP processing (synchronous)
-        result = nlp_validate_permissions(
+        # Execute NLP processing (async)
+        result = await nlp_validate_permissions(
             telegram_id=telegram_id,
             team_id=team_id,
             username=username,
@@ -248,7 +431,7 @@ def validate_routing_permissions(
 
 
 @tool("entity_extraction_tool", result_as_answer=True)
-def entity_extraction_tool(
+async def entity_extraction_tool(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -272,13 +455,63 @@ def entity_extraction_tool(
         JSON response with LLM-extracted entities and their types
     """
     try:
+        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            message = params.get('message', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid chat_type is required"
+            )
+            
+        if not message or not isinstance(message, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid message is required"
+            )
+        
         logger.info(f"🔧 [NLP_ENTITY] Processing entity extraction for {username}: {message[:50]}")
         
         # Import the NLP processor domain function dynamically to avoid circular imports
         from kickai.agents.nlp_processor import entity_extraction_domain as nlp_entity_extraction
         
-        # Execute NLP processing (synchronous)
-        result = nlp_entity_extraction(
+        # Execute NLP processing (async)
+        result = await nlp_entity_extraction(
             telegram_id=telegram_id,
             team_id=team_id,
             username=username,
@@ -298,7 +531,7 @@ def entity_extraction_tool(
 
 
 @tool("conversation_context_tool", result_as_answer=True)
-def conversation_context_tool(
+async def conversation_context_tool(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -320,13 +553,56 @@ def conversation_context_tool(
         JSON response with LLM-analyzed conversation context
     """
     try:
+        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid chat_type is required"
+            )
+        
         logger.info(f"🔧 [NLP_CONTEXT] Processing conversation context for {username}")
         
         # Import the NLP processor domain function dynamically to avoid circular imports
         from kickai.agents.nlp_processor import conversation_context_domain as nlp_conversation_context
         
-        # Execute NLP processing (synchronous)
-        result = nlp_conversation_context(
+        # Execute NLP processing (async)
+        result = await nlp_conversation_context(
             telegram_id=telegram_id,
             team_id=team_id,
             username=username,
@@ -345,7 +621,7 @@ def conversation_context_tool(
 
 
 @tool("semantic_similarity_tool", result_as_answer=True)
-def semantic_similarity_tool(
+async def semantic_similarity_tool(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -369,13 +645,63 @@ def semantic_similarity_tool(
         JSON response with LLM-based semantic similarity analysis
     """
     try:
+        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            message = params.get('message', '')
+            
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
+        
+        # Comprehensive parameter validation (CrewAI best practice)
+        if not telegram_id or telegram_id <= 0:
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid telegram_id is required"
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid team_id is required"
+            )
+            
+        if not username or not isinstance(username, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid username is required"
+            )
+            
+        if not chat_type or not isinstance(chat_type, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid chat_type is required"
+            )
+            
+        if not message or not isinstance(message, str):
+            return create_json_response(
+                ResponseStatus.ERROR, 
+                message="Valid message is required"
+            )
+        
         logger.info(f"🔧 [NLP_SEMANTIC] Processing semantic similarity for {username}: {message[:50]}")
         
         # Import the NLP processor domain function dynamically to avoid circular imports
         from kickai.agents.nlp_processor import semantic_similarity_domain as nlp_semantic_similarity
         
-        # Execute NLP processing (synchronous)
-        result = nlp_semantic_similarity(
+        # Execute NLP processing (async)
+        result = await nlp_semantic_similarity(
             telegram_id=telegram_id,
             team_id=team_id,
             username=username,

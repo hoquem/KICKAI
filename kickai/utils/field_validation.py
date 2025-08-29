@@ -431,18 +431,18 @@ class FieldValidator:
         fields = FieldValidator.get_updatable_fields(entity_type)
         
         title = "Player" if entity_type == 'player' else "Team Member"
-        help_text = f"📝 **{title} Update Fields:**\n\n"
+        help_text = f"📝 {title} Update Fields:\n\n"
         
         for field in fields:
             description = FieldValidator.get_field_description(field)
             
             # Add admin note for role field if user is not admin
             if field == 'role' and not current_user_is_admin:
-                description += " ⚠️ *Admin privileges required for 'admin' role*"
+                description += " ⚠️ Admin privileges required for 'admin' role"
                 
-            help_text += f"• **{field}** - {description}\n"
+            help_text += f"• {field} - {description}\n"
             
-        help_text += f"\n💡 **Usage:** `/update <field> <value>`\n"
-        help_text += f"**Example:** `/update email user@newdomain.com`"
+        help_text += f"\n💡 Usage: /update <field> <value>\n"
+        help_text += f"Example: /update email user@newdomain.com"
         
         return help_text

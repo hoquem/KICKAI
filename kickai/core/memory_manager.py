@@ -64,27 +64,37 @@ class KICKAIMemoryManager:
         logger.info("🧠 KICKAI Memory Manager initialized")
     
     def _initialize_crewai_memory(self):
-        """Initialize CrewAI memory systems."""
+        """Initialize CrewAI memory systems with graceful fallback."""
         try:
-            # Entity-specific memory for different entity types
-            # Note: CrewAI 0.157.0 has simplified memory API
-            self.player_memory = memory.EntityMemory()
-            
-            self.team_member_memory = memory.EntityMemory()
-            
-            self.team_memory = memory.EntityMemory()
-            
-            # Short-term memory for session-based data
-            self.short_term_memory = memory.ShortTermMemory()
-            
-            # Long-term memory for persistent data
+            # Try to initialize LongTermMemory first (most stable)
             self.long_term_memory = memory.LongTermMemory()
+            logger.info("✅ CrewAI LongTermMemory initialized")
             
-            logger.info("✅ CrewAI memory systems initialized")
+            # EntityMemory and ShortTermMemory require ChromaDB which may be corrupted
+            # Initialize with fallback to local memory
+            try:
+                self.player_memory = memory.EntityMemory()
+                self.team_member_memory = memory.EntityMemory() 
+                self.team_memory = memory.EntityMemory()
+                logger.info("✅ CrewAI EntityMemory systems initialized")
+            except Exception as entity_error:
+                logger.warning(f"⚠️ CrewAI EntityMemory failed (ChromaDB issue): {entity_error}")
+                logger.info("🔄 Using local memory proxy for entity memory")
+                self.player_memory = None
+                self.team_member_memory = None
+                self.team_memory = None
+            
+            try:
+                self.short_term_memory = memory.ShortTermMemory()
+                logger.info("✅ CrewAI ShortTermMemory initialized")
+            except Exception as short_term_error:
+                logger.warning(f"⚠️ CrewAI ShortTermMemory failed (ChromaDB issue): {short_term_error}")
+                logger.info("🔄 Using local memory proxy for short-term memory")
+                self.short_term_memory = None
             
         except Exception as e:
-            logger.error(f"❌ Failed to initialize CrewAI memory: {e}")
-            # Fallback to local memory only
+            logger.error(f"❌ Failed to initialize any CrewAI memory systems: {e}")
+            # Complete fallback to local memory only
             self.player_memory = None
             self.team_member_memory = None
             self.team_memory = None

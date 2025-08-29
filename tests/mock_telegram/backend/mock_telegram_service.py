@@ -673,31 +673,51 @@ class MockTelegramService:
     async def process_invite_link(self, request: ProcessInviteRequest) -> Dict[str, Any]:
         """Process an invite link and create a user from invite data"""
         try:
+            logger.info(f"🔗 [INVITE PROCESSING] Starting invite processing for ID: {request.invite_id}")
+            logger.info(f"🔗 [INVITE PROCESSING] Team: {request.team_id}, Type: {request.invite_type}, Chat: {request.chat_id}")
+            
             # Import Firebase client to get invite data
             from kickai.database.firebase_client import get_firebase_client
             
+            logger.info(f"🔗 [INVITE PROCESSING] Getting Firebase client...")
             client = get_firebase_client()
             db = client.client
             
-            # Get invite data from Firestore
-            invite_doc = db.collection('kickai_invite_links').document(request.invite_id).get()
+            # Get invite data from Firestore using team-specific collection naming
+            from kickai.core.firestore_constants import get_team_specific_collection_name
+            
+            # Use team-specific collection name to match InviteLinkService
+            collection_name = get_team_specific_collection_name(request.team_id, "invite_links")
+            logger.info(f"🔗 [INVITE PROCESSING] Using collection: {collection_name}")
+            
+            logger.info(f"🔗 [INVITE PROCESSING] Looking up invite document: {request.invite_id}")
+            invite_doc = db.collection(collection_name).document(request.invite_id).get()
             
             if not invite_doc.exists:
+                logger.error(f"❌ [INVITE PROCESSING] Invite not found: {request.invite_id} in collection {collection_name}")
                 raise HTTPException(status_code=404, detail="Invite link not found or expired")
             
+            logger.info(f"✅ [INVITE PROCESSING] Found invite document successfully")
             invite_data = invite_doc.to_dict()
+            logger.info(f"🔗 [INVITE PROCESSING] Invite data keys: {list(invite_data.keys())}")
             
             # Extract user info based on invite type
+            logger.info(f"🔗 [INVITE PROCESSING] Processing invite type: {request.invite_type}")
+            
             if request.invite_type == 'player':
                 # Player invite - look for player_* fields
+                logger.info(f"🔗 [INVITE PROCESSING] Extracting player data from invite")
                 user_info = {
                     'name': invite_data.get('player_name'),
                     'phone': invite_data.get('player_phone'),
                     'id': invite_data.get('player_id'),
                     'role': MemberRole.PLAYER
                 }
+                logger.info(f"🔗 [INVITE PROCESSING] Player info: {user_info['name']} ({user_info['phone']})")
+                
             elif request.invite_type == 'team_member':
                 # Team member invite - look for member_* fields
+                logger.info(f"🔗 [INVITE PROCESSING] Extracting team member data from invite")
                 user_info = {
                     'name': invite_data.get('member_name'),
                     'phone': invite_data.get('member_phone'),
@@ -712,16 +732,24 @@ class MockTelegramService:
                 except ValueError:
                     # Fallback to TEAM_MEMBER if invalid role
                     user_info['role'] = MemberRole.TEAM_MEMBER
+                
+                logger.info(f"🔗 [INVITE PROCESSING] Team member info: {user_info['name']} ({user_info['phone']}) - Role: {user_info['role']}")
             else:
+                logger.error(f"❌ [INVITE PROCESSING] Unknown invite type: {request.invite_type}")
                 raise HTTPException(status_code=400, detail=f"Unknown invite type: {request.invite_type}")
             
             if not user_info['name']:
                 invite_type_display = "player" if request.invite_type == 'player' else "team member"
+                logger.error(f"❌ [INVITE PROCESSING] Missing {invite_type_display} information in invite")
                 raise HTTPException(status_code=400, detail=f"Missing {invite_type_display} information in invite")
             
+            logger.info(f"🔗 [INVITE PROCESSING] User info validated successfully")
+            
             # Generate new telegram_id
+            logger.info(f"🔗 [INVITE PROCESSING] Generating new Telegram ID...")
             with self._lock:
                 new_telegram_id = max(self.users.keys()) + 1 if self.users else 1001
+                logger.info(f"🔗 [INVITE PROCESSING] Assigned Telegram ID: {new_telegram_id}")
                 
                 # Create username from user name
                 user_name = user_info.get('name', 'Unknown')
@@ -733,7 +761,10 @@ class MockTelegramService:
                     username = f"{base_username}_{counter}"
                     counter += 1
                 
+                logger.info(f"🔗 [INVITE PROCESSING] Generated username: {username}")
+                
                 # Create new user
+                logger.info(f"🔗 [INVITE PROCESSING] Creating MockUser object...")
                 user = MockUser(
                     id=new_telegram_id,
                     username=username,
@@ -745,8 +776,10 @@ class MockTelegramService:
                 )
                 
                 self.users[new_telegram_id] = user
+                logger.info(f"🔗 [INVITE PROCESSING] Added user to mock service")
                 
                 # Create private chat for the user
+                logger.info(f"🔗 [INVITE PROCESSING] Creating private chat for user...")
                 chat = MockChat(
                     id=new_telegram_id,
                     type=ChatType.PRIVATE,
@@ -754,37 +787,65 @@ class MockTelegramService:
                     last_name=user.last_name
                 )
                 self.chats[chat.id] = chat
+                logger.info(f"🔗 [INVITE PROCESSING] Added private chat to mock service")
                 
-                logger.info(f"✅ Created user from invite: {user.first_name} (@{user.username}, ID: {new_telegram_id})")
+                logger.info(f"✅ [INVITE PROCESSING] SUCCESS: Created user from invite: {user.first_name} (@{user.username}, ID: {new_telegram_id})")
+                
+                # Update the player record in Firestore with the telegram_id
+                if request.invite_type == 'player' and user_info.get('id'):
+                    logger.info(f"🔗 [INVITE PROCESSING] Updating player record in Firestore with telegram_id: {new_telegram_id}")
+                    try:
+                        # Get the player collection
+                        from kickai.core.firestore_constants import get_team_players_collection
+                        player_collection = get_team_players_collection(request.team_id)
+                        
+                        # Update the player document with telegram_id and activate them
+                        player_doc_ref = db.collection(player_collection).document(user_info.get('id'))
+                        player_doc_ref.update({
+                            'telegram_id': new_telegram_id,
+                            'username': username,
+                            'status': 'active',  # Activate the player when they join via invite link
+                            'updated_at': datetime.now().isoformat()
+                        })
+                        logger.info(f"✅ [INVITE PROCESSING] Successfully updated player {user_info.get('id')} with telegram_id {new_telegram_id}")
+                    except Exception as e:
+                        logger.error(f"❌ [INVITE PROCESSING] Failed to update player record: {e}")
                 
                 # Create invitation context for auto-activation
+                logger.info(f"🔗 [INVITE PROCESSING] Creating invitation context for auto-activation...")
                 invite_context = {
                     "invite_id": request.invite_id,
                     "invite_type": request.invite_type,
                     "secure_data": invite_data.get("secure_data"),  # Base64-encoded secure data from Firestore
                     "invite_link": f"mock://invite/{request.invite_id}",
                 }
+                logger.info(f"🔗 [INVITE PROCESSING] Invitation context created with keys: {list(invite_context.keys())}")
                 
                 # Add type-specific fields to invite context
+                logger.info(f"🔗 [INVITE PROCESSING] Adding type-specific fields to context...")
                 if request.invite_type == 'player':
                     invite_context.update({
                         "player_name": user_info.get('name'),
                         "player_phone": user_info.get('phone'),
                         "player_id": user_info.get('id')
                     })
+                    logger.info(f"🔗 [INVITE PROCESSING] Added player-specific fields to context")
                 elif request.invite_type == 'team_member':
                     invite_context.update({
                         "member_name": user_info.get('name'),
                         "member_phone": user_info.get('phone'),
                         "member_id": user_info.get('id')
                     })
+                    logger.info(f"🔗 [INVITE PROCESSING] Added team member-specific fields to context")
                 
-                logger.info(f"🔗 Created invitation context for auto-activation: {user_info.get('name')}")
+                logger.info(f"🔗 [INVITE PROCESSING] Created invitation context for auto-activation: {user_info.get('name')}")
                 
                 # Simulate join event with invitation context for auto-activation
+                logger.info(f"🔗 [INVITE PROCESSING] Simulating join event for user {new_telegram_id} in chat {request.chat_id}")
                 await self.simulate_new_chat_member(new_telegram_id, int(request.chat_id), invite_context)
                 
-                return {
+                logger.info(f"🔗 [INVITE PROCESSING] Preparing response data...")
+                response_data = {
                     "user_id": new_telegram_id,
                     "username": username,
                     "first_name": user.first_name,
@@ -796,10 +857,13 @@ class MockTelegramService:
                     "invite_processed": True
                 }
                 
+                logger.info(f"✅ [INVITE PROCESSING] COMPLETE: Returning response for {user.first_name}")
+                return response_data
+                
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"❌ Error processing invite: {e}")
+            logger.error(f"❌ [INVITE PROCESSING] Error processing invite: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to process invite: {str(e)}")
     
     async def simulate_new_chat_member(self, user_id: int, chat_id: int, invite_context: Optional[Dict[str, Any]] = None) -> bool:
@@ -1109,13 +1173,19 @@ async def create_user(request: CreateUserRequest):
 @app.post("/invite/process")
 async def process_invite_link(request: ProcessInviteRequest):
     """Process an invite link and simulate user joining"""
+    logger.info(f"🌐 [API] Received invite processing request: {request.invite_id}")
+    logger.info(f"🌐 [API] Request details: team={request.team_id}, type={request.invite_type}, chat={request.chat_id}")
+    
     try:
+        logger.info(f"🌐 [API] Delegating to mock service...")
         result = await mock_service.process_invite_link(request)
+        logger.info(f"✅ [API] Invite processing completed successfully")
         return result
     except HTTPException:
+        logger.error(f"❌ [API] HTTP exception during invite processing")
         raise
     except Exception as e:
-        logger.error(f"Error processing invite: {e}")
+        logger.error(f"❌ [API] Unexpected error processing invite: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

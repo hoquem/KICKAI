@@ -137,264 +137,8 @@ def _handle_tool_error(tool_name: str, error: Exception, error_type: str = "unex
         return create_json_response(ResponseStatus.ERROR, message=f"An unexpected internal error occurred during {tool_name}")
 
 
-async def advanced_intent_recognition_domain(
-    telegram_id: int,
-    team_id: str, 
-    username: str,
-    chat_type: str,
-    message: str,
-    conversation_history: str = "",
-    **kwargs
-) -> str:
-    """
-    LLM-powered intent recognition using CrewAI native reasoning.
-    
-    Uses the specialized NLP LLM to analyze user intent, extract entities,
-    and provide intelligent routing recommendations. Uses the centralized
-    prompt template system for consistent, maintainable prompts.
-    
-    Args:
-        telegram_id: Telegram ID of the requesting user
-        team_id: Team identifier for context
-        username: Username of the requesting user  
-        chat_type: Chat context (main/leadership/private)
-        message: User message to analyze
-        conversation_history: Previous conversation context
-        **kwargs: Additional context parameters
-        
-    Returns:
-        JSON response string with LLM-analyzed intent classification
-        
-    Note:
-        This tool uses the prompt template system for consistent,
-        type-safe prompt generation with validation.
-    """
-    try:
-        # Input validation using utility functions
-        team_id = validate_team_id(team_id)
-        telegram_id_int = validate_telegram_id(telegram_id)
-        
-        # Validate message input
-        from kickai.utils.tool_validation import validate_string_input
-        validate_string_input(message, "Message", allow_empty=False)
-        validate_string_input(username, "Username", allow_empty=False)
-        validate_string_input(chat_type, "Chat type", allow_empty=False)
-        
-        # Log tool execution with performance tracking
-        inputs = {
-            'team_id': team_id,
-            'telegram_id': telegram_id_int,
-            'message_length': len(message),
-            'has_history': bool(conversation_history)
-        }
-        log_tool_execution("advanced_intent_recognition", inputs, True)
-        
-        # Prepare context for template rendering
-        context = {
-            'telegram_id': telegram_id_int,
-            'team_id': team_id,
-            'username': username,
-            'chat_type': chat_type,
-            'message': message,
-            'conversation_history': conversation_history or "None"
-        }
-        
-        # Validate context before rendering
-        if not validate_prompt_context('intent_recognition', context):
-            return create_json_response(ResponseStatus.ERROR, message="Invalid context for intent recognition")
-        
-        # Render prompt using template system
-        analysis_prompt = render_prompt('intent_recognition', context)
-        
-        return create_json_response(ResponseStatus.SUCCESS, data={"analysis_prompt": analysis_prompt})
-        
-    except Exception as e:
-        return _handle_tool_error("advanced_intent_recognition", e)
-
-
-async def entity_extraction_domain(
-    telegram_id: int,
-    team_id: str,
-    username: str,
-    chat_type: str,
-    message: str,
-    **kwargs
-) -> str:
-    """
-    LLM-powered entity extraction for football team management.
-    
-    Uses the specialized NLP LLM to extract entities like player names,
-    positions, time references, and football-specific information.
-    Uses the centralized prompt template system.
-    
-    Args:
-        telegram_id: Telegram ID of the requesting user
-        team_id: Team identifier for context
-        username: Username of the requesting user
-        chat_type: Chat context
-        message: Message to extract entities from
-        **kwargs: Additional parameters
-        
-    Returns:
-        JSON response with LLM-extracted entities
-    """
-    try:
-        # Input validation
-        team_id = validate_team_id(team_id)
-        telegram_id_int = validate_telegram_id(telegram_id)
-        
-        from kickai.utils.tool_validation import validate_string_input
-        validate_string_input(message, "Message", allow_empty=False)
-        validate_string_input(username, "Username", allow_empty=False)
-        validate_string_input(chat_type, "Chat type", allow_empty=False)
-        
-        # Log tool execution
-        inputs = {'team_id': team_id, 'telegram_id': telegram_id_int}
-        log_tool_execution("entity_extraction_tool", inputs, True)
-        
-        # Prepare context for template rendering
-        context = {
-            'telegram_id': telegram_id_int,
-            'team_id': team_id,
-            'username': username,
-            'chat_type': chat_type,
-            'message': message
-        }
-        
-        # Validate and render prompt using template system
-        if not validate_prompt_context('entity_extraction', context):
-            return create_json_response(ResponseStatus.ERROR, message="Invalid context for entity extraction")
-        
-        extraction_prompt = render_prompt('entity_extraction', context)
-        
-        return create_json_response(ResponseStatus.SUCCESS, data={"extraction_prompt": extraction_prompt})
-        
-    except Exception as e:
-        return _handle_tool_error("entity_extraction_tool", e)
-
-
-async def conversation_context_domain(
-    telegram_id: int,
-    team_id: str,
-    username: str,
-    chat_type: str,
-    **kwargs
-) -> str:
-    """
-    LLM-powered conversation context analysis.
-    
-    Uses the NLP LLM to analyze conversation context and provide
-    intelligent context-aware responses for multi-turn conversations.
-    Uses the centralized prompt template system.
-    
-    Args:
-        telegram_id: Telegram ID of the requesting user
-        team_id: Team identifier for context
-        username: Username of the requesting user
-        chat_type: Chat context
-        **kwargs: Additional parameters
-        
-    Returns:
-        JSON response with context analysis prompt for LLM
-    """
-    try:
-        # Input validation
-        team_id = validate_team_id(team_id)
-        telegram_id_int = validate_telegram_id(telegram_id)
-        from kickai.utils.tool_validation import validate_string_input
-        validate_string_input(username, "Username", allow_empty=False)
-        validate_string_input(chat_type, "Chat type", allow_empty=False)
-        
-        # Log tool execution
-        inputs = {'team_id': team_id, 'telegram_id': telegram_id_int}
-        log_tool_execution("conversation_context_tool", inputs, True)
-        
-        # Prepare context for template rendering
-        context = {
-            'telegram_id': telegram_id_int,
-            'team_id': team_id,
-            'username': username,
-            'chat_type': chat_type
-        }
-        
-        # Validate and render prompt using template system
-        if not validate_prompt_context('conversation_context', context):
-            return create_json_response(ResponseStatus.ERROR, message="Invalid context for conversation analysis")
-        
-        context_prompt = render_prompt('conversation_context', context)
-        
-        return create_json_response(ResponseStatus.SUCCESS, data={"context_prompt": context_prompt})
-        
-    except Exception as e:
-        return _handle_tool_error("conversation_context_tool", e)
-
-
-async def semantic_similarity_domain(
-    telegram_id: int,
-    team_id: str,
-    username: str,
-    chat_type: str,
-    message: str,
-    reference_commands: str = "",
-    **kwargs
-) -> str:
-    """
-    LLM-powered semantic similarity analysis for command suggestions.
-    
-    Uses the NLP LLM to understand semantic relationships between
-    user messages and available commands. Uses the centralized
-    prompt template system.
-    
-    Args:
-        telegram_id: Telegram ID of the requesting user
-        team_id: Team identifier for context
-        username: Username of the requesting user
-        chat_type: Chat context
-        message: User message to analyze
-        reference_commands: Commands to compare against (comma-separated)
-        **kwargs: Additional parameters
-        
-    Returns:
-        JSON response with LLM-based similarity analysis
-    """
-    try:
-        # Input validation
-        team_id = validate_team_id(team_id)
-        telegram_id_int = validate_telegram_id(telegram_id)
-        
-        from kickai.utils.tool_validation import validate_string_input
-        validate_string_input(message, "Message", allow_empty=False)
-        validate_string_input(username, "Username", allow_empty=False)
-        validate_string_input(chat_type, "Chat type", allow_empty=False)
-        
-        # Log tool execution
-        inputs = {'team_id': team_id, 'telegram_id': telegram_id_int}
-        log_tool_execution("semantic_similarity_tool", inputs, True)
-        
-        # Default commands if none provided
-        if not reference_commands:
-            reference_commands = "/help,/info,/status,/list,/matches,/availability,/addplayer,/update"
-        
-        # Prepare context for template rendering
-        context = {
-            'telegram_id': telegram_id_int,
-            'team_id': team_id,
-            'username': username,
-            'chat_type': chat_type,
-            'message': message,
-            'reference_commands': reference_commands
-        }
-        
-        # Validate and render prompt using template system
-        if not validate_prompt_context('semantic_similarity', context):
-            return create_json_response(ResponseStatus.ERROR, message="Invalid context for similarity analysis")
-        
-        similarity_prompt = render_prompt('semantic_similarity', context)
-        
-        return create_json_response(ResponseStatus.SUCCESS, data={"similarity_prompt": similarity_prompt})
-        
-    except Exception as e:
-        return _handle_tool_error("semantic_similarity_tool", e)
+# REMOVED: classify_user_intent function - using native CrewAI routing now
+# This function used hardcoded keyword matching which goes against CrewAI best practices
 
 
 async def routing_recommendation_domain(
@@ -406,172 +150,59 @@ async def routing_recommendation_domain(
     **kwargs
 ) -> str:
     """
-    CrewAI-native intelligent routing recommendations using LLM-powered analysis.
+    Provides context analysis for MESSAGE_PROCESSOR's native CrewAI routing decisions.
     
-    Provides structured context for the NLP_PROCESSOR agent's LLM to make intelligent
-    routing decisions based on user intent, context, and available agent capabilities.
-    This follows CrewAI best practices by letting the LLM make the decisions.
+    NO HARDCODED ROUTING PATTERNS - this tool provides analysis only.
+    The actual routing decision is made by MESSAGE_PROCESSOR's LLM intelligence.
     
     Args:
-        telegram_id: Telegram ID of the requesting user
+        telegram_id: User ID for context
         team_id: Team identifier for context
-        username: Username of the requesting user
+        username: Username for context 
         chat_type: Chat context (main/leadership/private)
-        intent_data: Intent analysis data (user message/command)
+        intent_data: The user's request/message to analyze
         **kwargs: Additional parameters
         
     Returns:
-        Structured prompt for LLM analysis and routing decision
+        JSON response with request analysis (NOT routing decision)
     """
     try:
-        # Input validation
-        team_id = validate_team_id(team_id)
-        telegram_id_int = validate_telegram_id(telegram_id)
+        # Minimal validation with defaults
+        user_id = telegram_id if isinstance(telegram_id, int) and telegram_id > 0 else 0
+        team = team_id if team_id and isinstance(team_id, str) else "UNKNOWN"
+        user = username if username and isinstance(username, str) else "unknown_user"
+        chat = chat_type if chat_type and isinstance(chat_type, str) else "main"
+        request = intent_data if intent_data and isinstance(intent_data, str) else "No request provided"
         
-        from kickai.utils.tool_validation import validate_string_input
-        validate_string_input(intent_data, "Intent data", allow_empty=False)
-        validate_string_input(username, "Username", allow_empty=False)
-        validate_string_input(chat_type, "Chat type", allow_empty=False)
+        logger.info(f"🧠 [NLP_DOMAIN] Providing analysis for: '{request[:30]}...'")
         
-        # Log tool execution
-        inputs = {'team_id': team_id, 'telegram_id': telegram_id_int, 'intent_data': intent_data[:50]}
-        log_tool_execution("routing_recommendation_tool", inputs, True)
+        # Log execution with minimal overhead
+        log_tool_execution("routing_recommendation_domain", 
+                         {'team_id': team, 'request_length': len(request)}, True)
         
-        # Extract command and message components for context
-        message = intent_data.strip()
-        command = None
-        if message.startswith('/'):
-            command_parts = message.split()
-            command = command_parts[0] if command_parts else message
-        
-        # Prepare comprehensive routing context for LLM analysis
-        routing_context = {
-            'user_request': intent_data,
-            'extracted_command': command,
-            'chat_context': chat_type,
-            'user_info': {
-                'username': username,
-                'telegram_id': telegram_id_int,
-                'team_id': team_id
+        # Provide pure analysis without routing decision
+        analysis = {
+            "request": request,
+            "context": {
+                "user": user,
+                "chat_type": chat,
+                "team_id": team
             },
-            'available_agents': {
-                'help_assistant': {
-                    'description': 'Help system and guidance for users',
-                    'capabilities': ['command help', 'system guidance', 'user onboarding'],
-                    'best_for': 'questions, help requests, guidance needs'
-                },
-                'player_coordinator': {
-                    'description': 'Player management and personal information',
-                    'capabilities': ['player status', 'personal info updates', 'player coordination'],
-                    'best_for': 'personal player operations, status queries, individual updates'
-                },
-                'team_administrator': {
-                    'description': 'Team member management and administration',
-                    'capabilities': ['team member management', 'administrative tasks', 'team operations'],
-                    'best_for': 'administrative operations, team member management, leadership tasks'
-                },
-                'squad_selector': {
-                    'description': 'Squad selection and match management',
-                    'capabilities': ['match operations', 'squad selection', 'availability tracking'],
-                    'best_for': 'match-related tasks, squad operations, availability management'
-                },
-                'message_processor': {
-                    'description': 'General communication and system operations',
-                    'capabilities': ['general messaging', 'system info', 'basic operations'],
-                    'best_for': 'general queries, system information, basic communication'
-                }
-            },
-            'context_factors': {
-                'chat_type_analysis': {
-                    'main': 'General team communication - typically player-focused operations',
-                    'leadership': 'Administrative context - typically management operations',
-                    'private': 'Personal queries - typically individual assistance'
-                },
-                'current_chat_context': chat_type,
-                'routing_patterns': {
-                    '/update_patterns': {
-                        'main_chat': 'Usually personal player information updates',
-                        'leadership_chat': 'Usually administrative team member updates',
-                        'private_chat': 'Personal assistance and individual updates'
-                    }
-                }
-            },
-            'decision_framework': {
-                'primary_factors': [
-                    'User intent and request type',
-                    'Chat context and permissions', 
-                    'Agent specialization match',
-                    'Historical routing patterns'
-                ],
-                'confidence_guidelines': {
-                    'high_confidence_9_10': 'Clear command match with agent specialization',
-                    'medium_confidence_7_8': 'Good intent match with some context consideration',
-                    'low_confidence_5_6': 'Unclear intent requiring safe fallback routing'
-                }
-            }
+            "analysis_note": "Use your LLM intelligence to understand intent and route appropriately",
+            "guidance": "Consider the user's actual intent, not keywords. Route to specialist agents when appropriate."
         }
         
-        # Generate structured prompt for LLM routing analysis
-        routing_prompt = f"""
-KICKAI Intelligent Routing Analysis
-
-REQUEST ANALYSIS:
-User Request: "{intent_data}"
-Command: {command or 'No specific command'}
-Chat Type: {chat_type}
-User: {username} (ID: {telegram_id_int})
-
-AVAILABLE AGENTS:
-{_format_agent_capabilities(routing_context['available_agents'])}
-
-CONTEXT CONSIDERATIONS:
-- Chat Type: {chat_type} ({routing_context['context_factors']['chat_type_analysis'].get(chat_type, 'Unknown context')})
-- User Intent: Analyze the user's actual intent from their message
-- Agent Specialization: Match intent to agent capabilities
-- Context Appropriateness: Consider chat type and permissions
-
-ROUTING DECISION FRAMEWORK:
-1. Analyze the user's primary intent
-2. Consider the chat context and any permission implications
-3. Match intent to the most specialized agent
-4. Provide confidence level (1-10) based on match quality
-5. Include reasoning for the routing decision
-
-SPECIAL ROUTING PATTERNS:
-- /update commands: Context-sensitive routing
-  * Main chat: Usually player-focused (player_coordinator)
-  * Leadership chat: Usually admin-focused (team_administrator)
-  * Private chat: Usually personal assistance (player_coordinator)
-
-RESPONSE FORMAT:
-Provide your routing recommendation as JSON:
-
-{{
-  "agent": "agent_name",
-  "confidence": 0.9,
-  "intent": "primary_intent_classification",
-  "reasoning": "Brief explanation for the routing decision"
-}}
-"""
+        logger.info(f"🎯 [NLP_DOMAIN] Analysis provided for: '{request[:30]}...'")
         
-        logger.info(f"🧠 [NLP_ROUTING] Generated LLM routing context for '{intent_data[:30]}...' in {chat_type} chat")
-        
-        return routing_prompt
+        # Return analysis in format that encourages LLM-based decisions
+        return create_json_response(ResponseStatus.SUCCESS, data=analysis)
         
     except Exception as e:
-        return _handle_tool_error("routing_recommendation_tool", e)
-
-
-def _format_agent_capabilities(agents_dict: dict) -> str:
-    """Format agent capabilities for LLM consumption."""
-    formatted = []
-    for agent_name, agent_info in agents_dict.items():
-        capabilities = ", ".join(agent_info['capabilities'])
-        formatted.append(f"• {agent_name}: {agent_info['description']}")
-        formatted.append(f"  Capabilities: {capabilities}")
-        formatted.append(f"  Best for: {agent_info['best_for']}")
-        formatted.append("")
-    return "\n".join(formatted)
+        logger.error(f"❌ [NLP_DOMAIN] Error in routing analysis: {e}")
+        return create_json_response(
+            ResponseStatus.ERROR, 
+            message=f"Analysis failed: {str(e)}"
+        )
 
 
 async def analyze_update_context_domain(

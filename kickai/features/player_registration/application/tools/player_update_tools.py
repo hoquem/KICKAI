@@ -13,9 +13,17 @@ from loguru import logger
 
 from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus
-from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 from kickai.utils.field_validation import FieldValidator, ValidationError
+
+
+# Note: Pydantic schemas removed to avoid conflicts with CrewAI's automatic schema generation
+# CrewAI will automatically generate schemas from function signatures
+
+
+# Note: Parameter extraction logic removed - CrewAI handles parameter passing automatically
 
 
 @tool("update_player_field", result_as_answer=True)
@@ -34,7 +42,7 @@ async def update_player_field(
     It handles framework concerns and delegates business logic to the domain service.
     
     Args:
-        telegram_id: Player's Telegram ID
+        telegram_id: Player's Telegram ID or dictionary with all parameters
         team_id: Team identifier
         username: Player's username
         chat_type: Type of chat context
@@ -45,7 +53,7 @@ async def update_player_field(
         JSON formatted response with success status and details
     """
     try:
-        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
         if isinstance(telegram_id, dict):
             params = telegram_id
             telegram_id = params.get('telegram_id', 0)
@@ -60,58 +68,72 @@ async def update_player_field(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(
+                        False, 
+                        "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(
+                False, 
+                "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(
+                False, 
+                "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(
+                False, 
+                "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(
+                False, 
+                "Valid chat_type is required"
             )
             
         if not field or not isinstance(field, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid field name is required"
+            return create_tool_response(
+                False, 
+                "Valid field name is required"
             )
             
         if not value or not isinstance(value, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid field value is required"
+            return create_tool_response(
+                False, 
+                "Valid field value is required"
             )
         
         logger.info(f"🔄 Updating player field: {field} = '{value}' for {username} ({telegram_id}) in team {team_id}")
 
         # Get required services from container (application boundary)
         container = get_container()
-        player_service = container.get_service(IPlayerService)
+        
+        # Ensure container is initialized
+        if not container._initialized:
+            logger.warning("⚠️ Container not initialized, attempting to initialize...")
+            try:
+                await container.initialize()
+                logger.info("✅ Container initialized successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize container: {e}")
+                return create_tool_response(
+                    False, 
+                    "System initialization error. Please try again."
+                )
+        
+        player_service = container.get_service(PlayerService)
         
         if not player_service:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="PlayerService is not available"
+            return create_tool_response(
+                False, 
+                "PlayerService is not available"
             )
 
         # Validate field value using utility (application layer validation)
@@ -123,15 +145,15 @@ async def update_player_field(
             field = normalized_field
             value = validated_value
         except ValidationError as e:
-            return create_json_response(ResponseStatus.ERROR, message=str(e))
+            return create_tool_response(False, str(e))
 
         # Get player first, then update using existing service method
         player = await player_service.get_player_by_telegram_id(telegram_id, team_id)
         
         if not player:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Player not found. You may not be registered as a player."
+            return create_tool_response(
+                False, 
+                "Player not found. You may not be registered as a player."
             )
             
         # Create update dictionary for the field
@@ -142,9 +164,9 @@ async def update_player_field(
             updated_player = await player_service.update_player(player.player_id, team_id, **updates)
             success = updated_player is not None
         except Exception as e:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message=f"Failed to update {field}: {str(e)}"
+            return create_tool_response(
+                False, 
+                f"Failed to update {field}: {str(e)}"
             )
         
         if success:
@@ -157,16 +179,16 @@ async def update_player_field(
             }
             
             logger.info(f"✅ Player field {field} updated successfully for {username}")
-            return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+            return create_tool_response(True, f"✅ Successfully updated {field} to '{value}'", response_data)
         else:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message=f"Failed to update {field}. Player may not exist or update failed."
+            return create_tool_response(
+                False, 
+                f"Failed to update {field}. Player may not exist or update failed."
             )
 
     except Exception as e:
         logger.error(f"❌ Error updating player field {field} for {username}: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to update {field}: {e}")
+        return create_tool_response(False, f"Failed to update {field}: {e}")
 
 
 @tool("update_player_multiple_fields", result_as_answer=True)
@@ -184,7 +206,7 @@ async def update_player_multiple_fields(
     It handles framework concerns and delegates business logic to the domain service.
     
     Args:
-        telegram_id: Player's Telegram ID
+        telegram_id: Player's Telegram ID or dictionary with all parameters
         team_id: Team identifier
         username: Player's username
         chat_type: Type of chat context
@@ -194,7 +216,7 @@ async def update_player_multiple_fields(
         JSON formatted response with success status and details
     """
     try:
-        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
         if isinstance(telegram_id, dict):
             params = telegram_id
             telegram_id = params.get('telegram_id', 0)
@@ -249,7 +271,7 @@ async def update_player_multiple_fields(
 
         # Get required services from container (application boundary)
         container = get_container()
-        player_service = container.get_service(IPlayerService)
+        player_service = container.get_service(PlayerService)
         
         if not player_service:
             return create_json_response(
@@ -325,7 +347,7 @@ async def get_player_update_help(
     It provides guidance on available fields and update formats.
     
     Args:
-        telegram_id: Player's Telegram ID
+        telegram_id: Player's Telegram ID or dictionary with all parameters
         team_id: Team identifier
         username: Player's username
         chat_type: Type of chat context
@@ -334,7 +356,7 @@ async def get_player_update_help(
         JSON formatted help information for player updates
     """
     try:
-        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
         if isinstance(telegram_id, dict):
             params = telegram_id
             telegram_id = params.get('telegram_id', 0)
@@ -418,7 +440,7 @@ async def get_player_current_info(
     It handles framework concerns and delegates business logic to the domain service.
     
     Args:
-        telegram_id: Player's Telegram ID
+        telegram_id: Player's Telegram ID or dictionary with all parameters
         team_id: Team identifier
         username: Player's username
         chat_type: Type of chat context
@@ -427,7 +449,7 @@ async def get_player_current_info(
         JSON formatted current player information
     """
     try:
-        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
         if isinstance(telegram_id, dict):
             params = telegram_id
             telegram_id = params.get('telegram_id', 0)
@@ -474,7 +496,7 @@ async def get_player_current_info(
 
         # Get required services from container (application boundary)
         container = get_container()
-        player_service = container.get_service(IPlayerService)
+        player_service = container.get_service(PlayerService)
         
         if not player_service:
             return create_json_response(
@@ -492,27 +514,25 @@ async def get_player_current_info(
             )
 
         # Format current information at application boundary
-        current_info = f"""📋 **Your Current Information**
+        current_info = f"""📋 YOUR CURRENT INFORMATION
 
-👤 **Basic Info:**
+👤 BASIC INFO:
 • Name: {player.name or 'Not set'}
 • Position: {player.position or 'Not set'}
 • Status: {player.status.title() if hasattr(player.status, 'title') else str(player.status)}
 • Player ID: {player.player_id or 'Not assigned'}
 
-📞 **Contact Info:**
+📞 CONTACT INFO:
 • Phone: {getattr(player, 'phone_number', 'Not set')}
 • Email: {getattr(player, 'email', 'Not set')}
 
-🆘 **Emergency Contact:**
+🆘 EMERGENCY CONTACT:
 • Name: {getattr(player, 'emergency_contact_name', 'Not set')}
 • Phone: {getattr(player, 'emergency_contact_phone', 'Not set')}
 
-⚽ **Playing Info:**
-• Preferred Foot: {getattr(player, 'preferred_foot', 'Not set')}
-• Jersey Number: {getattr(player, 'jersey_number', 'Not set')}
 
-🏥 **Medical Notes:**
+
+🏥 MEDICAL NOTES:
 {getattr(player, 'medical_notes', 'No medical notes recorded')}
 
 💡 To update any field, just ask: "Update my [field] to [new value]" """
@@ -528,8 +548,6 @@ async def get_player_current_info(
                 "email": getattr(player, 'email', None),
                 "emergency_contact_name": getattr(player, 'emergency_contact_name', None),
                 "emergency_contact_phone": getattr(player, 'emergency_contact_phone', None),
-                "preferred_foot": getattr(player, 'preferred_foot', None),
-                "jersey_number": getattr(player, 'jersey_number', None),
                 "medical_notes": getattr(player, 'medical_notes', None)
             }
         }
