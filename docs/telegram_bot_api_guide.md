@@ -1240,11 +1240,11 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+    CMD python -c "import requests; requests.get('http://localhost:8001/health')"
 
 # Run application
 CMD ["python", "run_bot_production.py"]
@@ -1393,7 +1393,7 @@ def health_check():
 
 def run_health_server():
     """Run health check server in separate thread."""
-    health_app.run(host='0.0.0.0', port=8000, debug=False)
+    health_app.run(host='0.0.0.0', port=8001, debug=False)
 
 # Start health server
 health_thread = threading.Thread(target=run_health_server, daemon=True)

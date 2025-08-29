@@ -471,7 +471,7 @@ def test_service_topology():
     """Test complex service topology with ServiceTestBuilder."""
     builder = ServiceTestBuilder()
     registry = (builder
-        .add_service("api-gateway", "http://localhost:8000")
+        .add_service("api-gateway", "http://localhost:8001")
         .add_service("user-service", "http://localhost:8001")
         .add_service("notification-service", "http://localhost:8002")
         .with_health_checks()

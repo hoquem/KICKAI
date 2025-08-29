@@ -68,29 +68,33 @@ async def list_matches(team_id: str, status: str = "all", limit: int = 10) -> st
         # Get matches based on status
         if status == "upcoming":
             matches = await match_service.get_upcoming_matches(team_id, limit)
-            title = f"📅 **Upcoming Matches** (Next {len(matches)})"
+            title = f"📅 Upcoming Matches (Next {len(matches)})"
         elif status == "past":
             matches = await match_service.get_past_matches(team_id, limit)
-            title = f"📅 **Past Matches** (Last {len(matches)})"
+            title = f"📅 Past Matches (Last {len(matches)})"
         else:
             matches = await match_service.list_matches(team_id, limit=limit)
-            title = f"📅 **All Matches** (Last {len(matches)})"
+            title = f"📅 All Matches (Last {len(matches)})"
 
         if not matches:
             return create_json_response(ResponseStatus.SUCCESS, data=f"{title}\n\nNo matches found.")
 
         result = [title, ""]
+
         for i, match in enumerate(matches, 1):
             result.append(
-                f"{i}️⃣ **{match.match_id}** - vs {match.opponent}\n"
-                f"   📅 {match.formatted_date}\n"
-                f"   🕐 {match.formatted_time} | 🏟️ {match.venue}\n"
-                f"   📊 Status: {match.status.value.title()}"
+                f"{i}️⃣ {match.match_id} - vs {match.opponent}\n"
+                f"📅 {match.formatted_date} at {match.formatted_time}\n"
+                f"🏟️ {match.venue} • {match.competition}\n"
+                f"📊 Status: {match.status.value.title()}"
             )
+            result.append("")
 
-        result.append("\n📋 **Quick Actions**")
-        result.append("• /matchdetails [match_id] - View full details")
-        result.append("• /markattendance [match_id] - Mark availability")
+        if status == "upcoming":
+            result.append("📋 Quick Actions")
+            result.append("• Use /availability to update your status")
+            result.append("• Use /squad to view selected players")
+            result.append("• Contact leadership for questions")
 
         return create_json_response(ResponseStatus.SUCCESS, data="\n".join(result))
 
@@ -168,10 +172,10 @@ async def create_match(
 
         message = (
             "Match created successfully!\n\n"
-            f"🏆 **Match Details**\n• **Opponent**: {created_match.opponent}\n"
-            f"• **Date**: {created_match.formatted_date}\n• **Time**: {created_match.formatted_time}\n"
-            f"• **Venue**: {created_match.venue}\n• **Competition**: {created_match.competition}\n"
-            f"• **Match ID**: {created_match.match_id}"
+            f"🏆 Match Details\n• Opponent: {created_match.opponent}\n"
+            f"• Date: {created_match.formatted_date}\n• Time: {created_match.formatted_time}\n"
+            f"• Venue: {created_match.venue}\n• Competition: {created_match.competition}\n"
+            f"• Match ID: {created_match.match_id}"
         )
         return create_json_response(ResponseStatus.SUCCESS, data=message)
     except Exception as e:
@@ -212,18 +216,18 @@ async def get_match_details(match_id: str) -> str:
             return create_json_response(ResponseStatus.ERROR, message=f"Match not found: {match_id}")
 
         result = [
-            f"🏆 **Match Details: {match.match_id}**",
+            f"🏆 Match Details: {match.match_id}",
             "",
-            f"**Opponent**: {match.opponent}",
-            f"**Date**: {match.formatted_date}",
-            f"**Time**: {match.formatted_time}",
-            f"**Venue**: {match.venue}",
-            f"**Competition**: {match.competition}",
-            f"**Status**: {match.status.value.title()}",
+            f"Opponent: {match.opponent}",
+            f"Date: {match.formatted_date}",
+            f"Time: {match.formatted_time}",
+            f"Venue: {match.venue}",
+            f"Competition: {match.competition}",
+            f"Status: {match.status.value.title()}",
         ]
 
         if match.notes:
-            result.append(f"**Notes**: {match.notes}")
+            result.append(f"Notes: {match.notes}")
 
         if match.result:
             result.append("")

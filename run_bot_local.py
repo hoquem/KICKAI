@@ -156,13 +156,11 @@ async def run_system_validation():
     logger.info("🔍 Running comprehensive system validation...")
 
     # Use our new synchronous comprehensive validation system
-    from kickai.core.startup_validation.comprehensive_validator import (
-        ComprehensiveStartupValidator,
-        validate_system_startup
-    )
+    from kickai.core.startup_validation.comprehensive_validator import ComprehensiveStartupValidator
 
-    # Run the comprehensive validation
-    result = validate_system_startup()
+    # Create validator instance and run the comprehensive validation
+    validator = ComprehensiveStartupValidator()
+    result = validator.validate_system_startup()
     
     # Check if system is healthy
     if not result.success:

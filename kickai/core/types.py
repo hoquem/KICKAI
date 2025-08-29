@@ -49,6 +49,7 @@ class TelegramMessage:
     raw_update: Optional[Any] = None
     contact_phone: Optional[str] = None
     contact_user_id: Optional[int] = None  # Also integer for consistency
+    new_chat_members: Optional[List[Dict[str, Any]]] = None  # New chat members data
 
 
 @dataclass

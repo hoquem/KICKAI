@@ -6,7 +6,10 @@ This module provides the main startup validator that orchestrates all health che
 
 import asyncio
 import logging
+import time
 from typing import Any, Dict, List, Optional
+
+from loguru import logger
 
 from .checks import (
     AgentInitializationCheck,
@@ -24,20 +27,25 @@ from .checks import (
 from .registry_validator import RegistryStartupValidator
 from .reporting import CheckCategory, CheckResult, CheckStatus, ValidationReport
 
-logger = logging.getLogger(__name__)
-
 
 class StartupValidator:
     """
     Main startup validator that orchestrates all health checks.
 
     This class manages the execution of health checks and generates
-    comprehensive validation reports.
+    comprehensive validation reports with fail-fast enterprise patterns.
     """
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None) -> None:
+        """
+        Initialize the startup validator.
+        
+        Args:
+            config_path: Optional path to configuration file
+        """
         self.config_path = config_path
         self.checks: List[Any] = []
+        self.start_time: float = 0.0
         self._load_default_checks()
         logger.info(f"StartupValidator initialized with {len(self.checks)} checks")
 
@@ -72,12 +80,116 @@ class StartupValidator:
         self.registry_validator = RegistryStartupValidator()
 
     def add_check(self, check: Any) -> None:
-        """Add a custom health check."""
+        """
+        Add a custom health check.
+        
+        Args:
+            check: Health check instance to add
+        """
         self.checks.append(check)
+        logger.info(f"Added custom check: {check.name}")
 
     def remove_check(self, check_name: str) -> None:
-        """Remove a health check by name."""
+        """
+        Remove a health check by name.
+        
+        Args:
+            check_name: Name of the check to remove
+        """
+        original_count = len(self.checks)
         self.checks = [check for check in self.checks if check.name != check_name]
+        removed_count = original_count - len(self.checks)
+        if removed_count > 0:
+            logger.info(f"Removed {removed_count} check(s) with name: {check_name}")
+        else:
+            logger.warning(f"No check found with name: {check_name}")
+
+    async def _load_bot_configuration(self, context: Dict[str, Any]) -> None:
+        """
+        Load bot configuration from Firestore.
+        
+        Args:
+            context: Context dictionary to update with bot configuration
+        """
+        try:
+            from kickai.core.config import get_settings
+            from kickai.database.firebase_client import FirebaseClient
+            
+            settings = get_settings()
+            firebase_client = FirebaseClient(settings)
+            
+            # Get the first available team from Firestore
+            team_id = await self._get_first_team_id(firebase_client)
+            if not team_id:
+                logger.warning("⚠️ No teams found in Firestore")
+                context["bot_config"] = None
+                return
+            
+            # Get the specific team configuration
+            bot_config = await self._get_team_configuration(firebase_client, team_id)
+            context["bot_config"] = bot_config
+            
+            if bot_config:
+                logger.info("✅ Bot configuration loaded from Firestore")
+            else:
+                logger.warning(f"⚠️ No team configuration found for team_id: {team_id}")
+                
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load bot configuration from Firestore: {e}")
+            context["bot_config"] = None
+
+    async def _get_first_team_id(self, firebase_client: Any) -> Optional[str]:
+        """
+        Get the first available team ID from Firestore.
+        
+        Args:
+            firebase_client: Firebase client instance
+            
+        Returns:
+            Team ID if found, None otherwise
+        """
+        try:
+            teams = await firebase_client.get_all_teams()
+            if teams:
+                team_id = teams[0].id if hasattr(teams[0], 'id') else teams[0].get('id')
+                logger.info(f"✅ Found team_id from Firestore: {team_id}")
+                return team_id
+            else:
+                logger.warning("⚠️ No teams found in Firestore")
+                return None
+        except Exception as e:
+            logger.warning(f"⚠️ Could not get team_id from Firestore: {e}")
+            return None
+
+    async def _get_team_configuration(self, firebase_client: Any, team_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get team configuration from Firestore.
+        
+        Args:
+            firebase_client: Firebase client instance
+            team_id: Team ID to get configuration for
+            
+        Returns:
+            Team configuration dictionary if found, None otherwise
+        """
+        try:
+            team_doc = await firebase_client.get_document(
+                collection_name="kickai_teams",
+                document_id=team_id
+            )
+            
+            if team_doc:
+                return {
+                    "bot_token": team_doc.get("bot_token"),
+                    "main_chat_id": team_doc.get("main_chat_id"),
+                    "leadership_chat_id": team_doc.get("leadership_chat_id"),
+                }
+            else:
+                logger.warning(f"⚠️ No team configuration found for team_id: {team_id}")
+                return None
+        except Exception as e:
+            logger.error(f"❌ Error getting team configuration for {team_id}: {e}")
+            return None
 
     async def validate(self, context: Optional[Dict[str, Any]] = None) -> ValidationReport:
         """
@@ -89,8 +201,13 @@ class StartupValidator:
         Returns:
             ValidationReport with all check results
         """
+        self.start_time = time.time()
+        
         if context is None:
             context = {}
+
+        # Load bot configuration from Firestore
+        await self._load_bot_configuration(context)
 
         logger.info(f"🔧 Starting validation with {len(self.checks)} checks")
         logger.info(f"🔧 Checks to run: {[check.name for check in self.checks]}")
@@ -119,46 +236,90 @@ class StartupValidator:
                     error=result,
                 )
                 report.add_check(error_result)
+                logger.error(f"❌ Check {check.name} failed with exception: {result}")
             else:
                 report.add_check(result)
 
-        # Validate registries
-        registry_success = self.registry_validator.validate_all_registries()
-        if not registry_success:
+        # Validate registries (integrated into async flow)
+        registry_result = await self._validate_registries()
+        if not registry_result.success:
             report.overall_status = CheckStatus.FAILED
             logger.error("❌ Registry validation failed - this is critical for system operation")
 
         # Generate recommendations
         self._generate_recommendations(report)
 
+        total_duration = time.time() - self.start_time
         logger.info(
-            f"Validation completed: {len(report.checks)} checks, {len(report.critical_failures)} failures"
+            f"Validation completed in {total_duration:.2f}s: {len(report.checks)} checks, "
+            f"{len(report.critical_failures)} failures"
         )
 
         return report
 
+    async def _validate_registries(self) -> Any:
+        """
+        Validate registries asynchronously.
+        
+        Returns:
+            Registry validation result
+        """
+        try:
+            # Run registry validation in a thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, 
+                self.registry_validator.validate_all_registries
+            )
+            return result
+        except Exception as e:
+            logger.error(f"❌ Registry validation failed: {e}")
+            return type('RegistryResult', (), {'success': False})()
+
     async def _execute_check(self, check: Any, context: Dict[str, Any]) -> CheckResult:
-        """Execute a single health check."""
+        """
+        Execute a single health check.
+        
+        Args:
+            check: Health check instance to execute
+            context: Context data for the check
+            
+        Returns:
+            CheckResult with execution results
+        """
+        start_time = time.time()
         try:
             logger.info(f"🔧 Executing check: {check.name}")
             result = await check.execute(context)
-            logger.info(f"🔧 Check {check.name} completed: {result.status.value}")
+            
+            # Add timing information
+            duration_ms = (time.time() - start_time) * 1000
+            result.duration_ms = duration_ms
+            
+            logger.info(f"🔧 Check {check.name} completed: {result.status.value} ({duration_ms:.1f}ms)")
             return result
         except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
             logger.error(f"❌ Error executing check {check.name}: {e}")
-            import traceback
-
-            logger.error(f"❌ Check {check.name} traceback: {traceback.format_exc()}")
-            return CheckResult(
+            
+            # Create error result with timing
+            error_result = CheckResult(
                 name=check.name,
                 category=check.category,
                 status=CheckStatus.FAILED,
                 message=f"Check execution error: {e!s}",
                 error=e,
+                duration_ms=duration_ms
             )
+            return error_result
 
     def _generate_recommendations(self, report: ValidationReport) -> None:
-        """Generate recommendations based on check results."""
+        """
+        Generate recommendations based on check results.
+        
+        Args:
+            report: Validation report to add recommendations to
+        """
         recommendations = []
 
         # Check for configuration issues
@@ -206,6 +367,15 @@ class StartupValidator:
         if tool_failures:
             recommendations.append("Verify tool configuration and dependencies")
 
+        # Check for registry issues
+        registry_failures = [
+            check
+            for check in report.checks
+            if check.category == CheckCategory.REGISTRY and check.status == CheckStatus.FAILED
+        ]
+        if registry_failures:
+            recommendations.append("Review registry initialization and service discovery")
+
         # Add general recommendations
         if len(report.critical_failures) > 0:
             recommendations.append("Address critical failures before starting the application")
@@ -213,10 +383,23 @@ class StartupValidator:
         if len(report.warnings) > 0:
             recommendations.append("Review warnings to ensure optimal system performance")
 
+        # Add performance recommendations
+        slow_checks = [
+            check for check in report.checks 
+            if check.duration_ms and check.duration_ms > 5000  # 5 seconds threshold
+        ]
+        if slow_checks:
+            recommendations.append("Consider optimizing slow checks for better startup performance")
+
         report.recommendations = recommendations
 
     def print_report(self, report: ValidationReport) -> None:
-        """Print a formatted validation report."""
+        """
+        Print a formatted validation report.
+        
+        Args:
+            report: Validation report to print
+        """
         logger.info("=" * 80)
         logger.info("🚀 KICKAI STARTUP VALIDATION REPORT")
         logger.info("=" * 80)

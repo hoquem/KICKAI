@@ -1,142 +1,71 @@
-# SDLC - Testing Strategy, CI/CD, and Deployment
-
-## Essential Commands
-
-```bash
-# Development (Python 3.11+ Required)
-make dev                           # Start development server  
-PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py  # Mock UI (localhost:8001)
-./start_bot_safe.sh               # Safe startup (kills existing processes)
-
-# Testing & Validation
-make test                          # All tests (unit + integration + e2e)
-make test-unit                     # Unit tests only
-make lint                          # Code quality (ruff + mypy)
-PYTHONPATH=. python scripts/run_health_checks.py  # System health validation
-
-# Specific Testing
-PYTHONPATH=. python -m pytest tests/unit/test_file.py::test_function -v -s
-PYTHONPATH=. python -m pytest tests/integration/ -v --tb=short
-PYTHONPATH=. python run_comprehensive_e2e_tests.py
-
-# Emergency/Debug
-PYTHONPATH=. KICKAI_INVITE_SECRET_KEY=test-key python -c "..."  # System validation
-```
+# SDLC - Testing, CI/CD & Deployment
 
 ## Testing Strategy
+**Test Pyramid:** Unit → Integration → E2E
 
-### Test Types & Commands
+### Test Commands
 ```bash
-# Unit Tests - Component isolation
-PYTHONPATH=. python -m pytest tests/unit/ -v
+# All tests  
+make test
 
-# Integration Tests - Service interactions  
-PYTHONPATH=. python -m pytest tests/integration/ -v
+# Specific test types
+make test-unit              # Fast, isolated component tests
+make test-integration       # Service interaction tests  
+make test-e2e              # Complete workflow tests
 
-# E2E Tests - Complete user workflows
-PYTHONPATH=. python run_comprehensive_e2e_tests.py
-
-# Mock Telegram UI - Interactive testing
-PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
-# Access at: http://localhost:8001 (Liverpool FC themed)
+# Single test execution
+PYTHONPATH=. python -m pytest tests/unit/features/[feature]/test_[component].py::test_[function] -v -s
+PYTHONPATH=. python -m pytest tests/integration/features/team_administration/ -v
+PYTHONPATH=. python -m pytest tests/e2e/features/test_cross_feature_flows.py -k "player_registration" -v
 ```
 
-### Clean Architecture Test Patterns
+### Test Types
+- **Unit Tests:** Mock all external dependencies, test business logic in isolation
+- **Integration Tests:** Test service interactions with real or test databases
+- **E2E Tests:** Complete user workflows through Mock Telegram UI
 
-#### Application Layer Tool Testing
-```python
-from unittest.mock import AsyncMock, patch
-
-async def test_application_tool():
-    # Test application layer tools with mocked container
-    with patch('kickai.core.dependency_container.get_container') as mock_container:
-        mock_service = AsyncMock()
-        mock_container.return_value.get_service.return_value = mock_service
-        
-        # Test tool from application/tools/ directory
-        result = await tool_name(123456789, "KTI", "testuser", "main")
-        
-        mock_service.method_name.assert_called_once()
-        assert "success" in result
-```
-
-#### Domain Service Testing (Pure Business Logic)
-```python
-async def test_domain_service():
-    # Test domain services with mocked repository interfaces
-    mock_repository = AsyncMock()
-    service = DomainService(repository=mock_repository)  # Constructor injection
-    
-    result = await service.business_method(param="value")
-    
-    mock_repository.method.assert_called_once_with(param="value")
-    assert result.is_valid()
-```
-
-#### Infrastructure Repository Testing
-```python
-async def test_infrastructure_repository():
-    # Test repository implementations with mocked database
-    mock_database = AsyncMock()
-    repository = FirebaseRepository(database=mock_database)
-    
-    await repository.save(entity)
-    
-    mock_database.save_document.assert_called_once()
-```
-
-## System Health Validation
-
+## Code Quality
 ```bash
-# Complete system health check
+make lint                   # All quality checks
+ruff check kickai/          # Linting only  
+ruff format kickai/         # Formatting only
+mypy kickai/               # Type checking
+```
+
+## Health Validation
+```bash
+# System health checks (run frequently)
 PYTHONPATH=. python scripts/run_health_checks.py
+make health-check
 
-# Quick validation commands
-PYTHONPATH=. KICKAI_INVITE_SECRET_KEY=test-key python -c "
+# Quick validation
+PYTHONPATH=. python -c "
 from kickai.core.dependency_container import ensure_container_initialized
-from kickai.agents.tool_registry import initialize_tool_registry
-ensure_container_initialized()
-registry = initialize_tool_registry()
-print(f'✅ {len(registry.get_all_tools())} tools registered')
-"
-
-# Clean Architecture validation
-PYTHONPATH=. KICKAI_INVITE_SECRET_KEY=test-key python -c "
-from kickai.agents.crew_agents import TeamManagementSystem
-from kickai.agents.tool_registry import initialize_tool_registry
-
-# Validate tool discovery from application/tools/ directories
-registry = initialize_tool_registry()
-all_tools = registry.get_all_tools()
-print(f'✅ {len(all_tools)} application tools discovered')
-
-# Validate agent system
-system = TeamManagementSystem('KTI') 
-print(f'✅ {len(system.agents)} agents initialized')
-print('✅ Clean Architecture implementation verified')
+ensure_container_initialized(); print('✅ System OK')
 "
 ```
 
-## MCP Server Integration
-
+## Deployment
 ```bash
-# Documentation access (always up-to-date)
-claude mcp add --transport http context7 https://mcp.context7.com/mcp
+# Railway deployment
+make deploy-testing         # Deploy to test environment
+make deploy-production      # Deploy to production  
+make validate-testing       # Validate test deployment
+make validate-production    # Validate prod deployment
 
-# UI testing and automation
-claude mcp add puppeteer -s user -- npx -y @modelcontextprotocol/server-puppeteer
+# Emergency rollback
+make rollback-testing
+make rollback-production
 ```
 
-**Usage:** Add `use context7` to prompts needing current documentation (CrewAI, Firebase, Python libraries).
+## Environment Management
+**Development:** Python 3.11+, venv311, local Firebase
+**Testing:** Railway test environment, test Firebase project
+**Production:** Railway production, production Firebase
 
 ## CI/CD Pipeline
-- **Railway Deployment**: Automated deployment with health checks
-- **Multi-Environment**: Testing, staging, and production environments
-- **Monitoring**: System health via agents and comprehensive logging
-- **Scaling**: Agent-based architecture supports horizontal scaling
-
-## Deployment Environments
-1. **Local Development**: `make dev` with mock services
-2. **Testing**: Mock Telegram UI integration
-3. **Staging**: Pre-production validation
-4. **Production**: Railway deployment with monitoring
+1. **Code Quality:** Lint, format, type check
+2. **Testing:** Unit → Integration → E2E  
+3. **Health Checks:** System validation
+4. **Deployment:** Automated Railway deployment
+5. **Validation:** Post-deployment health checks

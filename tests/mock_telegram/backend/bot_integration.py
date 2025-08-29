@@ -5,6 +5,10 @@ This module provides integration between the mock Telegram service
 and the real KICKAI CrewAI system using Groq LLM.
 """
 
+# Set required environment variables BEFORE any imports
+import os
+os.environ.setdefault("KICKAI_INVITE_SECRET_KEY", "test_secret_key_for_debugging_only_32_chars_long")
+
 # Standard library imports
 import logging
 from datetime import datetime
@@ -181,13 +185,13 @@ async def _create_router(team_id: str) -> AgenticMessageRouter:
 
 async def _format_response(response: Any) -> str:
     """
-    Format response using ResponseFormatter.
+    Extract response text directly.
     
     Args:
         response: Response from agent
         
     Returns:
-        Formatted text
+        Response text
     """
     # Extract response content
     if hasattr(response, 'content'):
@@ -197,12 +201,8 @@ async def _format_response(response: Any) -> str:
     else:
         response_text = str(response)
     
-    # Format JSON responses for human readability
-    from kickai.features.communication.domain.services.response_formatter import ResponseFormatter
-    formatter = ResponseFormatter()
-    formatted_text = formatter.format_for_telegram(response_text)
-    logger.info(f"🔄 Applied ResponseFormatter: {len(response_text)} chars -> {len(formatted_text)} chars")
-    return formatted_text
+    logger.info(f"🔄 Response text: {len(response_text)} chars")
+    return response_text
 
 
 def _create_success_response(formatted_text: str, response: Any) -> Dict[str, Any]:
@@ -274,11 +274,20 @@ async def _get_available_team_id() -> str:
 async def _create_telegram_message(message_data: Dict[str, Any]) -> TelegramMessage:
     """Convert mock message data to TelegramMessage format for real agent processing."""
     
-    # Extract message components
+    # Extract message components - handle both "from" and "user" fields
     text = message_data.get("text", "")
-    user_id = message_data.get("from", {}).get("id")
-    username = message_data.get("from", {}).get("username", f"user_{user_id}")
-    chat_id = message_data.get("chat", {}).get("id")
+    
+    # Try "user" field first (our test format), then "from" field (Telegram format)
+    user_data = message_data.get("user") or message_data.get("from", {})
+    user_id = user_data.get("id")
+    username = user_data.get("username", f"user_{user_id}")
+    
+    # Try "chat_id" field first, then "chat" object
+    chat_id = message_data.get("chat_id")
+    if not chat_id:
+        chat_data = message_data.get("chat", {})
+        chat_id = chat_data.get("id")
+    
     chat_context = message_data.get("chat_context", "main")
     
     # Determine chat type

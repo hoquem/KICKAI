@@ -36,7 +36,7 @@ class LLMIntentRecognizer:
     def __init__(self, team_id: str = None):
         self.team_id = team_id
         self.llm_config = get_llm_config()
-        self.llm = self.llm_config.get_main_llm()
+        self.llm = self.llm_config.main_llm
         self.agent = self._create_intent_agent()
         logger.info(f"🤖 LLMIntentRecognizer initialized for team: {team_id}")
 

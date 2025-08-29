@@ -13,6 +13,7 @@ from loguru import logger
 from kickai.core.enums import ResponseStatus
 from kickai.features.shared.domain.services.system_service import SystemService
 from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 @tool("ping", result_as_answer=True)
@@ -44,11 +45,11 @@ async def ping(telegram_id: int, team_id: str, username: str, chat_type: str) ->
         
         logger.info(f"✅ Ping response sent at {ping_result.response_time}")
         
-        return create_json_response(ResponseStatus.SUCCESS, data=formatted_response)
+        return create_tool_response(True, f"Ping response for {username}", {"ping_data": formatted_response})
         
     except Exception as e:
         logger.error(f"❌ Error in ping tool: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Ping failed: {str(e)}")
+        return create_tool_response(False, f"Ping failed: {str(e)}")
 
 
 @tool("version", result_as_answer=True)
@@ -80,8 +81,8 @@ async def version(telegram_id: int, team_id: str, username: str, chat_type: str)
         
         logger.info(f"✅ Version info sent at {system_info.timestamp}")
         
-        return create_json_response(ResponseStatus.SUCCESS, data=formatted_response)
+        return create_tool_response(True, f"Version info for {username}", {"version_data": formatted_response})
         
     except Exception as e:
         logger.error(f"❌ Error in version tool: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Version check failed: {str(e)}")
+        return create_tool_response(False, f"Version check failed: {str(e)}")

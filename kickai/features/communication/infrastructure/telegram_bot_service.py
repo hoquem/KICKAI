@@ -1,4 +1,5 @@
 # Standard library imports
+from datetime import datetime
 from typing import Set, Union
 
 # Third-party imports
@@ -199,7 +200,7 @@ class TelegramBotService(TelegramBotServiceInterface):
 
     def _create_message_handlers(self):
         """
-        Create message handlers for natural language and contact sharing.
+        Create message handlers for natural language, contact sharing, and new chat members.
         
         Returns:
             List of message handlers
@@ -212,17 +213,22 @@ class TelegramBotService(TelegramBotServiceInterface):
         # Add contact handler for phone number sharing
         contact_handler = MessageHandler(filters.CONTACT, self._handle_contact_share)
 
+        # Add new chat members handler for invite link processing
+        new_chat_members_handler = MessageHandler(
+            filters.StatusUpdate.NEW_CHAT_MEMBERS, self._handle_new_chat_members
+        )
+
         # Add debug handler to log all updates
         debug_handler = MessageHandler(filters.ALL, self._debug_handler)
         
-        return [message_handler, contact_handler, debug_handler]
+        return [message_handler, contact_handler, new_chat_members_handler, debug_handler]
 
     def _setup_fallback_handlers(self) -> None:
         """
         Set up fallback handlers when command registry fails.
         
         Provides minimal functionality when the command registry is not available.
-        Only handles natural language messages and contact sharing.
+        Only handles natural language messages, contact sharing, and new chat members.
         """
         try:
             # All messages now use agentic routing - minimal fallback
@@ -231,6 +237,9 @@ class TelegramBotService(TelegramBotServiceInterface):
                     filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message
                 ),
                 MessageHandler(filters.CONTACT, self._handle_contact_share),
+                MessageHandler(
+                    filters.StatusUpdate.NEW_CHAT_MEMBERS, self._handle_new_chat_members
+                ),
             ]
 
             self.app.add_handlers(handlers)
@@ -296,6 +305,168 @@ class TelegramBotService(TelegramBotServiceInterface):
                 update, "I encountered an error processing your contact information."
             )
 
+    async def _handle_new_chat_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle new chat members joining via invite links."""
+        try:
+            logger.info(f"👥 New chat members event detected in chat {update.effective_chat.id}")
+            
+            # Validate the update has new chat members
+            if not update.message or not update.message.new_chat_members:
+                logger.warning("❌ No new chat members found in update")
+                return
+            
+            # Process each new member
+            for member in update.message.new_chat_members:
+                if member.is_bot:
+                    logger.info(f"🤖 Skipping bot member: {member.username or member.id}")
+                    continue
+                
+                logger.info(f"👤 Processing new member: {member.first_name} (@{member.username}, ID: {member.id})")
+                
+                # Check if this is an invite link join
+                invite_link = None
+                if update.message.invite_link:
+                    invite_link = update.message.invite_link.invite_link
+                    logger.info(f"🔗 Invite link detected: {invite_link}")
+                
+                # Process the invite link if available
+                if invite_link:
+                    await self._process_invite_link_join(member, invite_link, update.effective_chat.id)
+                else:
+                    logger.info(f"ℹ️ No invite link found for member {member.id} - standard join")
+                
+                # Convert to domain message and route through agentic system
+                message = self.agentic_router.convert_telegram_update_to_message(update)
+                
+                # Add new chat members context
+                message.new_chat_members = [{
+                    'id': member.id,
+                    'username': member.username,
+                    'first_name': member.first_name,
+                    'last_name': member.last_name,
+                    'is_bot': member.is_bot
+                } for member in update.message.new_chat_members if not member.is_bot]
+                
+                # Route through agentic system
+                response = await self.agentic_router.route_message(message)
+                
+                # Send welcome response
+                await self._send_response(update, response)
+                
+        except Exception as e:
+            logger.error(f"❌ Error handling new chat members: {e}")
+            await self._send_error_response(
+                update, "I encountered an error processing your join request."
+            )
+
+    async def _process_invite_link_join(self, member, invite_link: str, chat_id: str):
+        """Process a user joining via invite link and update player records."""
+        try:
+            logger.info(f"🔗 Processing invite link join for user {member.id}")
+            
+            # Get invite link service
+            from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
+            from kickai.database.firebase_client import get_firebase_client
+            
+            database = get_firebase_client()
+            invite_service = InviteLinkService(database=database, team_id=self.team_id)
+            
+            # Validate and use the invite link
+            invite_data = await invite_service.validate_and_use_invite_link(
+                invite_link=invite_link,
+                user_id=str(member.id),
+                username=member.username
+            )
+            
+            if not invite_data:
+                logger.warning(f"❌ Invalid or expired invite link for user {member.id}")
+                return
+            
+            logger.info(f"✅ Valid invite link processed for user {member.id}")
+            
+            # Update player record with telegram_id if this is a player invite
+            if invite_data.get('invite_type') == 'player' and invite_data.get('player_id'):
+                await self._update_player_telegram_id(
+                    player_id=invite_data['player_id'],
+                    telegram_id=member.id,
+                    username=member.username
+                )
+            # Update team member record with telegram_id if this is a team member invite
+            elif invite_data.get('invite_type') == 'team_member' and invite_data.get('member_id'):
+                await self._update_team_member_telegram_id(
+                    member_id=invite_data['member_id'],
+                    telegram_id=member.id,
+                    username=member.username
+                )
+            
+        except Exception as e:
+            logger.error(f"❌ Error processing invite link join: {e}")
+
+    async def _update_player_telegram_id(self, player_id: str, telegram_id: int, username: str = None):
+        """Update player record in Firestore with telegram_id."""
+        try:
+            logger.info(f"🔗 Updating player {player_id} with telegram_id {telegram_id}")
+            
+            # Get database client
+            from kickai.database.firebase_client import get_firebase_client
+            from kickai.core.firestore_constants import get_team_players_collection
+            
+            database = get_firebase_client()
+            collection_name = get_team_players_collection(self.team_id)
+            
+            # Update the player document
+            update_data = {
+                'telegram_id': telegram_id,
+                'username': username,
+                'status': 'active',  # Activate the player when they join via invite link
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            success = await database.update_player(player_id, update_data, self.team_id)
+            
+            if success:
+                logger.info(f"✅ Successfully updated player {player_id} with telegram_id {telegram_id}")
+            else:
+                logger.error(f"❌ Failed to update player {player_id} with telegram_id {telegram_id}")
+                
+        except Exception as e:
+            logger.error(f"❌ Error updating player telegram_id: {e}")
+
+    async def _update_team_member_telegram_id(self, member_id: str, telegram_id: int, username: str = None):
+        """Update team member record in Firestore with telegram_id."""
+        try:
+            logger.info(f"🔗 Updating team member {member_id} with telegram_id {telegram_id}")
+            
+            # Get database client
+            from kickai.database.firebase_client import get_firebase_client
+            from kickai.features.team_administration.domain.entities.team_member import TeamMember
+            
+            database = get_firebase_client()
+            
+            # Get the team member by member_id
+            team_member = await database.get_team_member_by_id(member_id, self.team_id)
+            if not team_member:
+                logger.error(f"❌ Team member {member_id} not found in team {self.team_id}")
+                return
+            
+            # Update the team member with telegram_id and activate them
+            team_member.telegram_id = telegram_id
+            if username:
+                team_member.username = username
+            team_member.status = "active"  # Activate the team member when they join via invite link
+            team_member.updated_at = datetime.now()
+            
+            # Update the team member in the database
+            success = await database.update_team_member(team_member)
+            
+            if success:
+                logger.info(f"✅ Successfully updated team member {member_id} with telegram_id {telegram_id}")
+            else:
+                logger.error(f"❌ Failed to update team member {member_id} with telegram_id {telegram_id}")
+                
+        except Exception as e:
+            logger.error(f"❌ Error updating team member telegram_id: {e}")
+
     def _determine_chat_type(self, chat_id: str) -> ChatType:
         """
         Determine the chat type based on chat ID.
@@ -349,13 +520,24 @@ class TelegramBotService(TelegramBotServiceInterface):
                 await self._send_error_response(update, message_text)
                 return
 
-            # Format JSON responses for human readability
-            from kickai.features.communication.domain.services.response_formatter import ResponseFormatter
-            formatter = ResponseFormatter()
-            formatted_text = formatter.format_for_telegram(message_text)
+            # Parse JSON response to extract the actual message content
+            try:
+                import json
+                parsed_response = json.loads(message_text)
+                if isinstance(parsed_response, dict):
+                    if "data" in parsed_response:
+                        formatted_text = parsed_response["data"]
+                    elif "message" in parsed_response:
+                        formatted_text = parsed_response["message"]
+                    else:
+                        formatted_text = message_text
+                else:
+                    formatted_text = message_text
+            except (json.JSONDecodeError, TypeError):
+                # If not JSON, use the message text directly
+                formatted_text = message_text
             
-            logger.debug(f"🔍 Original message: {message_text[:MESSAGE_PREVIEW_LENGTH]}...")
-            logger.debug(f"🔍 Formatted message: {formatted_text[:MESSAGE_PREVIEW_LENGTH]}...")
+            logger.debug(f"🔍 Message: {formatted_text[:MESSAGE_PREVIEW_LENGTH]}...")
 
             # Check if we need to send contact sharing button
             if hasattr(response, "needs_contact_button") and response.needs_contact_button:
@@ -435,7 +617,7 @@ class TelegramBotService(TelegramBotServiceInterface):
         
         Args:
             chat_id: The chat ID to send the message to
-            text: The message text (already formatted as plain text by ResponseFormatter)
+            text: The message text (should be clean, formatted plain text)
             **kwargs: Additional arguments for the Telegram API
             
         Raises:

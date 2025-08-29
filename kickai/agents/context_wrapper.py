@@ -64,14 +64,23 @@ class ContextInjectionWrapper:
             async def context_injected_tool(*args, **kwargs):
                 """Wrapper that injects context parameters automatically."""
                 try:
+                    # First try to get context from CrewAI Task.config
+                    task_context = self._extract_context_from_task()
+                    
+                    # Merge Task.config context with stored context (Task.config takes precedence)
+                    effective_context = self.context.copy()
+                    if task_context:
+                        effective_context.update(task_context)
+                        logger.debug(f"🔧 Updated context from Task.config: {list(task_context.keys())}")
+                    
                     # Inject context parameters if they're not already provided
                     injected_kwargs = kwargs.copy()
                     
                     for param in context_params:
                         if param in param_names and param not in injected_kwargs:
-                            if param in self.context:
-                                injected_kwargs[param] = self.context[param]
-                                logger.debug(f"🔧 Injected {param}={self.context[param]} into tool call")
+                            if param in effective_context:
+                                injected_kwargs[param] = effective_context[param]
+                                logger.debug(f"🔧 Injected {param}={effective_context[param]} into tool call")
                     
                     # Call the original function with injected parameters
                     result = await tool_function(*args, **injected_kwargs)
@@ -83,13 +92,20 @@ class ContextInjectionWrapper:
                     logger.error(f"❌ Context-injected tool call failed: {e}")
                     raise
             
-            # Preserve tool metadata for CrewAI
+            # Preserve tool metadata for CrewAI - CRITICAL for tool discovery
             if hasattr(tool_function, 'name'):
                 context_injected_tool.name = tool_function.name
             if hasattr(tool_function, 'description'):
                 context_injected_tool.description = tool_function.description
             if hasattr(tool_function, 'args_schema'):
                 context_injected_tool.args_schema = tool_function.args_schema
+            if hasattr(tool_function, 'func'):
+                context_injected_tool.func = tool_function.func  # Preserve underlying function
+            if hasattr(tool_function, '_tool'):
+                context_injected_tool._tool = tool_function._tool  # Preserve CrewAI tool object
+            
+            # Make sure the wrapper is callable like the original
+            context_injected_tool.__call__ = context_injected_tool
                 
             logger.debug(f"✅ Wrapped tool {getattr(tool_function, '__name__', 'unknown')} with context injection")
             return context_injected_tool
@@ -97,6 +113,17 @@ class ContextInjectionWrapper:
         except Exception as e:
             logger.error(f"❌ Failed to wrap tool with context injection: {e}")
             return tool_function  # Return original if wrapping fails
+
+    def _extract_context_from_task(self) -> Optional[Dict[str, Any]]:
+        """
+        DEPRECATED: Call stack inspection is unsafe and unnecessary.
+        
+        With proper CrewAI parameter passing via unified parameter handler,
+        context parameters are passed directly through tool arguments.
+        This method is kept for backward compatibility but returns None.
+        """
+        logger.debug("🔧 Context extraction via call stack is disabled (unsafe). Using direct parameter passing instead.")
+        return None
 
     def wrap_tool_list(self, tools: list) -> list:
         """

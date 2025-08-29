@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, Protocol, Dict
 
 from loguru import logger
 
@@ -23,6 +23,38 @@ RETRY_DELAY_SECONDS = 60
 
 # Lazy import to avoid circular dependencies
 # from kickai.agents.crew_agents import TeamManagementSystem
+
+
+class CrewError(Exception):
+    """Base exception for crew-related errors."""
+    pass
+
+
+class CrewTimeoutError(CrewError):
+    """Raised when crew execution times out."""
+    pass
+
+
+class CrewHealthError(CrewError):
+    """Raised when crew health check fails."""
+    pass
+
+
+class CrewInitializationError(CrewError):
+    """Raised when crew initialization fails."""
+    pass
+
+
+class CrewProtocol(Protocol):
+    """Protocol defining the interface for crew instances."""
+    
+    def execute_task(self, task_description: str, execution_context: Dict[str, Any]) -> str:
+        """Execute a task and return the result."""
+        ...
+    
+    def health_check(self) -> Dict[str, Any]:
+        """Perform a health check and return status."""
+        ...
 
 
 class CrewStatus(Enum):
@@ -46,8 +78,8 @@ class CrewMetrics:
     successful_requests: int
     failed_requests: int
     average_response_time: float
-    memory_usage: dict[str, Any]
-    agent_health: dict[str, bool]
+    memory_usage: Dict[str, Any]
+    agent_health: Dict[str, bool]
 
 
 class CrewLifecycleManager:
@@ -212,19 +244,30 @@ class CrewLifecycleManager:
 
 If the problem persists, please contact your team administrator."""
 
-    async def _execute_task_with_timeout(self, crew: Any, team_id: str, task_description: str, execution_context: dict[str, Any]) -> str:
-        """Execute task with timeout handling and comprehensive error catching."""
+    async def _execute_task_with_timeout(self, crew: CrewProtocol, team_id: str, task_description: str, execution_context: Dict[str, Any]) -> str:
+        """
+        Execute task with timeout handling and comprehensive error catching.
+        
+        Args:
+            crew: The crew instance to execute the task on
+            team_id: The team ID
+            task_description: The task description
+            execution_context: The execution context
+            
+        Returns:
+            Task execution result
+            
+        Raises:
+            CrewTimeoutError: If task execution times out
+            CrewError: For other crew-related errors
+        """
         from kickai.core.constants.agent_constants import AgentConstants
         timeout_seconds = AgentConstants.CREW_MAX_EXECUTION_TIME
 
         try:
-            # Enhance task description with context parameters for tools
-            from kickai.utils.task_description_enhancer import TaskDescriptionEnhancer
-            enhanced_task_description = TaskDescriptionEnhancer.enhance_task_description(task_description, execution_context)
-            
-            # Execute CrewAI task with timeout
+            # Execute CrewAI task with timeout - task description is already enhanced in crew_agents.py
             result = await asyncio.wait_for(
-                crew.execute_task(enhanced_task_description, execution_context),
+                crew.execute_task(task_description, execution_context),
                 timeout=timeout_seconds
             )
 
@@ -245,25 +288,14 @@ If the problem persists, please contact your team administrator."""
 
             return result
 
+        except asyncio.TimeoutError as e:
+            logger.error(f"⏰ Timeout after {timeout_seconds}s for team {team_id}")
+            raise CrewTimeoutError(f"Task execution timed out after {timeout_seconds} seconds for team {team_id}") from e
+            
         except Exception as e:
             logger.error(f"❌ Crew execution failed for team {team_id}: {e}")
             import traceback
             logger.error(f"❌ Crew error traceback: {traceback.format_exc()}")
-
-            # Handle specific error types
-            if isinstance(e, asyncio.TimeoutError):
-                logger.error(f"⏰ Timeout after {timeout_seconds}s for team {team_id}")
-                return self._generate_formatted_response(
-                    title=f"⏰ Execution Timeout ({timeout_seconds}s)",
-                    problem_summary="I've been processing your request and need to stop to prevent system overload. This usually happens when the request is very complex or the system is under heavy load.",
-                    task_description=task_description,
-                    suggestions=[
-                        "Try breaking down your request into smaller parts.",
-                        "Use specific commands instead of natural language.",
-                        "Wait a few minutes and try again."
-                    ],
-                    commands_to_show=["/help", "/info", "/list"]
-                )
 
             # Check if it's a max iterations error
             if "Maximum iterations reached" in str(e) or "max_iter" in str(e).lower():
@@ -279,19 +311,8 @@ If the problem persists, please contact your team administrator."""
                     commands_to_show=["/help", "/info", "/list"]
                 )
 
-            # For all other errors, provide a generic error response
-            logger.error(f"❌ Unexpected crew error for team {team_id}: {e}")
-            return self._generate_formatted_response(
-                title="❌ Processing Error",
-                problem_summary="I encountered an error while processing your request. This might be due to a temporary system issue, invalid input, or missing permissions.",
-                task_description=task_description,
-                suggestions=[
-                    "Try again in a few moments.",
-                    "Use a different command format.",
-                    "Check if you have the right permissions."
-                ],
-                commands_to_show=["/help", "/info", "/list"]
-            )
+            # For all other errors, raise as CrewError
+            raise CrewError(f"Unexpected crew error for team {team_id}: {e}") from e
 
     def _update_response_time_metrics(self, metrics: CrewMetrics, response_time: float) -> None:
         """Update response time metrics."""
@@ -303,10 +324,28 @@ If the problem persists, please contact your team administrator."""
         """Update agent health metrics."""
         health_status = crew.health_check()
         metrics.agent_health = health_status.get("agents", {})
-        metrics.memory_usage = {
-            "conversation_count": len(crew.team_memory._conversation_history),
-            "user_count": len(crew.team_memory._telegram_memories),
-        }
+        
+        # Handle memory usage - simplified TeamManagementSystem doesn't have team_memory
+        try:
+            if hasattr(crew, 'team_memory') and crew.team_memory is not None:
+                metrics.memory_usage = {
+                    "conversation_count": len(crew.team_memory._conversation_history),
+                    "user_count": len(crew.team_memory._telegram_memories),
+                }
+            else:
+                # Simplified system - no memory tracking
+                metrics.memory_usage = {
+                    "conversation_count": 0,
+                    "user_count": 0,
+                    "note": "Simplified system - memory tracking disabled"
+                }
+        except Exception as e:
+            logger.warning(f"⚠️ Could not update memory metrics for team {team_id}: {e}")
+            metrics.memory_usage = {
+                "conversation_count": 0,
+                "user_count": 0,
+                "error": "Memory metrics unavailable"
+            }
 
     def _update_failure_metrics(self, team_id: str) -> None:
         """Update failure metrics."""

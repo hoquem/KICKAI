@@ -84,7 +84,7 @@ ERROR_MESSAGES = {
     "INVALID_FORMAT": "❌ Invalid Format\n\nI need both a player name and phone number.",
     "NAME_TOO_SHORT": "❌ Name too short\n\n💡 Player name must be at least {min_length} characters long.",
     "INVALID_PHONE_FORMAT": "❌ Invalid phone number\n\n📱 Please use UK format:\n• +447123456789\n• 07123456789\n\n🔍 You provided: {phone}",
-    "DUPLICATE_PHONE": "❌ Phone Number Already Registered\n\n📱 {phone} is already used by: **{existing_name}**",
+    "DUPLICATE_PHONE": "❌ Phone Number Already Registered\n\n📱 {phone} is already used by: {existing_name}",
     "PERMISSION_REQUIRED": "❌ Permission Required\n\n🔒 Adding players is a leadership function.",
     "ADDPLAYER_SYSTEM_ERROR": "❌ System Error\n\n🛠️ Failed to add player: {error}",
 
@@ -103,7 +103,7 @@ SUCCESS_MESSAGES = {
     "PLAYER_APPROVED": "✅ Player {name} approved and activated successfully",
 
     # AddPlayer Command Specific Messages
-    "PLAYER_ADDED_WITH_INVITE": """✅ **Player Added Successfully!**
+    "PLAYER_ADDED_WITH_INVITE": """✅ Player Added Successfully!
 
 👤 PLAYER DETAILS:
 • Name: {name}
@@ -117,14 +117,14 @@ SUCCESS_MESSAGES = {
 ⏰ Expires: {expires_at}
 🔄 Usage: One-time use only
 
-📋 **Next Steps:**
+📋 Next Steps:
 1. Send the invite link to {name}
 2. Player joins main chat via link
 3. Player uses /update to set position and details
 4. Player is ready to participate!""",
 
     # AddMember Command Specific Messages
-    "MEMBER_ADDED_WITH_INVITE": """✅ **Team Member Added Successfully!**
+    "MEMBER_ADDED_WITH_INVITE": """✅ Team Member Added Successfully!
 
 👔 MEMBER DETAILS:
 • Name: {name}
@@ -139,7 +139,7 @@ SUCCESS_MESSAGES = {
 ⏰ Expires: {expires_at}
 🔄 Usage: One-time use only
 
-📋 **Next Steps:**
+📋 Next Steps:
 1. Send the invite link to {name}
 2. Member joins leadership chat via link → Status automatically becomes "Active"
 3. Member gains access to admin commands and team management features

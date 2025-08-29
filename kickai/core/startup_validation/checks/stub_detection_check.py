@@ -47,20 +47,20 @@ class StubDetectionCheck(BaseCheck):
 
                 router = AgenticMessageRouter(team_id="TEST")
 
-                # Check if it has the real methods (route_command was intentionally removed during consolidation)
+                # Check if it has the real methods (updated to match current implementation)
                 if not hasattr(router, "route_message"):
                     stub_detections.append("AgenticMessageRouter missing route_message method")
-                if not hasattr(router, "convert_telegram_update_to_message"):
-                    stub_detections.append(
-                        "AgenticMessageRouter missing convert_telegram_update_to_message method"
-                    )
-                if not hasattr(router, "_get_unrecognized_command_message"):
-                    stub_detections.append(
-                        "AgenticMessageRouter missing _get_unrecognized_command_message method"
-                    )
+                if not hasattr(router, "route_contact_share"):
+                    stub_detections.append("AgenticMessageRouter missing route_contact_share method")
+                if not hasattr(router, "_process_message"):
+                    stub_detections.append("AgenticMessageRouter missing _process_message method")
+                if not hasattr(router, "_execute_crew_task"):
+                    stub_detections.append("AgenticMessageRouter missing _execute_crew_task method")
+                if not hasattr(router, "get_metrics"):
+                    stub_detections.append("AgenticMessageRouter missing get_metrics method")
                 else:
                     implementation_validations.append(
-                        "AgenticMessageRouter has all required methods (route_command intentionally removed)"
+                        "AgenticMessageRouter has all required methods (route_message, route_contact_share, _process_message, _execute_crew_task, get_metrics)"
                     )
 
             except Exception as e:

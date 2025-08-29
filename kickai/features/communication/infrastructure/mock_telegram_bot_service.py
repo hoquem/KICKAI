@@ -397,13 +397,25 @@ class MockTelegramBotService(TelegramBotServiceInterface):
             message_text = response.message
             
             if response.success:
-                # Format JSON responses for human readability (same as real telegram service)
-                from kickai.features.communication.domain.services.response_formatter import ResponseFormatter
-                formatter = ResponseFormatter()
-                formatted_text = formatter.format_for_telegram(message_text)
+                # Parse JSON response to extract the actual message content
+                try:
+                    import json
+                    parsed_response = json.loads(message_text)
+                    if isinstance(parsed_response, dict):
+                        if "data" in parsed_response:
+                            formatted_text = parsed_response["data"]
+                        elif "message" in parsed_response:
+                            formatted_text = parsed_response["message"]
+                        else:
+                            formatted_text = message_text
+                    else:
+                        formatted_text = message_text
+                except (json.JSONDecodeError, TypeError):
+                    # If not JSON, use the message text directly
+                    formatted_text = message_text
                 
                 await update.message.reply_text(formatted_text)
-                logger.info(f"✅ Mock response sent (formatted): {formatted_text[:100]}...")
+                logger.info(f"✅ Mock response sent: {formatted_text[:100]}...")
             else:
                 await update.message.reply_text(f"❌ {message_text}")
                 logger.warning(f"⚠️ Mock error response sent: {message_text}")

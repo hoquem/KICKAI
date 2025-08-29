@@ -1,169 +1,136 @@
-# CLAUDE.md - KICKAI AI Football Team Management System
+# CLAUDE.md
 
-**Version:** 3.1 | **Python:** 3.11+ (MANDATORY) | **Architecture:** 6-Agent CrewAI Native Collaboration System with **Intelligent NLP Routing**
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-This file provides guidance to Claude Code (claude.ai/code) when working with the KICKAI codebase. For detailed documentation, refer to the domain-specific files in the `CLAUDEMD/` directory.
+**KICKAI v3.1** | **Python 3.11+** | **5-Agent CrewAI System** | **Native CrewAI Routing**
 
-## 🚀 Quick Start
+## 🚀 Essential Commands
 
 ```bash
-# Essential Commands
-make dev                           # Start development server  
+# Core Development
+export PYTHONPATH=. && export KICKAI_INVITE_SECRET_KEY=test-key  # Always required
+make dev                           # Development server
+make test                         # All tests (unit + integration + e2e)  
+make lint                         # Code quality (ruff + mypy + type check)
+
+# Testing & Debugging
 PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py  # Mock UI (localhost:8001)
-make test                          # All tests (unit + integration + e2e)
-make lint                          # Code quality (ruff + mypy)
-PYTHONPATH=. python scripts/run_health_checks.py  # System health validation
+PYTHONPATH=. python scripts/run_health_checks.py            # System health validation
+PYTHONPATH=. python -m pytest tests/unit/features/[feature]/test_[component].py::test_[function] -v -s
+
+# Single Test Examples
+PYTHONPATH=. python -m pytest tests/integration/features/team_administration/ -v
+PYTHONPATH=. python -m pytest tests/e2e/features/test_cross_feature_flows.py -k "player_registration" -v
 ```
 
-## 📚 Documentation Structure
+## 🏗️ Architecture Quick Reference
 
-### Core Architecture & Design
-- **[Agentic Design](CLAUDEMD/agentic-design.md)** - 6-agent CrewAI native collaboration with NLP_PROCESSOR intelligent routing
-- **[Development Patterns](CLAUDEMD/development-patterns.md)** - Tool patterns, service layers, coding standards, common issues
+**5-Agent CrewAI System:**
+1. **MESSAGE_PROCESSOR** - Primary interface with **native LLM routing**
+2. **HELP_ASSISTANT** - `/help`, command guidance
+3. **PLAYER_COORDINATOR** - `/update`, `/info`, `/myinfo`, `/status`
+4. **TEAM_ADMINISTRATOR** - `/addplayer`, `/addmember` (leadership only)
+5. **SQUAD_SELECTOR** - `/availability`, match management
 
-### Integration & Communication  
-- **[Telegram Integration](CLAUDEMD/telegram-integration.md)** - Bot API, command processing, message routing, permissions
-- **[Database](CLAUDEMD/database.md)** - Firebase patterns, migrations, repository design, data access rules
+**Clean Architecture Structure:**
+```
+kickai/features/[feature]/
+├── application/tools/    # @tool decorators (CrewAI interface)
+├── domain/
+│   ├── services/        # Pure business logic  
+│   ├── entities/        # Business objects
+│   └── repositories/    # Interfaces only
+└── infrastructure/      # Firebase implementations
+```
 
-### Testing & Development
-- **[Mock Testing](CLAUDEMD/mock-testing.md)** - Mock Telegram UI, test frameworks, user simulation, interactive testing
-- **[SDLC](CLAUDEMD/sdlc.md)** - Testing strategy, CI/CD pipeline, deployment, health validation
-- **[Environment Setup](CLAUDEMD/environment-setup.md)** - Configuration, dependencies, Python 3.11+ requirements
+## 📖 Extended Documentation
 
-## ⚡ Critical Rules (Quick Reference)
+**Load selectively for token efficiency:**
+- **[Agents](CLAUDEMD/agentic-design.md)** (280w) - 6-agent collaboration, routing
+- **[Patterns](CLAUDEMD/development-patterns.md)** (320w) - Tools, services, standards
+- **[Telegram](CLAUDEMD/telegram-integration.md)** (180w) - Bot API, commands
+- **[Database](CLAUDEMD/database.md)** (240w) - Firebase, migrations
+- **[Testing](CLAUDEMD/mock-testing.md)** (200w) - Mock UI, frameworks
+- **[Deploy](CLAUDEMD/sdlc.md)** (260w) - CI/CD, health checks
 
-### Clean Architecture Tool Pattern ✅ (Migration Complete)
+## ⚡ Development Rules
 
-**✅ Application Layer Tool (with @tool decorator):**
+**Clean Architecture (Complete Migration ✅):**
+- Application: `@tool` decorators only
+- Domain: Pure business logic, no framework deps  
+- Infrastructure: Firebase, external services
+
+**Tool Pattern:**
 ```python
-# kickai/features/*/application/tools/*.py
-@tool("tool_name", result_as_answer=True)
-async def tool_name(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
-    """Application layer CrewAI tool that delegates to domain layer."""
-    return await tool_name_domain(telegram_id, team_id, username, chat_type)
+# Application: kickai/features/*/application/tools/
+@tool("name", result_as_answer=True)
+async def name(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
+    return await name_domain(telegram_id, team_id, username, chat_type)
+
+# Domain: kickai/features/*/domain/tools/  
+async def name_domain(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
+    service = get_container().get_service(ServiceClass)
+    return create_json_response(ResponseStatus.SUCCESS, data=await service.method())
 ```
 
-**✅ Domain Layer Function (pure business logic):**
-```python
-# kickai/features/*/domain/tools/*.py
-# REMOVED: @tool decorator - this is now a domain service function only
-# Application layer provides the CrewAI tool interface
-async def tool_name_domain(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
-    """Pure domain business logic with no framework dependencies."""
-    try:
-        container = get_container()  # DI resolution in domain
-        service = container.get_service(ServiceClass)
-        result = await service.method_name(param=value)
-        return create_json_response(ResponseStatus.SUCCESS, data=result)
-    except Exception as e:
-        return create_json_response(ResponseStatus.ERROR, message=str(e))
-```
+**Essential Rules:**
+- Always: `async def`, `PYTHONPATH=.`, dependency injection
+- Types: `telegram_id` = int, `team_id` = str
+- Never: Framework deps in domain, direct DB access
 
-### Clean Architecture Compliance ✅ (January 2025)
-- **✅ 62 @tool decorators migrated** from domain to application layer
-- **✅ Zero framework dependencies** in domain layer  
-- **✅ Complete layer separation** achieved
-- **Application Layer:** CrewAI tools with framework concerns
-- **Domain Layer:** Pure business logic functions (no @tool decorators) 
-- **Domain Layer:** Pure business logic, NO container dependencies, constructor injection only
-- **Infrastructure Layer:** Database access, external services, Firebase repositories
-- **Tool Location:** All tools in `application/tools/`, NOT `domain/tools/`
-
-### Absolute Development Rules
-- **Always:** `async def` for tools, `PYTHONPATH=.` when running, dependency injection patterns
-- **Never:** `get_container()` in domain services, direct database access, legacy fields
-- **Types:** `telegram_id` must be `int`, `team_id` is `str`
-
-## 🏗️ Architecture Overview
-
-### 6-Agent CrewAI Native Collaboration System
-1. **MESSAGE_PROCESSOR** - Interface orchestrator and response coordinator
-2. **NLP_PROCESSOR** - **PRIMARY ROUTING INTELLIGENCE** with advanced intent analysis
-3. **PLAYER_COORDINATOR** - Player operations (`/update`, `/info`, `/myinfo`, `/status`)
-4. **TEAM_ADMINISTRATOR** - Team management (`/addmember`, `/addplayer`)
-5. **SQUAD_SELECTOR** - Match management, availability, squad selection
-6. **HELP_ASSISTANT** - Help system (`/help`, command discovery)
-
-### CrewAI Native Collaboration Flow
-```
-USER MESSAGE 
-    ↓
-📱 AgenticMessageRouter (Entry Point)
-    ↓
-🔄 CrewLifecycleManager 
-    ↓
-🎯 TeamManagementSystem.execute_task()
-    ↓
-🧠 INTELLIGENT ROUTING: _route_command_to_agent()
-    ├── PRIMARY: NLP_PROCESSOR analyzes intent & recommends specialist
-    │   ├── Uses: advanced_intent_recognition
-    │   ├── Uses: analyze_update_context
-    │   └── Uses: routing_recommendation_tool
-    └── FALLBACK: Rule-based routing (only if NLP fails)
-    ↓
-👤 SELECTED SPECIALIST AGENT executes task
-    ├── PLAYER_COORDINATOR (for /update, /info, /status)
-    ├── TEAM_ADMINISTRATOR (for /addmember, /addplayer)  
-    ├── SQUAD_SELECTOR (for /attendance, /availability)
-    ├── HELP_ASSISTANT (for /help)
-    └── MESSAGE_PROCESSOR (for /ping, /version, /list)
-    ↓
-📤 Response coordinated through MESSAGE_PROCESSOR
-```
-
-### Architecture Highlights
-- **TRUE CREWAI COLLABORATION**: NLP_PROCESSOR provides intelligent routing analysis
-- **SPECIALIST EXECUTION**: Right agent handles each request type
-- **INTELLIGENT FALLBACK**: Rule-based routing when AI collaboration fails
-- **UNIFIED INTERFACE**: MESSAGE_PROCESSOR orchestrates all responses
-
-## 🔧 Common Issues & Quick Fixes
+## 🔧 Quick Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| Tool not executing | Export tool from feature's `__init__.py` |
-| Import errors | Always use `PYTHONPATH=.` when running |
-| Service not available | Check `ensure_container_initialized()` |
-| Python version errors | Must use Python 3.11+ with `venv311` |
+| Tool not found | Export from feature `__init__.py` |
+| Import errors | Use `PYTHONPATH=.` |
+| Service unavailable | Run `ensure_container_initialized()` |
+| Python version | Must use 3.11+ with `venv311` |
+| Tests fail | Check Firebase test data, verify mocks |
 
-## 📍 Key File Locations
-
-### Core System
-- `kickai/agents/agentic_message_router.py` - Central router with CrewAI collaboration
-- `kickai/agents/crew_agents.py` - 6-agent CrewAI native collaboration system  
-- `kickai/config/agents.yaml` - Agent definitions with intelligent routing
-- `kickai/core/dependency_container.py` - Service container and DI system
-
-### Clean Architecture Structure
-- `kickai/features/*/application/tools/` - Application layer tools (CrewAI @tool)
-- `kickai/features/*/domain/services/` - Pure business logic services
-- `kickai/features/*/domain/repositories/` - Repository interfaces
-- `kickai/features/*/infrastructure/` - Database implementations, external services
-
-## 🔥 Claude Code Token Optimization
-
-**IMPORTANT FOR CLAUDE CODE MODELS**: Use selective documentation loading to minimize token consumption:
-
-### Token-Efficient Usage Patterns
+**System Health Check:**
 ```bash
-# Base context (always include)
-CLAUDE.md (475 words) - Essential commands, rules, architecture overview
-
-# Domain-specific additions (load only when needed)
-+ agentic-design.md (340 words)     # Agent system, routing, collaboration
-+ development-patterns.md (440 words) # Tools, services, coding standards  
-+ telegram-integration.md (219 words) # Bot API, commands, messaging
-+ database.md (314 words)           # Firebase, migrations, data access
-+ mock-testing.md (276 words)       # Mock UI, testing frameworks
-+ sdlc.md (367 words)              # Testing strategy, CI/CD, deployment
-+ environment-setup.md (342 words)  # Configuration, dependencies, setup
+# Run frequently for validation
+PYTHONPATH=. python scripts/run_health_checks.py
+make health-check
 ```
 
-### Optimization Strategy
-- **60-80% token reduction** vs. loading full documentation
-- **Load base + domain-specific only**: Agent work → +agentic-design.md | Testing → +mock-testing.md+sdlc.md | Database → +database.md+development-patterns.md
-- **Dynamic loading**: Analyze task requirements to determine minimal needed documentation
+**Emergency Debug:**
+```bash
+# Quick system validation
+PYTHONPATH=. python -c "
+from kickai.core.dependency_container import ensure_container_initialized
+ensure_container_initialized(); print('✅ System OK')
+"
+
+# Tool registry check  
+PYTHONPATH=. python -c "
+from kickai.agents.tool_registry import initialize_tool_registry
+print(f'✅ Tools: {len(initialize_tool_registry().get_all_tools())}')
+"
+```
+
+## 📍 Key Files
+
+**Core System:**
+- `kickai/agents/agentic_message_router.py` - Entry point router
+- `kickai/agents/crew_agents.py` - 6-agent system
+- `kickai/core/dependency_container.py` - DI container
+- `kickai/config/agents.yaml` - Agent configurations
+
+**Testing & Development:**
+- `tests/mock_telegram/start_mock_tester.py` - Interactive testing UI
+- `scripts/run_health_checks.py` - System validation
+- `Makefile` - Development commands
+
+## 💡 Token Optimization Guide
+
+**Base context (380 words):** This file contains essential commands and architecture
+**Extended docs:** Load only when needed:
+- Agents (280w) | Patterns (320w) | Telegram (180w) | Database (240w) | Testing (200w) | Deploy (260w)
+
+**Usage strategy:** Base + 1-2 relevant files = 60-80% token reduction vs full docs
 
 ---
 
-**Note:** This is the optimized index file. For comprehensive documentation on specific domains, refer to the dedicated files in the `CLAUDEMD/` directory. Each file is designed for Claude Code token efficiency while maintaining complete technical accuracy.
+**KICKAI v3.1** - 5-Agent CrewAI System with Native Routing and Complete Clean Architecture

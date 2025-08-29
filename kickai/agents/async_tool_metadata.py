@@ -311,74 +311,40 @@ class AsyncContextInjector:
         tool_registry: AsyncToolRegistry,
         agent_tool_names: list[str]
     ) -> str:
-        """Generate dynamic task description with async tool documentation."""
+        """Generate clean, token-efficient task description with optimal parameter passing instructions."""
         try:
-            # Generate tool documentation dynamically
-            tools_documentation = tool_registry.generate_tools_documentation(agent_tool_names)
-
-            # All tools are now async - simplified architecture
-            async_tools = []
-
-            for tool_name in agent_tool_names:
-                if tool_name in tool_registry.metadata:
-                    async_tools.append(tool_name)
-
-            # Build architecture notes - all tools are async
-            architecture_note = f"Architecture: 100% async tools ({len(async_tools)} tools awaited by CrewAI)"
-
-            # Context-aware tool selection guidance
+            # Format tools with function signatures for clarity
+            tool_signatures = AsyncContextInjector._format_tool_signatures(
+                agent_tool_names, tool_registry, context
+            )
+            
+            # Count available tools
+            available_tools_count = len([name for name in agent_tool_names if name in tool_registry.tools])
+            
+            # Context-aware tool selection guidance (simplified)
             context_guidance = AsyncContextInjector._generate_context_aware_guidance(
                 context['chat_type'], agent_tool_names
             )
 
-            return f"""
-User Request: {user_request}
+            return f"""## CONTEXT
+User: {context['username']} (ID: {context['telegram_id']})
+Team: {context['team_id']}
+Chat: {context['chat_type']}
 
-Context (must be passed explicitly to tools):
-- User: {context['username']} (telegram_id: {context['telegram_id']})
-- Team: {context['team_id']}
-- Chat: {context['chat_type']}
+## TASK
+{user_request}
 
-Available Tools:
-{tools_documentation}
+## CALLING PATTERN
+All tools follow: tool_name({context['telegram_id']}, "{context['team_id']}", "{context['username']}", "{context['chat_type']}", ...params)
 
-{architecture_note}
+Example: add_player({context['telegram_id']}, "{context['team_id']}", "{context['username']}", "{context['chat_type']}", "John Smith", "+447123456789")
 
-CONTEXT-AWARE TOOL SELECTION:
+## AVAILABLE TOOLS ({available_tools_count} async tools)
+{tool_signatures}
+
 {context_guidance}
 
-CRITICAL PARAMETER PASSING INSTRUCTIONS:
-When calling ANY tool, you MUST pass parameters as INDIVIDUAL ARGUMENTS, not as a dictionary.
-
-For example, to call update_player_field:
-CORRECT: update_player_field({context['telegram_id']}, "{context['team_id']}", "{context['username']}", "{context['chat_type']}", "position", "Goalkeeper")
-WRONG: update_player_field({{"field": "position", "value": "Goalkeeper"}})
-
-Standard parameter order for ALL tools:
-1. telegram_id: {context['telegram_id']} (integer)
-2. team_id: "{context['team_id']}" (string)
-3. username: "{context['username']}" (string)
-4. chat_type: "{context['chat_type']}" (string)
-5. [tool-specific parameters...]
-
-Instructions:
-1. Analyze the user's request AND chat context to select the most appropriate tool
-2. Use the Context-Aware Tool Selection guidance above for optimal tool choice
-3. ALWAYS pass context parameters as INDIVIDUAL ARGUMENTS when calling any tool:
-   - telegram_id: {context['telegram_id']}
-   - team_id: "{context['team_id']}"
-   - username: "{context['username']}"
-   - chat_type: "{context['chat_type']}"
-4. Then pass any tool-specific parameters as INDIVIDUAL ARGUMENTS after the context parameters
-5. Return the exact tool output without modification
-
-Important:
-- CrewAI will handle async/sync execution automatically
-- For data requests, you MUST use a tool - never provide fabricated data
-- Context determines tool selection: main chat vs leadership chat requires different information
-- Tool outputs are final - do not add, modify, or reformat the response
-- NEVER pass parameters as dictionaries - always as individual arguments
-"""
+Execute the appropriate tool and return its exact output."""
 
         except Exception as e:
             logger.error(f"❌ Failed to create dynamic task description: {e}")
@@ -395,85 +361,91 @@ Instructions: Use available tools to respond to the user's request.
 """
 
     @staticmethod
-    def _generate_context_aware_guidance(chat_type: str, agent_tool_names: list[str]) -> str:
-        """Generate context-aware tool selection guidance with command intent recognition."""
+    def _format_tool_signatures(
+        agent_tool_names: list[str], 
+        tool_registry: AsyncToolRegistry, 
+        context: dict
+    ) -> str:
+        """Format tools as function signatures for clarity."""
         try:
-            # Normalize chat type for consistent comparison
-            chat_type_lower = chat_type.lower()
-
-            guidance_parts = []
-
-            # Check available tools for intent-based guidance
+            signatures = []
+            
+            for tool_name in agent_tool_names:
+                if tool_name in tool_registry.metadata:
+                    meta = tool_registry.metadata[tool_name]
+                    
+                    # Build function signature
+                    params = ["telegram_id: int", "team_id: str", "username: str", "chat_type: str"]
+                    
+                    # Add tool-specific parameters with types if available
+                    if meta.tool_specific_params:
+                        for param in meta.tool_specific_params:
+                            params.append(f"{param}: str")
+                    
+                    signature = f"- {tool_name}({', '.join(params)})"
+                    
+                    # Add brief description if available
+                    if meta.description:
+                        # Keep description concise (first sentence only)
+                        desc = meta.description.split('.')[0] + '.'
+                        if len(desc) > 80:
+                            desc = desc[:77] + "..."
+                        signature += f"  # {desc}"
+                    
+                    signatures.append(signature)
+                else:
+                    # Fallback for tools without metadata
+                    signatures.append(f"- {tool_name}(telegram_id: int, team_id: str, username: str, chat_type: str, ...)")
+            
+            return '\n'.join(signatures)
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to format tool signatures: {e}")
+            return '\n'.join([f"- {name}" for name in agent_tool_names])
+    
+    @staticmethod
+    def _generate_context_aware_guidance(chat_type: str, agent_tool_names: list[str]) -> str:
+        """Generate concise context-aware tool selection guidance."""
+        try:
+            # Check available tools for guidance
             has_get_my_status = 'get_my_status' in agent_tool_names
             has_active_players = 'get_active_players' in agent_tool_names
             has_list_all = 'list_team_members_and_players' in agent_tool_names
             has_player_status = 'get_player_status' in agent_tool_names
+            has_update_player_field = 'update_player_field' in agent_tool_names
+            has_update_multiple_fields = 'update_player_multiple_fields' in agent_tool_names
 
-            # Add command intent recognition guidance
-            guidance_parts.extend([
-                "🎯 COMMAND INTENT RECOGNITION (PRIORITIZE THIS):",
-                "",
-                "📋 PERSONAL INFO COMMANDS → Use personal status tools:",
-            ])
-
-            if has_get_my_status:
-                guidance_parts.extend([
-                    "• /myinfo, /info, /status (no parameters) → Use 'get_my_status'",
-                    "  Intent: User wants their own status/information",
-                    "  Tool: get_my_status provides personal player status"
-                ])
-
-            if has_player_status:
-                guidance_parts.extend([
-                    "• /status [name/phone] → Use 'get_player_status'",
-                    "  Intent: User wants specific player information",
-                    "  Tool: get_player_status for individual player queries"
-                ])
-
-            guidance_parts.extend([
-                "",
-                "📝 LIST COMMANDS → Use appropriate list tools:",
-            ])
-
-            # Only show list guidance when agent has list tools AND this is for list commands
+            guidance = []
+            
+            # Intent recognition (simplified)
+            if has_get_my_status or has_player_status:
+                guidance.append("👤 PERSONAL: /myinfo, /info, /status → get_my_status")
+                if has_player_status:
+                    guidance.append("👥 SPECIFIC: /status [name/phone] → get_player_status")
+            
+            # Update commands guidance
+            if has_update_player_field or has_update_multiple_fields:
+                if has_update_player_field:
+                    guidance.append("✏️ UPDATE SINGLE: /update [field] [value] → update_player_field")
+                if has_update_multiple_fields:
+                    guidance.append("✏️ UPDATE MULTIPLE: bulk updates → update_player_multiple_fields")
+            
+            # Context-based list tools
             if has_active_players and has_list_all:
-                if chat_type_lower in ['main', 'main_chat']:
-                    guidance_parts.extend([
-                        "• /list, /players, list requests in MAIN → Use 'get_active_players'",
-                        "  Intent: User wants to see available players for match planning",
-                        "  Rationale: Main chat focuses on active players for selection"
-                    ])
-                elif chat_type_lower in ['leadership', 'leadership_chat']:
-                    guidance_parts.extend([
-                        "• /list, /members, list requests in LEADERSHIP → Use 'list_team_members_and_players'",
-                        "  Intent: User wants comprehensive team overview",
-                        "  Rationale: Leadership needs full team roster with roles and status"
-                    ])
-                else:
-                    guidance_parts.extend([
-                        "• /list, list requests → Use 'get_active_players'",
-                        "  Intent: General list request",
-                        "  Rationale: Default to active players for safety"
-                    ])
-
-            guidance_parts.extend([
-                "",
-                "🧠 TOOL SELECTION PRIORITY:",
-                "1. FIRST: Identify command INTENT (personal vs list vs management)",
-                "2. SECOND: Consider chat context for list commands only",
-                "3. THIRD: Select most specific tool for the user's actual need",
-                "",
-                "⚠️ CRITICAL: /myinfo is ALWAYS personal info → ALWAYS use get_my_status",
-                f"• Current context: {chat_type} chat",
-                "• Match tool capabilities to user's actual intent",
-                "• Personal commands take precedence over context rules"
-            ])
-
-            return "\n".join(guidance_parts)
+                chat_lower = chat_type.lower()
+                if chat_lower in ['main', 'main_chat']:
+                    guidance.append("📋 MAIN CHAT: /list → get_active_players (match planning)")
+                elif chat_lower in ['leadership', 'leadership_chat']:
+                    guidance.append("📋 LEADERSHIP: /list → list_team_members_and_players (full roster)")
+            
+            if guidance:
+                return "## TOOL SELECTION\n" + "\n".join(guidance)
+            else:
+                return f"## CONTEXT\nChat: {chat_type} - Select appropriate tool for request"
 
         except Exception as e:
             logger.warning(f"⚠️ Failed to generate context guidance: {e}")
-            return f"Context: {chat_type} chat - Use appropriate tools based on context"
+            return f"Context: {chat_type} chat"
 
     @staticmethod
     def validate_context(context: dict) -> bool:

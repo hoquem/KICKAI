@@ -118,6 +118,18 @@ class SimpleLLMFactory:
             timeout=settings.ai_timeout,
         )
 
+    @staticmethod
+    def create_from_environment() -> Any:
+        """
+        Create an LLM instance using environment-based configuration.
+        
+        This method provides backward compatibility with the old LLMFactory interface.
+        
+        Returns:
+            LangChain-compatible LLM instance
+        """
+        return SimpleLLMFactory.create_llm()
+
 
 # Backward compatibility
 RateLimitedLLMFactory = SimpleLLMFactory
