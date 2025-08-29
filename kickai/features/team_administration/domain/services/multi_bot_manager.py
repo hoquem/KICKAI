@@ -18,7 +18,7 @@ class MultiBotManager:
     """
 
     def __init__(self, data_store: Any, team_service: Any):
-        logger.debug("DEBUG: MultiBotManager.__init__ called")
+        logger.debug("DEBUG: MultiBotManager._init_ called")
         self.data_store = data_store
         self.team_service = team_service
         self.bots: dict[str, Any] = {}
@@ -27,7 +27,7 @@ class MultiBotManager:
         self.crew_lifecycle_manager = get_crew_lifecycle_manager()
         self._running = False
         self.logger = logging.getLogger(__name__)
-        logger.debug("DEBUG: MultiBotManager.__init__ completed")
+        logger.debug("DEBUG: MultiBotManager._init_ completed")
 
     async def initialize(self) -> None:
         """Initialize the multi-bot manager."""

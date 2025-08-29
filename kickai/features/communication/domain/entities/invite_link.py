@@ -41,7 +41,7 @@ class InviteLink:
     created_at: Optional[datetime] = None
     used_at: Optional[datetime] = None
     
-    def __post_init__(self):
+    def _post_init_(self):
         """Set defaults and validate after initialization."""
         if self.created_at is None:
             self.created_at = datetime.utcnow()
@@ -127,11 +127,11 @@ class InviteLink:
             return datetime.fromisoformat(value)
         return value
     
-    def __str__(self) -> str:
+    def _str_(self) -> str:
         """String representation for debugging."""
         return f"InviteLink(invite_id={self.invite_id}, member_name={self.member_name}, status={self.status.value})"
     
-    def __repr__(self) -> str:
+    def _repr_(self) -> str:
         """Detailed representation for debugging."""
         return (f"InviteLink(invite_id='{self.invite_id}', team_id='{self.team_id}', "
                 f"member_name='{self.member_name}', status={self.status.value})")

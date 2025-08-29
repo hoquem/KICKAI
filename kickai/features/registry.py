@@ -149,15 +149,15 @@ class ServiceFactory:
         team_member_repo = self.container.get_service(TeamMemberRepositoryInterface)
         logger.debug("🔍 Got team member repository from container")
 
-        # Create invite link service with database (global service in registry)
-        invite_service = InviteLinkService(database=self.database, team_id=None)
-        logger.debug("🔍 Created InviteLinkService")
-
+        # NOTE: InviteLinkService is now team-specific and should not be created globally
+        # It will be created when needed with proper team_id in the services that require it
+        
         # Create team member services with proper dependency injection
         team_member_service = TeamMemberService(team_member_repo)
         logger.debug("🔍 Created TeamMemberService")
 
-        simplified_service = SimplifiedTeamMemberService(team_member_repo, team_service, invite_service)
+        # SimplifiedTeamMemberService will create its own InviteLinkService instance when needed
+        simplified_service = SimplifiedTeamMemberService(team_member_repo, team_service)
         logger.debug("🔍 Created SimplifiedTeamMemberService")
 
         management_service = TeamMemberManagementService(team_member_repo, simplified_service, team_member_service)
@@ -169,7 +169,7 @@ class ServiceFactory:
         self.container.register_service(TeamMemberService, team_member_service)
         self.container.register_service(SimplifiedTeamMemberService, simplified_service)
         self.container.register_service(TeamMemberManagementService, management_service)
-        self.container.register_service(InviteLinkService, invite_service)
+        # NOTE: InviteLinkService is team-specific and created on-demand, not registered globally
 
         # Debug: Verify registration
         logger.debug(f"✅ Registered TeamService: {type(team_service)}")
@@ -194,7 +194,7 @@ class ServiceFactory:
             "team_member_service": team_member_service,
             "simplified_team_member_service": simplified_service,
             "team_member_management_service": management_service,
-            "invite_service": invite_service
+            # NOTE: invite_service is team-specific, created on-demand
         }
 
     def create_player_registration_services(self):
@@ -506,8 +506,8 @@ class ServiceFactory:
         notification_repository = FirebaseNotificationRepository(self.database)
         notification_service = NotificationService(notification_repository)
 
-        # Create invite link service (bot token will be set later from Firestore)
-        invite_link_service = InviteLinkService(bot_token=None, database=self.database, team_id=None)
+        # NOTE: InviteLinkService is team-specific and will be created when needed
+        # invite_link_service = InviteLinkService(bot_token=None, database=self.database, team_id=None)
 
         # Enhanced environment-based TelegramBotService selection with auto-detection
         use_mock_telegram = self._should_use_mock_telegram_service()
@@ -540,8 +540,9 @@ class ServiceFactory:
         self.container.register_service(IMessageService, message_service)
         self.container.register_service(NotificationService, notification_service)
         self.container.register_service(INotificationService, notification_service)
-        self.container.register_service(InviteLinkService, invite_link_service)
-        self.container.register_service(IInviteLinkService, invite_link_service)
+        # NOTE: InviteLinkService registration removed - services will create instances when needed
+        # self.container.register_service(InviteLinkService, invite_link_service)
+        # self.container.register_service(IInviteLinkService, invite_link_service)
         self.container.register_service(CommunicationService, communication_service)
         self.container.register_service(ICommunicationService, communication_service)
         
@@ -553,7 +554,7 @@ class ServiceFactory:
         return {
             "message_service": message_service,
             "notification_service": notification_service,
-            "invite_link_service": invite_link_service,
+            # "invite_link_service": invite_link_service,  # Removed - created when needed
             "communication_service": communication_service,
             "telegram_bot_service": telegram_bot_service,
         }

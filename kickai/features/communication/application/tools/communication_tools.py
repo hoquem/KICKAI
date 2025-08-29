@@ -11,9 +11,8 @@ from crewai.tools import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
-from kickai.core.enums import ResponseStatus
 from kickai.features.communication.domain.services.communication_service import CommunicationService
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 @tool("send_message", result_as_answer=True)
@@ -47,9 +46,7 @@ async def send_message(
 
         # Validate inputs at application boundary
         if not message or not message.strip():
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Message content is required"
+            return create_tool_response(False, "Message content is required"
             )
 
         # Get domain service from container and delegate to domain function
@@ -60,9 +57,7 @@ async def send_message(
         success = await communication_service.send_message(message, chat_type, team_id)
         
         if not success:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Failed to send message"
+            return create_tool_response(False, "Failed to send message"
             )
         
         response_data = {
@@ -75,11 +70,11 @@ async def send_message(
         }
 
         logger.info(f"✅ Message sent by {username}")
-        return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+        return create_tool_response(True, "Operation completed successfully", data=response_data)
 
     except Exception as e:
         logger.error(f"❌ Error sending message: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to send message: {e}")
+        return create_tool_response(False, f"Failed to send message: {e}")
 
 
 @tool("send_announcement", result_as_answer=True)
@@ -111,9 +106,7 @@ async def send_announcement(
 
         # Validate inputs at application boundary
         if not announcement or not announcement.strip():
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Announcement content is required"
+            return create_tool_response(False, "Announcement content is required"
             )
 
         # Get domain service from container and delegate to domain function
@@ -124,9 +117,7 @@ async def send_announcement(
         success = await communication_service.send_announcement(announcement, team_id)
         
         if not success:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Failed to send announcement"
+            return create_tool_response(False, "Failed to send announcement"
             )
         
         response_data = {
@@ -139,11 +130,11 @@ async def send_announcement(
         }
 
         logger.info(f"✅ Announcement sent by {username}")
-        return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+        return create_tool_response(True, "Operation completed successfully", data=response_data)
 
     except Exception as e:
         logger.error(f"❌ Error sending announcement: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to send announcement: {e}")
+        return create_tool_response(False, f"Failed to send announcement: {e}")
 
 
 @tool("send_poll", result_as_answer=True)
@@ -177,24 +168,18 @@ async def send_poll(
 
         # Validate inputs at application boundary
         if not poll_question or not poll_question.strip():
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Poll question is required"
+            return create_tool_response(False, "Poll question is required"
             )
         
         if not poll_options or not poll_options.strip():
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Poll options are required"
+            return create_tool_response(False, "Poll options are required"
             )
 
         # Parse poll options
         options_list = [opt.strip() for opt in poll_options.split(',') if opt.strip()]
         
         if len(options_list) < 2:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="At least 2 poll options are required"
+            return create_tool_response(False, "At least 2 poll options are required"
             )
 
         # Get domain service from container and delegate to domain function
@@ -205,9 +190,7 @@ async def send_poll(
         success = await communication_service.send_poll(poll_question, poll_options, team_id)
         
         if not success:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Failed to send poll"
+            return create_tool_response(False, "Failed to send poll"
             )
         
         response_data = {
@@ -221,8 +204,8 @@ async def send_poll(
         }
 
         logger.info(f"✅ Poll created by {username}")
-        return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+        return create_tool_response(True, "Operation completed successfully", data=response_data)
 
     except Exception as e:
         logger.error(f"❌ Error creating poll: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to create poll: {e}")
+        return create_tool_response(False, f"Failed to create poll: {e}")

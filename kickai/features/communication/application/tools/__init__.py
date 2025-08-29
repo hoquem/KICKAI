@@ -8,7 +8,7 @@ These tools serve as the application boundary and delegate to pure domain servic
 from .communication_tools import send_message, send_announcement
 
 # Export all tools for agent registration
-__all__ = [
+_all_ = [
     "send_message",
     "send_announcement"
 ]

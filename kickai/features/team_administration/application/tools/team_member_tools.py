@@ -12,10 +12,6 @@ from crewai.tools import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
-from kickai.core.enums import ResponseStatus
-from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
-from kickai.utils.tool_helpers import create_json_response
-from kickai.utils.tool_validation import create_tool_response
 
 
 @tool("add_team_member_simplified", result_as_answer=True)
@@ -42,10 +38,10 @@ async def add_team_member_simplified(
         phone_number: Phone number of the new team member
 
     Returns:
-        JSON formatted response with member creation result and invite link
+        Plain text response with member creation result and invite link
     """
     try:
-        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
+        # Handle CrewAI parameter dictionary passing (CrewAI best practice)
         if isinstance(telegram_id, dict):
             params = telegram_id
             telegram_id = params.get('telegram_id', 0)
@@ -55,96 +51,28 @@ async def add_team_member_simplified(
             member_name = params.get('member_name', '')
             phone_number = params.get('phone_number', '')
             
-            # Type conversion with robust error handling
+            # Type conversion with error handling
             if isinstance(telegram_id, str):
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_tool_response(
-                        False, 
-                        "Invalid telegram_id format"
-                    )
+                    return "❌ Invalid telegram_id format"
         
-        # Comprehensive parameter validation (CrewAI best practice)
-        if not telegram_id or telegram_id <= 0:
-            return create_tool_response(
-                False, 
-                "Valid telegram_id is required"
-            )
-        
-        if not team_id or not isinstance(team_id, str):
-            return create_tool_response(
-                False, 
-                "Valid team_id is required"
-            )
-            
-        if not username or not isinstance(username, str):
-            return create_tool_response(
-                False, 
-                "Valid username is required"
-            )
-            
-        if not chat_type or not isinstance(chat_type, str):
-            return create_tool_response(
-                False, 
-                "Valid chat_type is required"
-            )
+        # Basic parameter validation at application boundary
+        if not all([telegram_id, team_id, member_name, phone_number]):
+            return "❌ Missing required parameters: telegram_id, team_id, member_name, phone_number"
         
         logger.info(f"👥 Adding team member '{member_name}' by {username} ({telegram_id}) in team {team_id}")
 
-        # Validate inputs at application boundary
-        if not member_name or not phone_number:
-            return create_tool_response(
-                False,
-                "Both member name and phone number are required"
-            )
-
-        # Get required services from container (application boundary)
-        container = get_container()
-        management_service = container.get_service(TeamMemberManagementService)
-
-        if not management_service:
-            return create_tool_response(
-                False,
-                "TeamMemberManagementService is not available"
-            )
-
-        # Create request object for the management service
-        from kickai.features.team_administration.domain.types import TeamMemberCreationRequest
-        request = TeamMemberCreationRequest(
-            telegram_id=telegram_id,
-            team_id=team_id,
-            member_name=member_name,
-            phone_number=phone_number,
-            chat_type=chat_type
+        # Delegate to domain function (Clean Architecture)
+        from kickai.features.team_administration.domain.tools.simplified_team_member_tools import add_team_member_simplified as add_team_member_simplified_domain
+        return await add_team_member_simplified_domain(
+            telegram_id, team_id, username, chat_type, member_name, phone_number
         )
 
-        # Execute domain operation
-        result = await management_service.create_team_member_with_invite(request)
-
-        if result.success:
-            response_data = {
-                "member_name": member_name,
-                "phone_number": phone_number,
-                "team_id": team_id,
-                "member_id": result.member_id,
-                "status": "pending",
-                "invite_link": result.invite_link,
-                "message": f"✅ Team member '{member_name}' added successfully",
-                "success": True
-            }
-        else:
-            return create_tool_response(
-                False,
-                result.error_message or f"Failed to add team member '{member_name}'"
-            )
-
-        logger.info(f"✅ Team member '{member_name}' added successfully by {username}")
-        return create_tool_response(True, f"Team member '{member_name}' added successfully", response_data)
-
     except Exception as e:
-        logger.error(f"❌ Error adding team member '{member_name}': {e}")
-        return create_tool_response(False, f"Failed to add team member: {e}")
+        logger.error(f"❌ Error adding team member in application layer: {e}")
+        return f"❌ Application error: {str(e)}"
 
 
 @tool("get_my_team_member_status", result_as_answer=True)
@@ -380,11 +308,11 @@ async def get_team_members(
         }
 
         logger.info(f"✅ Retrieved {len(formatted_members)} team members for team {team_id}")
-        return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+        return create_tool_response(True, "Operation completed successfully", data=response_data)
 
     except Exception as e:
         logger.error(f"❌ Error getting team members for team {team_id}: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get team members: {e}")
+        return create_tool_response(False, f"Failed to get team members: {e}")
 
 
 @tool("activate_team_member", result_as_answer=True)

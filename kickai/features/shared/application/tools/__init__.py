@@ -26,7 +26,7 @@ from .nlp_tools import (
 )
 
 # Export all tools for agent registration
-__all__ = [
+_all_ = [
     "help_response",
     "FINAL_HELP_RESPONSE",
     "get_command_help",

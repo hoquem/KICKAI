@@ -13,7 +13,6 @@ from datetime import datetime, time
 
 from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import ServiceNotAvailableError
-from kickai.core.enums import ResponseStatus
 from crewai.tools import tool
 from kickai.utils.tool_helpers import (
     extract_single_value,
@@ -63,7 +62,7 @@ async def list_matches(team_id: str, status: str = "all", limit: int = 10) -> st
         match_service = container.get_service(MatchService)
 
         if not match_service:
-            return create_json_response(ResponseStatus.ERROR, message="MatchService not available")
+            return create_tool_response(False, "MatchService not available")
 
         # Get matches based on status
         if status == "upcoming":
@@ -77,7 +76,7 @@ async def list_matches(team_id: str, status: str = "all", limit: int = 10) -> st
             title = f"📅 All Matches (Last {len(matches)})"
 
         if not matches:
-            return create_json_response(ResponseStatus.SUCCESS, data=f"{title}\n\nNo matches found.")
+            return create_tool_response(True, "Operation completed successfully", data=f"{title}\n\nNo matches found.")
 
         result = [title, ""]
 
@@ -96,14 +95,14 @@ async def list_matches(team_id: str, status: str = "all", limit: int = 10) -> st
             result.append("• Use /squad to view selected players")
             result.append("• Contact leadership for questions")
 
-        return create_json_response(ResponseStatus.SUCCESS, data="\n".join(result))
+        return create_tool_response(True, "Operation completed successfully", data="\n".join(result))
 
     except ServiceNotAvailableError as e:
         logger.error(f"Service not available in list_matches: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Service temporarily unavailable: {e.message}")
+        return create_tool_response(False, f"Service temporarily unavailable: {e.message}")
     except Exception as e:
         logger.error(f"Failed to list matches: {e}", exc_info=True)
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to list matches: {e}")
+        return create_tool_response(False, f"Failed to list matches: {e}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -157,7 +156,7 @@ async def create_match(
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)
         if not match_service:
-            return create_json_response(ResponseStatus.ERROR, message="Match service not available")
+            return create_tool_response(False, "Match service not available")
 
         created_match = await match_service.create_match(
                 team_id=team_id,
@@ -177,10 +176,10 @@ async def create_match(
             f"• Venue: {created_match.venue}\n• Competition: {created_match.competition}\n"
             f"• Match ID: {created_match.match_id}"
         )
-        return create_json_response(ResponseStatus.SUCCESS, data=message)
+        return create_tool_response(True, "Operation completed successfully", data=message)
     except Exception as e:
         logger.error(f"Failed to create match: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error creating match: {e!s}")
+        return create_tool_response(False, f"Error creating match: {e!s}")
 
 
 # Removed list_matches_sync - duplicate of list_matches with no actual sync behavior
@@ -209,11 +208,11 @@ async def get_match_details(match_id: str) -> str:
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)
         if not match_service:
-            return create_json_response(ResponseStatus.ERROR, message="Match service not available")
+            return create_tool_response(False, "Match service not available")
 
         match = await match_service.get_match(match_id)
         if not match:
-            return create_json_response(ResponseStatus.ERROR, message=f"Match not found: {match_id}")
+            return create_tool_response(False, f"Match not found: {match_id}")
 
         result = [
             f"🏆 Match Details: {match.match_id}",
@@ -231,22 +230,22 @@ async def get_match_details(match_id: str) -> str:
 
         if match.result:
             result.append("")
-            result.append("📊 **Match Result**")
-            result.append(f"**Score**: {match.result.home_score} - {match.result.away_score}")
+            result.append("📊 Match Result")
+            result.append(f"Score: {match.result.home_score} - {match.result.away_score}")
             if match.result.scorers:
-                result.append(f"**Scorers**: {', '.join(match.result.scorers)}")
+                result.append(f"Scorers: {', '.join(match.result.scorers)}")
             if match.result.notes:
-                result.append(f"**Notes**: {match.result.notes}")
+                result.append(f"Notes: {match.result.notes}")
 
         result.append("")
-        result.append("📋 **Actions**")
+        result.append("📋 Actions")
         result.append("• /markattendance [match_id] - Mark availability")
         result.append("• /selectsquad [match_id] - Select final squad (Leadership only)")
 
-        return create_json_response(ResponseStatus.SUCCESS, data="\n".join(result))
+        return create_tool_response(True, "Operation completed successfully", data="\n".join(result))
     except Exception as e:
         logger.error(f"Failed to get match details: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error getting match details: {e!s}")
+        return create_tool_response(False, f"Error getting match details: {e!s}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -273,37 +272,37 @@ async def select_squad_tool(match_id: str, player_ids: Optional[List[str]] = Non
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)
         if not match_service:
-            return create_json_response(ResponseStatus.ERROR, message="Match service not available")
+            return create_tool_response(False, "Match service not available")
 
         match = await match_service.get_match(match_id)
         if not match:
-            return create_json_response(ResponseStatus.ERROR, message=f"Match not found: {match_id}")
+            return create_tool_response(False, f"Match not found: {match_id}")
 
         if not match.is_upcoming:
-            return create_json_response(ResponseStatus.ERROR, message="Cannot select squad: Match is not in upcoming status")
+            return create_tool_response(False, "Cannot select squad: Match is not in upcoming status")
 
         result = [
-            f"👥 **Squad Selection: {match.match_id}**",
+            f"👥 Squad Selection: {match.match_id}",
             "",
-            f"**Match**: vs {match.opponent}",
-            f"**Date**: {match.formatted_date}",
-            f"**Time**: {match.formatted_time}",
+            f"Match: vs {match.opponent}",
+            f"Date: {match.formatted_date}",
+            f"Time: {match.formatted_time}",
             "",
-            "📋 **Squad Selection**",
+            "📋 Squad Selection",
             "Squad selection functionality will be implemented in the next phase.",
             "",
-            "**Available Players**: To be determined from availability data",
-            "**Selected Squad**: To be selected",
+            "Available Players: To be determined from availability data",
+            "Selected Squad: To be selected",
             "",
-            "📋 **Actions**",
+            "📋 Actions",
             "• /markattendance [match_id] - Mark availability",
             "• /attendance [match_id] - View current availability",
         ]
 
-        return create_json_response(ResponseStatus.SUCCESS, data="\n".join(result))
+        return create_tool_response(True, "Operation completed successfully", data="\n".join(result))
     except Exception as e:
         logger.error(f"Failed to select squad: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error selecting squad: {e!s}")
+        return create_tool_response(False, f"Error selecting squad: {e!s}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -350,14 +349,14 @@ async def record_match_result(
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)
         if not match_service:
-            return create_json_response(ResponseStatus.ERROR, message="Match service not available")
+            return create_tool_response(False, "Match service not available")
 
         match = await match_service.get_match(match_id)
         if not match:
-            return create_json_response(ResponseStatus.ERROR, message=f"Match not found: {match_id}")
+            return create_tool_response(False, f"Match not found: {match_id}")
 
         if match.is_completed:
-            return create_json_response(ResponseStatus.ERROR, message="Match already completed: Result already recorded")
+            return create_tool_response(False, "Match already completed: Result already recorded")
 
         updated_match = await match_service.record_match_result(
                 match_id=match_id,
@@ -370,24 +369,24 @@ async def record_match_result(
             )
 
         result = [
-            "🏆 **Match Result Recorded**",
+            "🏆 Match Result Recorded",
             "",
-            f"**Match**: vs {updated_match.opponent}",
-            f"**Date**: {updated_match.formatted_date}",
-            f"**Score**: {home_score} - {away_score}",
+            f"Match: vs {updated_match.opponent}",
+            f"Date: {updated_match.formatted_date}",
+            f"Score: {home_score} - {away_score}",
         ]
 
         if scorers:
-            result.append(f"**Scorers**: {', '.join(scorers)}")
+            result.append(f"Scorers: {', '.join(scorers)}")
         if assists:
-            result.append(f"**Assists**: {', '.join(assists)}")
+            result.append(f"Assists: {', '.join(assists)}")
         if notes:
-            result.append(f"**Notes**: {notes}")
+            result.append(f"Notes: {notes}")
 
         result.append("")
         result.append("Match result has been recorded and match status updated to completed.")
 
-        return create_json_response(ResponseStatus.SUCCESS, data="\n".join(result))
+        return create_tool_response(True, "Operation completed successfully", data="\n".join(result))
     except Exception as e:
         logger.error(f"Failed to record match result: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error recording match result: {e!s}")
+        return create_tool_response(False, f"Error recording match result: {e!s}")

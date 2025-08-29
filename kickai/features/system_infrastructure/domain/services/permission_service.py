@@ -31,7 +31,7 @@ class PermissionContext:
     chat_type: ChatType
     username: Optional[str] = None
 
-    def __post_init__(self):
+    def _post_init_(self):
         if self.chat_type is None:
             self.chat_type = self._determine_chat_type()
 

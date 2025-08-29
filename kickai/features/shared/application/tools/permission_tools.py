@@ -10,12 +10,11 @@ All framework dependencies (@tool decorators, container access) are confined to 
 from crewai.tools import tool
 from loguru import logger
 
-from kickai.core.enums import ResponseStatus
 from kickai.features.shared.domain.tools.permission_tools import (
     permission_denied_message as domain_permission_denied_message,
     command_not_available as domain_command_not_available,
 )
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 from kickai.utils.tool_validation import create_tool_response
 
 

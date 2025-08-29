@@ -12,8 +12,8 @@ from loguru import logger
 from crewai.tools import tool
 
 from kickai.core.dependency_container import get_container
-from kickai.core.enums import ResponseStatus, ChatType
-from kickai.utils.tool_helpers import create_json_response
+from kickai.core.enums import ChatType
+from kickai.utils.tool_validation import create_tool_response
 from kickai.utils.field_validation import FieldValidator, ValidationError
 from kickai.features.shared.domain.services.linked_record_sync_service import linked_record_sync_service
 
@@ -68,17 +68,13 @@ async def update_team_member_field(
         from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
         team_member_service = container.get_service(ITeamMemberService)
         if not team_member_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Team member service not available"
+            return create_tool_response(False, "Team member service not available"
             )
         
         # Find the team member
         team_members = await team_member_service.get_members_by_telegram_id(telegram_id)
         if not team_members:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Team member not found. Please contact an administrator."
+            return create_tool_response(False, "Team member not found. Please contact an administrator."
             )
         
         team_member = team_members[0]  # Get the first (should be only) team member
@@ -94,9 +90,7 @@ async def update_team_member_field(
             )
         except ValidationError as e:
             logger.warning(f"❌ Validation error for field {field}: {e}")
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message=str(e)
+            return create_tool_response(False, str(e)
             )
         
         # Update the team member field
@@ -124,9 +118,7 @@ async def update_team_member_field(
             )
         }
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            message=f"Updated {normalized_field} successfully",
+        return create_tool_response(True, f"Updated {normalized_field} successfully",
             data=response_data
         )
         
@@ -134,9 +126,7 @@ async def update_team_member_field(
         from kickai.features.team_administration.domain.exceptions import TeamMemberUpdateError
         logger.error(f"❌ Error updating team member field: {e}")
         update_error = TeamMemberUpdateError(str(telegram_id), field, str(e))
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=f"Failed to update field: {update_error.message}"
+        return create_tool_response(False, f"Failed to update field: {update_error.message}"
         )
 
 
@@ -171,17 +161,13 @@ async def update_team_member_multiple_fields(
         from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
         team_member_service = container.get_service(ITeamMemberService)
         if not team_member_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Team member service not available"
+            return create_tool_response(False, "Team member service not available"
             )
         
         # Find the team member
         team_members = await team_member_service.get_members_by_telegram_id(telegram_id)
         if not team_members:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Team member not found. Please contact an administrator."
+            return create_tool_response(False, "Team member not found. Please contact an administrator."
             )
         
         team_member = team_members[0]
@@ -206,9 +192,7 @@ async def update_team_member_multiple_fields(
         # If there are validation errors, return them
         if validation_errors:
             logger.warning(f"❌ Validation errors: {validation_errors}")
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Field validation failed",
+            return create_tool_response(False, "Field validation failed",
                 data={'validation_errors': validation_errors}
             )
         
@@ -241,9 +225,7 @@ async def update_team_member_multiple_fields(
             )
         }
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            message=f"Updated {len(validated_updates)} fields successfully",
+        return create_tool_response(True, f"Updated {len(validated_updates)} fields successfully",
             data=response_data
         )
         
@@ -251,9 +233,7 @@ async def update_team_member_multiple_fields(
         from kickai.features.team_administration.domain.exceptions import TeamMemberUpdateError
         logger.error(f"❌ Error updating multiple team member fields: {e}")
         update_error = TeamMemberUpdateError(str(telegram_id), "multiple_fields", str(e))
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=f"Failed to update fields: {update_error.message}"
+        return create_tool_response(False, f"Failed to update fields: {update_error.message}"
         )
 
 
@@ -307,11 +287,11 @@ async def get_team_member_update_help(
         if is_admin:
             examples.append("/update role admin  # Admin privileges required")
         
-        help_message += "\n\n📚 **Usage Examples:**\n"
+        help_message += "\n\n📚 Usage Examples:\n"
         for example in examples:
-            help_message += f"• `{example}`\n"
+            help_message += f"• {example}\n"
         
-        help_message += "\n💡 **Tips:**\n"
+        help_message += "\n💡 Tips:\n"
         help_message += "• Use quotes around values with spaces\n"
         help_message += "• Phone numbers can be in UK format: +447XXXXXXXXX or 07XXXXXXXXX\n"
         help_message += "• Changes to common fields (phone, email, emergency contact) will also update your player record if linked\n"
@@ -319,9 +299,7 @@ async def get_team_member_update_help(
         if not is_admin:
             help_message += "• Admin role changes require administrator privileges\n"
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            message="Team member update help",
+        return create_tool_response(True, "Team member update help",
             data={'help_text': help_message, 'is_admin': is_admin}
         )
         
@@ -329,9 +307,7 @@ async def get_team_member_update_help(
         from kickai.features.shared.domain.exceptions import HelpSystemError
         logger.error(f"❌ Error getting team member update help: {e}")
         help_error = HelpSystemError(str(telegram_id), str(e))
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=f"Failed to get help information: {help_error.message}"
+        return create_tool_response(False, f"Failed to get help information: {help_error.message}"
         )
 
 
@@ -363,17 +339,13 @@ async def get_team_member_current_info(
         from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
         team_member_service = container.get_service(ITeamMemberService)
         if not team_member_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Team member service not available"
+            return create_tool_response(False, "Team member service not available"
             )
         
         # Find the team member
         team_members = await team_member_service.get_members_by_telegram_id(telegram_id)
         if not team_members:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Team member not found. Please contact an administrator."
+            return create_tool_response(False, "Team member not found. Please contact an administrator."
             )
         
         team_member = team_members[0]
@@ -393,9 +365,7 @@ async def get_team_member_current_info(
             'is_admin': _is_admin_user(chat_type, team_member)
         }
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            message="Current team member information",
+        return create_tool_response(True, "Current team member information",
             data={'team_member_info': team_member_info}
         )
         
@@ -403,9 +373,7 @@ async def get_team_member_current_info(
         from kickai.features.team_administration.domain.exceptions import TeamMemberLookupError
         logger.error(f"❌ Error getting team member current info: {e}")
         lookup_error = TeamMemberLookupError(str(telegram_id), team_id, str(e))
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=f"Failed to get team member information: {lookup_error.message}"
+        return create_tool_response(False, f"Failed to get team member information: {lookup_error.message}"
         )
 
 
@@ -443,32 +411,24 @@ async def update_other_team_member(
         from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
         team_member_service = container.get_service(ITeamMemberService)
         if not team_member_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Team member service not available"
+            return create_tool_response(False, "Team member service not available"
             )
         
         # Verify admin permissions
         admin_members = await team_member_service.get_members_by_telegram_id(telegram_id)
         if not admin_members:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Administrator not found."
+            return create_tool_response(False, "Administrator not found."
             )
         
         admin_member = admin_members[0]
         if not _is_admin_user(chat_type, admin_member):
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="This operation requires administrator privileges in the leadership chat."
+            return create_tool_response(False, "This operation requires administrator privileges in the leadership chat."
             )
         
         # Find the target team member
         target_member = await team_member_service.get_team_member_by_id(target_member_id)
         if not target_member:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message=f"Target team member {target_member_id} not found."
+            return create_tool_response(False, f"Target team member {target_member_id} not found."
             )
         
         logger.info(f"📋 Admin {admin_member.member_id} updating {target_member.member_id}")
@@ -480,9 +440,7 @@ async def update_other_team_member(
             )
         except ValidationError as e:
             logger.warning(f"❌ Validation error for field {field}: {e}")
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message=str(e)
+            return create_tool_response(False, str(e)
             )
         
         # Update the target member field
@@ -512,9 +470,7 @@ async def update_other_team_member(
             )
         }
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            message=f"Updated {target_member.name}'s {normalized_field} successfully",
+        return create_tool_response(True, f"Updated {target_member.name}'s {normalized_field} successfully",
             data=response_data
         )
         
@@ -522,7 +478,5 @@ async def update_other_team_member(
         from kickai.features.team_administration.domain.exceptions import TeamMemberUpdateError
         logger.error(f"❌ Error updating other team member: {e}")
         update_error = TeamMemberUpdateError(target_member_id, field, str(e))
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=f"Failed to update team member: {update_error.message}"
+        return create_tool_response(False, f"Failed to update team member: {update_error.message}"
         )

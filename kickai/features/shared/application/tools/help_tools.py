@@ -11,9 +11,8 @@ from crewai.tools import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
-from kickai.core.enums import ResponseStatus, ChatType
+from kickai.core.enums import ChatType
 from kickai.features.shared.domain.services.help_service import HelpService
-from kickai.utils.tool_helpers import create_json_response
 from kickai.utils.tool_validation import create_tool_response
 
 
@@ -258,7 +257,7 @@ async def get_available_commands(
         
     except Exception as e:
         logger.error(f"❌ Error getting available commands: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message="Unable to retrieve available commands. Use '/help' for assistance."
+        return create_tool_response(
+            False,
+            "Unable to retrieve available commands. Use '/help' for assistance."
         )

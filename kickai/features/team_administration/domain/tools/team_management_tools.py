@@ -11,8 +11,7 @@ from pydantic import BaseModel
 from kickai.core.dependency_container import get_container
 from kickai.features.team_administration.domain.services.team_service import TeamService
 from crewai.tools import tool
-from kickai.core.enums import ResponseStatus
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -58,14 +57,14 @@ async def create_team(team_name: str, team_id: str, admin_user_id: Optional[str]
 
         if not team_service:
             logger.error("TeamService not available")
-            return create_json_response(ResponseStatus.ERROR, message="Team service not available")
+            return create_tool_response(False, "Team service not available")
 
         # Create the team (async)
         team = await team_service.create_team(team_name, team_id, admin_user_id)
 
         if team:
             logger.info(f"Team created: {team_name} (ID: {team_id})")
-            return create_json_response(ResponseStatus.SUCCESS, data={
+            return create_tool_response(True, "Operation completed successfully", data={
                 'message': f'Team created successfully: {team_name} (ID: {team_id})',
                 'team_name': team_name,
                 'team_id': team_id,
@@ -73,8 +72,8 @@ async def create_team(team_name: str, team_id: str, admin_user_id: Optional[str]
             })
         else:
             logger.error(f"Failed to create team: {team_name}")
-            return create_json_response(ResponseStatus.ERROR, message=f"Failed to create team: {team_name}")
+            return create_tool_response(False, f"Failed to create team: {team_name}")
 
     except Exception as e:
         logger.error(f"Failed to create team: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to create team: {e!s}")
+        return create_tool_response(False, f"Failed to create team: {e!s}")

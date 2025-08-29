@@ -11,8 +11,7 @@ from loguru import logger
 from crewai.tools import tool
 
 from kickai.core.dependency_container import get_container
-from kickai.core.enums import ResponseStatus
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 from kickai.utils.field_validation import FieldValidator, ValidationError
 from kickai.features.shared.domain.services.linked_record_sync_service import linked_record_sync_service
 
@@ -49,17 +48,13 @@ async def update_player_field(
         from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
         player_service = container.get_service(IPlayerService)
         if not player_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Player service not available"
+            return create_tool_response(False, "Player service not available"
             )
         
         # Find the player
         players = await player_service.get_players_by_telegram_id(telegram_id, team_id)
         if not players:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Player not found. Please register first using /register."
+            return create_tool_response(False, "Player not found. Please register first using /register."
             )
         
         player = players[0]  # Get the first (should be only) player
@@ -72,9 +67,7 @@ async def update_player_field(
             )
         except ValidationError as e:
             logger.warning(f"❌ Validation error for field {field}: {e}")
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message=str(e)
+            return create_tool_response(False, str(e)
             )
         
         # Update the player field
@@ -102,9 +95,7 @@ async def update_player_field(
             )
         }
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            message=f"Updated {normalized_field} successfully",
+        return create_tool_response(True, f"Updated {normalized_field} successfully",
             data=response_data
         )
         
@@ -112,9 +103,7 @@ async def update_player_field(
         from kickai.features.player_registration.domain.exceptions import PlayerUpdateError
         logger.error(f"❌ Error updating player field: {e}")
         update_error = PlayerUpdateError(str(telegram_id), field, str(e))
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=f"Failed to update field: {update_error.message}"
+        return create_tool_response(False, f"Failed to update field: {update_error.message}"
         )
 
 
@@ -149,17 +138,13 @@ async def update_player_multiple_fields(
         from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
         player_service = container.get_service(IPlayerService)
         if not player_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Player service not available"
+            return create_tool_response(False, "Player service not available"
             )
         
         # Find the player
         players = await player_service.get_players_by_telegram_id(telegram_id, team_id)
         if not players:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Player not found. Please register first using /register."
+            return create_tool_response(False, "Player not found. Please register first using /register."
             )
         
         player = players[0]
@@ -181,9 +166,7 @@ async def update_player_multiple_fields(
         # If there are validation errors, return them
         if validation_errors:
             logger.warning(f"❌ Validation errors: {validation_errors}")
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Field validation failed",
+            return create_tool_response(False, "Field validation failed",
                 data={'validation_errors': validation_errors}
             )
         
@@ -216,9 +199,7 @@ async def update_player_multiple_fields(
             )
         }
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            message=f"Updated {len(validated_updates)} fields successfully",
+        return create_tool_response(True, f"Updated {len(validated_updates)} fields successfully",
             data=response_data
         )
         
@@ -226,9 +207,7 @@ async def update_player_multiple_fields(
         from kickai.features.player_registration.domain.exceptions import PlayerUpdateError
         logger.error(f"❌ Error updating multiple player fields: {e}")
         update_error = PlayerUpdateError(str(telegram_id), "multiple_fields", str(e))
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=f"Failed to update fields: {update_error.message}"
+        return create_tool_response(False, f"Failed to update fields: {update_error.message}"
         )
 
 
@@ -267,18 +246,16 @@ async def get_player_update_help(
             "/update medical_notes \"Allergic to peanuts\""
         ]
         
-        help_message += "\n\n📚 **Usage Examples:**\n"
+        help_message += "\n\n📚 Usage Examples:\n"
         for example in examples:
-            help_message += f"• `{example}`\n"
+            help_message += f"• {example}\n"
         
-        help_message += "\n💡 **Tips:**\n"
+        help_message += "\n💡 Tips:\n"
         help_message += "• Use quotes around values with spaces\n"
         help_message += "• Phone numbers can be in UK format: +447XXXXXXXXX or 07XXXXXXXXX\n"
         help_message += "• Changes to common fields (phone, email, emergency contact) will also update your team member record if linked\n"
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            message="Player update help",
+        return create_tool_response(True, "Player update help",
             data={'help_text': help_message}
         )
         
@@ -286,9 +263,7 @@ async def get_player_update_help(
         from kickai.features.shared.domain.exceptions import HelpSystemError
         logger.error(f"❌ Error getting player update help: {e}")
         help_error = HelpSystemError(str(telegram_id), str(e))
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=f"Failed to get help information: {help_error.message}"
+        return create_tool_response(False, f"Failed to get help information: {help_error.message}"
         )
 
 
@@ -320,17 +295,13 @@ async def get_player_current_info(
         from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
         player_service = container.get_service(IPlayerService)
         if not player_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Player service not available"
+            return create_tool_response(False, "Player service not available"
             )
         
         # Find the player
         players = await player_service.get_players_by_telegram_id(telegram_id, team_id)
         if not players:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Player not found. Please register first using /register."
+            return create_tool_response(False, "Player not found. Please register first using /register."
             )
         
         player = players[0]
@@ -350,9 +321,7 @@ async def get_player_current_info(
             'status': player.status
         }
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            message="Current player information",
+        return create_tool_response(True, "Current player information",
             data={'player_info': player_info}
         )
         
@@ -360,7 +329,5 @@ async def get_player_current_info(
         from kickai.features.player_registration.domain.exceptions import PlayerLookupError
         logger.error(f"❌ Error getting player current info: {e}")
         lookup_error = PlayerLookupError(str(telegram_id), team_id, str(e))
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=f"Failed to get player information: {lookup_error.message}"
+        return create_tool_response(False, f"Failed to get player information: {lookup_error.message}"
         )

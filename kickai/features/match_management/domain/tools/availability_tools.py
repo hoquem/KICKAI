@@ -12,8 +12,7 @@ from typing import Optional
 
 from crewai.tools import tool
 from kickai.core.dependency_container import get_container
-from kickai.core.enums import ResponseStatus
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 from kickai.features.match_management.domain.entities.availability import AvailabilityStatus
 from kickai.features.match_management.domain.services.availability_service import (
@@ -62,7 +61,7 @@ async def mark_availability(
         try:
             availability_status = AvailabilityStatus(status.lower())
         except ValueError:
-            return create_json_response(ResponseStatus.ERROR, message=f"Invalid status: {status}. Valid options: available, unavailable, maybe")
+            return create_tool_response(False, f"Invalid status: {status}. Valid options: available, unavailable, maybe")
 
         # Mark availability
         availability = await availability_service.mark_availability(
@@ -78,29 +77,29 @@ async def mark_availability(
         result = [
             "Availability Updated",
             "",
-            f"**Match**: {match_id}",
-            f"**Your Status**: {availability.status_emoji} {availability_status.value.title()}",
+            f"Match: {match_id}",
+            f"Your Status: {availability.status_emoji} {availability_status.value.title()}",
         ]
 
         if reason:
-            result.append(f"**Reason**: {reason}")
+            result.append(f"Reason: {reason}")
 
         result.extend([
             "",
-            "📊 **Team Availability**",
+            "📊 Team Availability",
             f"• Available: {summary['available']} players",
             f"• Unavailable: {summary['unavailable']} players",
             f"• Maybe: {summary['maybe']} players",
             f"• Pending: {summary['pending']} players",
             "",
-            "💡 **Tip**: You can update your availability anytime before squad selection",
+            "💡 Tip: You can update your availability anytime before squad selection",
         ])
 
-        return create_json_response(ResponseStatus.SUCCESS, data="\n".join(result))
+        return create_tool_response(True, "Operation completed successfully", data="\n".join(result))
 
     except Exception as e:
         logger.error(f"Failed to mark availability: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error marking availability: {e!s}")
+        return create_tool_response(False, f"Error marking availability: {e!s}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -135,22 +134,22 @@ async def get_availability(match_id: str) -> str:
         pending_players = await availability_service.get_pending_players(match_id)
 
         result = [
-            f"📊 **Match Availability: {match_id}**",
+            f"📊 Match Availability: {match_id}",
             "",
-            f"**Total Players**: {summary['total_players']}",
+            f"Total Players: {summary['total_players']}",
             "",
         ]
 
         # Available players
         if available_players:
-            result.append(f"✅ **Available** ({len(available_players)}):")
+            result.append(f"✅ Available ({len(available_players)}):")
             for availability in available_players:
                 result.append(f"• {availability.player_id}")
             result.append("")
 
         # Unavailable players
         if unavailable_players:
-            result.append(f"❌ **Unavailable** ({len(unavailable_players)}):")
+            result.append(f"❌ Unavailable ({len(unavailable_players)}):")
             for availability in unavailable_players:
                 result.append(f"• {availability.player_id}")
                 if availability.reason:
@@ -159,7 +158,7 @@ async def get_availability(match_id: str) -> str:
 
         # Maybe players
         if maybe_players:
-            result.append(f"❓ **Maybe** ({len(maybe_players)}):")
+            result.append(f"❓ Maybe ({len(maybe_players)}):")
             for availability in maybe_players:
                 result.append(f"• {availability.player_id}")
                 if availability.reason:
@@ -168,19 +167,19 @@ async def get_availability(match_id: str) -> str:
 
         # Pending players
         if pending_players:
-            result.append(f"⏳ **Pending** ({len(pending_players)}):")
+            result.append(f"⏳ Pending ({len(pending_players)}):")
             for availability in pending_players:
                 result.append(f"• {availability.player_id}")
             result.append("")
 
-        result.append("📋 **Actions**")
+        result.append("📋 Actions")
         result.append("• /markattendance [match_id] [status] - Mark your availability")
 
-        return create_json_response(ResponseStatus.SUCCESS, data="\n".join(result))
+        return create_tool_response(True, "Operation completed successfully", data="\n".join(result))
 
     except Exception as e:
         logger.error(f"Failed to get availability: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error getting availability: {e!s}")
+        return create_tool_response(False, f"Error getting availability: {e!s}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -212,12 +211,12 @@ async def get_player_availability_history(
         history = await availability_service.get_player_history(player_id, limit)
 
         if not history:
-            return create_json_response(ResponseStatus.SUCCESS, data=f"📈 Availability History\n\nNo availability records found for player {player_id}.")
+            return create_tool_response(True, "Operation completed successfully", data=f"📈 Availability History\n\nNo availability records found for player {player_id}.")
 
         result = [
             f"📈 Availability History for {player_id}",
             "",
-            f"**Last {len(history)} matches**:",
+            f"Last {len(history)} matches:",
             "",
         ]
 
@@ -238,11 +237,11 @@ async def get_player_availability_history(
 
         result.extend([
             "",
-            "📊 **Statistics**",
-            f"• **Availability Rate**: {availability_rate:.1f}% ({available_count}/{total_matches} matches)",
-            f"• **Available**: {available_count} matches",
-            f"• **Unavailable**: {unavailable_count} matches",
-            f"• **Maybe**: {maybe_count} matches",
+            "📊 Statistics",
+            f"• Availability Rate: {availability_rate:.1f}% ({available_count}/{total_matches} matches)",
+            f"• Available: {available_count} matches",
+            f"• Unavailable: {unavailable_count} matches",
+            f"• Maybe: {maybe_count} matches",
         ])
 
         # Reliability rating
@@ -257,13 +256,13 @@ async def get_player_availability_history(
         else:
             reliability = "⭐ (Very Poor)"
 
-        result.append(f"• **Reliability Rating**: {reliability}")
+        result.append(f"• Reliability Rating: {reliability}")
 
-        return create_json_response(ResponseStatus.SUCCESS, data="\n".join(result))
+        return create_tool_response(True, "Operation completed successfully", data="\n".join(result))
 
     except Exception as e:
         logger.error(f"Failed to get player availability history: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error getting availability history: {e!s}")
+        return create_tool_response(False, f"Error getting availability history: {e!s}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -291,10 +290,10 @@ async def send_availability_reminders(match_id: str) -> str:
         if success:
             pending_players = await availability_service.get_pending_players(match_id)
             message = f"Reminders sent to {len(pending_players)} players who haven't responded to availability requests for match {match_id}."
-            return create_json_response(ResponseStatus.SUCCESS, data=f"Reminders Sent\n\n{message}")
+            return create_tool_response(True, "Operation completed successfully", data=f"Reminders Sent\n\n{message}")
         else:
-            return create_json_response(ResponseStatus.ERROR, message=f"Unable to send availability reminders for match {match_id}.")
+            return create_tool_response(False, f"Unable to send availability reminders for match {match_id}.")
 
     except Exception as e:
         logger.error(f"Failed to send reminders: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error sending reminders: {e!s}")
+        return create_tool_response(False, f"Error sending reminders: {e!s}")

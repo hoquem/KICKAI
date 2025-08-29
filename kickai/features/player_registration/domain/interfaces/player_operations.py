@@ -1,4 +1,4 @@
-from __future__ import annotations
+from _future_ import annotations
 
 """
 Minimal interfaces and types for player operations (used in tests).

@@ -13,8 +13,7 @@ from typing import Optional
 from crewai.tools import tool
 from loguru import logger
 
-from kickai.core.enums import ResponseStatus
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 @tool("advanced_intent_recognition", result_as_answer=True)
@@ -59,40 +58,28 @@ async def advanced_intent_recognition(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
             
         if not message or not isinstance(message, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid message is required"
+            return create_tool_response(False, "Valid message is required"
             )
         
         logger.info(f"🔧 [NLP_INTENT] Processing intent recognition for {username}: {message[:50]}")
@@ -114,9 +101,7 @@ async def advanced_intent_recognition(
         
     except Exception as e:
         logger.error(f"❌ [NLP_INTENT] Error in intent recognition: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message="Unable to analyze intent. Please try rephrasing your request."
+        return create_tool_response(False, "Unable to analyze intent. Please try rephrasing your request."
         )
 
 
@@ -159,40 +144,28 @@ async def routing_recommendation_tool(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
             
         if not intent_data or not isinstance(intent_data, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid intent_data is required"
+            return create_tool_response(False, "Valid intent_data is required"
             )
         
         logger.info(f"🔧 [NLP_ROUTING] Analyzing request: '{intent_data[:50]}...' from {username} (ID: {telegram_id}) in {chat_type}")
@@ -214,9 +187,7 @@ async def routing_recommendation_tool(
         
     except Exception as e:
         logger.error(f"❌ [NLP_ROUTING] Error generating routing prompt: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message="Unable to analyze routing request. Please try rephrasing your request."
+        return create_tool_response(False, "Unable to analyze routing request. Please try rephrasing your request."
         )
 
 
@@ -259,40 +230,28 @@ async def analyze_update_context(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
             
         if not message or not isinstance(message, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid message is required"
+            return create_tool_response(False, "Valid message is required"
             )
         
         logger.info(f"🔧 [NLP_UPDATE] Processing update context analysis for {username}")
@@ -314,9 +273,7 @@ async def analyze_update_context(
         
     except Exception as e:
         logger.error(f"❌ [NLP_UPDATE] Error in update context analysis: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message="Unable to analyze update context. Please specify the update clearly."
+        return create_tool_response(False, "Unable to analyze update context. Please specify the update clearly."
         )
 
 
@@ -362,46 +319,32 @@ async def validate_routing_permissions(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
             
         if not user_role or not isinstance(user_role, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid user_role is required"
+            return create_tool_response(False, "Valid user_role is required"
             )
             
         if not requested_action or not isinstance(requested_action, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid requested_action is required"
+            return create_tool_response(False, "Valid requested_action is required"
             )
         
         logger.info(f"🔧 [NLP_PERM] Processing permission validation for {username}, action: {requested_action}")
@@ -424,9 +367,7 @@ async def validate_routing_permissions(
         
     except Exception as e:
         logger.error(f"❌ [NLP_PERM] Error in permission validation: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message="Unable to validate permissions. Please contact team leadership."
+        return create_tool_response(False, "Unable to validate permissions. Please contact team leadership."
         )
 
 
@@ -469,40 +410,28 @@ async def entity_extraction_tool(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
             
         if not message or not isinstance(message, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid message is required"
+            return create_tool_response(False, "Valid message is required"
             )
         
         logger.info(f"🔧 [NLP_ENTITY] Processing entity extraction for {username}: {message[:50]}")
@@ -524,9 +453,7 @@ async def entity_extraction_tool(
         
     except Exception as e:
         logger.error(f"❌ [NLP_ENTITY] Error in entity extraction: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message="Unable to extract entities from message."
+        return create_tool_response(False, "Unable to extract entities from message."
         )
 
 
@@ -566,34 +493,24 @@ async def conversation_context_tool(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
         
         logger.info(f"🔧 [NLP_CONTEXT] Processing conversation context for {username}")
@@ -614,9 +531,7 @@ async def conversation_context_tool(
         
     except Exception as e:
         logger.error(f"❌ [NLP_CONTEXT] Error in conversation context analysis: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message="Unable to analyze conversation context."
+        return create_tool_response(False, "Unable to analyze conversation context."
         )
 
 
@@ -659,40 +574,28 @@ async def semantic_similarity_tool(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
             
         if not message or not isinstance(message, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid message is required"
+            return create_tool_response(False, "Valid message is required"
             )
         
         logger.info(f"🔧 [NLP_SEMANTIC] Processing semantic similarity for {username}: {message[:50]}")
@@ -714,7 +617,5 @@ async def semantic_similarity_tool(
         
     except Exception as e:
         logger.error(f"❌ [NLP_SEMANTIC] Error in semantic similarity analysis: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message="Unable to analyze semantic similarity."
+        return create_tool_response(False, "Unable to analyze semantic similarity."
         )

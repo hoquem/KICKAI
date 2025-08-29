@@ -143,8 +143,8 @@ async def handle_status_command(update, context, **kwargs) -> CommandResult:
         if len(parts) < 2:
             return CommandResult(
                 success=False,
-                message="❌ Usage: `/status [phone]`\n\n"
-                "Example: `/status +447123456789`\n\n"
+                message="❌ Usage: /status [phone]\n\n"
+                "Example: /status +447123456789\n\n"
                 "💡 Note: Check the status of a player by phone number.\n\n"
                 "🔧 Note: This command is now handled by the agent system for better accuracy.",
                 requires_agent=True

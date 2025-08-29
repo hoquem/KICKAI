@@ -26,7 +26,7 @@ from .team_administration_tools import (
 )
 
 # Export all tools for agent registration
-__all__ = [
+_all_ = [
     # Team member management
     "add_team_member_simplified",
     "get_my_team_member_status",

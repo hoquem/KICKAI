@@ -13,12 +13,12 @@ from typing import Optional, Dict, Any, List
 from crewai.tools import tool
 from loguru import logger
 
-from kickai.core.container import get_container
-from kickai.core.enums import ResponseStatus, MemberStatus
+from kickai.core.dependency_container import get_container
+from kickai.core.enums import MemberStatus
 from kickai.database.firebase_client import FirebaseClient
 from kickai.features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
 from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 from kickai.utils.tool_validation import create_tool_response
 
 # Get services from container
@@ -319,17 +319,13 @@ async def get_pending_users(telegram_id: int, team_id: str, username: str, chat_
         
         # Input validation
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Invalid team ID provided"
+            return create_tool_response(False, "Invalid team ID provided"
             )
         
         # Permission check (only admins can see pending users)
         has_permission = await _check_admin_permissions(telegram_id, team_id)
         if not has_permission:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Access denied: You must have admin permissions to view pending users"
+            return create_tool_response(False, "Access denied: You must have admin permissions to view pending users"
             )
         
         pending_data: Dict[str, Any] = {
@@ -401,7 +397,7 @@ async def get_pending_users(telegram_id: int, team_id: str, username: str, chat_
         
         logger.info(f"✅ Retrieved {pending_data['total_pending']} total pending users")
         
-        return create_json_response(ResponseStatus.SUCCESS, data={
+        return create_tool_response(True, "Operation completed successfully", data={
             'message': 'Pending users retrieved successfully',
             'formatted_message': formatted_message,
             **pending_data
@@ -409,7 +405,5 @@ async def get_pending_users(telegram_id: int, team_id: str, username: str, chat_
         
     except Exception as e:
         logger.error(f"❌ Error getting pending users: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR, 
-            message=f"Failed to get pending users: {str(e)}"
+        return create_tool_response(False, f"Failed to get pending users: {str(e)}"
         )

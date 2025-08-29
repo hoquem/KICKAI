@@ -11,7 +11,7 @@ from loguru import logger
 
 from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import ServiceNotAvailableError
-from kickai.core.enums import ChatType, ResponseStatus
+from kickai.core.enums import ChatType
 from crewai.tools import tool
 from kickai.utils.tool_helpers import (
     extract_single_value,
@@ -63,13 +63,13 @@ async def send_message(telegram_id: int, team_id: str, username: str, chat_type:
         communication_service = container.get_service("CommunicationService")
 
         if not communication_service:
-            return create_json_response(ResponseStatus.ERROR, message="CommunicationService is not available")
+            return create_tool_response(False, "CommunicationService is not available")
 
         # Send message using native async
         success = await communication_service.send_message(message, chat_type_enum, team_id, telegram_id)
 
         if not success:
-            return create_json_response(ResponseStatus.ERROR, message="Failed to send message")
+            return create_tool_response(False, "Failed to send message")
 
         log_tool_execution("send_message", inputs, True)
         return create_json_response(
@@ -85,7 +85,7 @@ async def send_message(telegram_id: int, team_id: str, username: str, chat_type:
 
     except Exception as e:
         logger.error(f"❌ Error in send_message tool: {e}")
-        return create_json_response(ResponseStatus.ERROR, message="Failed to send message")
+        return create_tool_response(False, "Failed to send message")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -121,20 +121,20 @@ async def send_announcement(telegram_id: int, team_id: str, username: str, chat_
         communication_service = container.get_service("CommunicationService")
 
         if not communication_service:
-            return create_json_response(ResponseStatus.ERROR, message="CommunicationService is not available")
+            return create_tool_response(False, "CommunicationService is not available")
 
         # Send announcement using native async
         success = await communication_service.send_announcement(announcement, team_id)
 
         if not success:
-            return create_json_response(ResponseStatus.ERROR, message="Failed to send announcement")
+            return create_tool_response(False, "Failed to send announcement")
 
         log_tool_execution("send_announcement", inputs, True)
-        return create_json_response(ResponseStatus.SUCCESS, data="Announcement sent successfully")
+        return create_tool_response(True, "Operation completed successfully", data="Announcement sent successfully")
 
     except Exception as e:
         logger.error(f"❌ Error in send_announcement tool: {e}")
-        return create_json_response(ResponseStatus.ERROR, message="Failed to send announcement")
+        return create_tool_response(False, "Failed to send announcement")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -176,17 +176,17 @@ async def send_poll(telegram_id: int, team_id: str, username: str, chat_type: st
         communication_service = container.get_service("CommunicationService")
 
         if not communication_service:
-            return create_json_response(ResponseStatus.ERROR, message="CommunicationService is not available")
+            return create_tool_response(False, "CommunicationService is not available")
 
         # Send poll using native async
         success = await communication_service.send_poll(question, option_list, team_id)
 
         if not success:
-            return create_json_response(ResponseStatus.ERROR, message="Failed to send poll")
+            return create_tool_response(False, "Failed to send poll")
 
         log_tool_execution("send_poll", inputs, True)
-        return create_json_response(ResponseStatus.SUCCESS, data="Poll sent successfully")
+        return create_tool_response(True, "Operation completed successfully", data="Poll sent successfully")
 
     except Exception as e:
         logger.error(f"❌ Error in send_poll tool: {e}")
-        return create_json_response(ResponseStatus.ERROR, message="Failed to send poll")
+        return create_tool_response(False, "Failed to send poll")

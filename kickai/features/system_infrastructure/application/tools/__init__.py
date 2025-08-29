@@ -8,7 +8,7 @@ These tools serve as the application boundary and delegate to pure domain servic
 from .system_help_tools import get_version_info, get_system_available_commands
 
 # Export all tools for agent registration
-__all__ = [
+_all_ = [
     "get_version_info",
     "get_system_available_commands"
 ]

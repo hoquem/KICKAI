@@ -12,7 +12,6 @@ from typing import Optional
 
 from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import ServiceNotAvailableError
-from kickai.core.enums import ResponseStatus
 from crewai.tools import tool
 from kickai.utils.tool_helpers import (
     create_json_response,
@@ -62,36 +61,36 @@ async def team_member_registration(
         # Validate inputs using utility functions
         validation_error = validate_required_input(name, "Name")
         if validation_error:
-            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ ", ""))
+            return create_tool_response(False, validation_error.replace("❌ ", ""))
 
         validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
-            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ ", ""))
+            return create_tool_response(False, validation_error.replace("❌ ", ""))
 
         validation_error = validate_required_input(phone_number, "Phone Number")
         if validation_error:
-            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ ", ""))
+            return create_tool_response(False, validation_error.replace("❌ ", ""))
 
         validation_error = validate_required_input(role, "Role")
         if validation_error:
-            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ ", ""))
+            return create_tool_response(False, validation_error.replace("❌ ", ""))
 
         validation_error = validate_required_input(team_id, "Team ID")
         if validation_error:
-            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ ", ""))
+            return create_tool_response(False, validation_error.replace("❌ ", ""))
 
         # Get TeamMemberService from container
         container = get_container()
         team_member_service = container.get_service("TeamMemberService")
 
         if not team_member_service:
-            return create_json_response(ResponseStatus.ERROR, message="TeamMemberService is not available")
+            return create_tool_response(False, "TeamMemberService is not available")
 
         # Build TeamMember entity
         try:
             telegram_id_int = int(telegram_id)
         except Exception:
-            return create_json_response(ResponseStatus.ERROR, message="Invalid Telegram ID: must be a number")
+            return create_tool_response(False, "Invalid Telegram ID: must be a number")
 
         # Import here to avoid circular imports
         from kickai.features.team_administration.domain.entities.team_member import TeamMember
@@ -113,7 +112,7 @@ async def team_member_registration(
         created_id = await team_member_service.create_team_member(team_member)
 
         if created_id:
-            return create_json_response(ResponseStatus.SUCCESS, data={
+            return create_tool_response(True, "Operation completed successfully", data={
                 'message': 'Team Member Registered Successfully!',
                 'name': team_member.name,
                 'telegram_id': team_member.telegram_id,
@@ -124,11 +123,11 @@ async def team_member_registration(
                 'is_admin': team_member.is_admin
             })
         else:
-            return create_json_response(ResponseStatus.ERROR, message="Failed to register team member")
+            return create_tool_response(False, "Failed to register team member")
 
     except Exception as e:
         logger.error(f"❌ Error in team_member_registration tool: {e}")
-        return create_json_response(ResponseStatus.ERROR, message="Failed to register team member")
+        return create_tool_response(False, "Failed to register team member")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -155,7 +154,7 @@ async def get_my_team_member_status(telegram_id: int, team_id: str, username: st
             team_member_service = container.get_service("TeamMemberService")
         except Exception as e:
             logger.error(f"Failed to get TeamMemberService from container: {e}")
-            return create_json_response(ResponseStatus.ERROR, message="Service temporarily unavailable. Please try again in a moment.")
+            return create_tool_response(False, "Service temporarily unavailable. Please try again in a moment.")
 
         logger.info(
             f"get_my_team_member_status called with team_id: {team_id}, telegram_id: {telegram_id}"
@@ -164,11 +163,11 @@ async def get_my_team_member_status(telegram_id: int, team_id: str, username: st
         # Use async service method
         status = await team_member_service.get_my_status(telegram_id, team_id)
         logger.info(f"Retrieved team member status for {telegram_id}")
-        return create_json_response(ResponseStatus.SUCCESS, data={'status': status})
+        return create_tool_response(True, "Operation completed successfully", data={'status': status})
 
     except Exception as e:
         logger.error(f"Failed to get team member status: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get team member status: {e!s}")
+        return create_tool_response(False, f"Failed to get team member status: {e!s}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -194,7 +193,7 @@ async def get_team_members(telegram_id: int, team_id: str, username: str, chat_t
             team_member_service = container.get_service("TeamMemberService")
         except Exception as e:
             logger.error(f"Failed to get TeamMemberService from container: {e}")
-            return create_json_response(ResponseStatus.ERROR, message="Service temporarily unavailable. Please try again in a moment.")
+            return create_tool_response(False, "Service temporarily unavailable. Please try again in a moment.")
 
         # Use async service methods
         if role:
@@ -203,7 +202,7 @@ async def get_team_members(telegram_id: int, team_id: str, username: str, chat_t
             members = await team_member_service.get_team_members_by_team(team_id)
 
         if not members:
-            return create_json_response(ResponseStatus.SUCCESS, data={'message': f'No team members found for team {team_id}', 'members': []})
+            return create_tool_response(True, "Operation completed successfully", data={'message': f'No team members found for team {team_id}', 'members': []})
 
         members_data = []
         for member in members:
@@ -216,11 +215,11 @@ async def get_team_members(telegram_id: int, team_id: str, username: str, chat_t
                 'is_admin': member.is_admin
             })
 
-        return create_json_response(ResponseStatus.SUCCESS, data={'message': f'Team Members for {team_id}', 'members': members_data})
+        return create_tool_response(True, "Operation completed successfully", data={'message': f'Team Members for {team_id}', 'members': members_data})
 
     except Exception as e:
         logger.error(f"Failed to get team members for {team_id}: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get team members: {e!s}")
+        return create_tool_response(False, f"Failed to get team members: {e!s}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -243,12 +242,12 @@ async def add_team_member_role(telegram_id: int, team_id: str, role: str) -> str
         success = await team_member_service.add_role_to_member(telegram_id, team_id, role)
         
         if success:
-            return create_json_response(ResponseStatus.SUCCESS, data={'message': f"Successfully added role '{role}' to team member {telegram_id}", 'telegram_id': telegram_id, 'role': role})
+            return create_tool_response(True, "Operation completed successfully", data={'message': f"Successfully added role '{role}' to team member {telegram_id}", 'telegram_id': telegram_id, 'role': role})
         else:
-            return create_json_response(ResponseStatus.ERROR, message=f"Failed to add role '{role}' to team member {telegram_id}")
+            return create_tool_response(False, f"Failed to add role '{role}' to team member {telegram_id}")
     except Exception as e:
         logger.error(f"❌ Failed to add role {role} to member {telegram_id}: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error adding role: {e!s}")
+        return create_tool_response(False, f"Error adding role: {e!s}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -271,12 +270,12 @@ async def remove_team_member_role(telegram_id: int, team_id: str, role: str) -> 
         success = await team_member_service.remove_role_from_member(telegram_id, team_id, role)
         
         if success:
-            return create_json_response(ResponseStatus.SUCCESS, data={'message': f"Successfully removed role '{role}' from team member {telegram_id}", 'telegram_id': telegram_id, 'role': role})
+            return create_tool_response(True, "Operation completed successfully", data={'message': f"Successfully removed role '{role}' from team member {telegram_id}", 'telegram_id': telegram_id, 'role': role})
         else:
-            return create_json_response(ResponseStatus.ERROR, message=f"Failed to remove role '{role}' from team member {telegram_id}")
+            return create_tool_response(False, f"Failed to remove role '{role}' from team member {telegram_id}")
     except Exception as e:
         logger.error(f"❌ Failed to remove role {role} from member {telegram_id}: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error removing role: {e!s}")
+        return create_tool_response(False, f"Error removing role: {e!s}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -299,9 +298,9 @@ async def promote_team_member_to_admin(telegram_id: int, team_id: str, promoted_
         success = await team_member_service.promote_to_admin(telegram_id, team_id, promoted_by)
         
         if success:
-            return create_json_response(ResponseStatus.SUCCESS, data={'message': f"Successfully promoted team member {telegram_id} to admin", 'telegram_id': telegram_id, 'promoted_by': promoted_by})
+            return create_tool_response(True, "Operation completed successfully", data={'message': f"Successfully promoted team member {telegram_id} to admin", 'telegram_id': telegram_id, 'promoted_by': promoted_by})
         else:
-            return create_json_response(ResponseStatus.ERROR, message=f"Failed to promote team member {telegram_id} to admin")
+            return create_tool_response(False, f"Failed to promote team member {telegram_id} to admin")
     except Exception as e:
         logger.error(f"❌ Failed to promote member {telegram_id} to admin: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error promoting to admin: {e!s}")
+        return create_tool_response(False, f"Error promoting to admin: {e!s}")

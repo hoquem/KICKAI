@@ -33,7 +33,7 @@ class UserPermissions:
     is_team_member: bool = False
     is_first_user: bool = False
     
-    def __post_init__(self):
+    def _post_init_(self):
         """Validate and set defaults after initialization."""
         self._validate()
         self._normalize_data()
@@ -169,11 +169,11 @@ class UserPermissions:
             is_first_user=False,
         )
     
-    def __str__(self) -> str:
+    def _str_(self) -> str:
         """String representation for debugging."""
         return f"UserPermissions(telegram_id={self.telegram_id}, team_id={self.team_id}, roles={self.roles})"
     
-    def __repr__(self) -> str:
+    def _repr_(self) -> str:
         """Detailed representation for debugging."""
         return (f"UserPermissions(telegram_id={self.telegram_id}, team_id='{self.team_id}', "
                 f"roles={self.roles}, is_admin={self.is_admin})")

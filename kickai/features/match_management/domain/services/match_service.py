@@ -109,7 +109,7 @@ class MatchService(IMatchService):
         """Get upcoming matches for a team."""
         try:
             # Repository mock in tests expects a single-arg call
-            if hasattr(self.match_repository.get_upcoming_matches, "__call__"):
+            if hasattr(self.match_repository.get_upcoming_matches, "_call_"):
                 try:
                     matches = await self.match_repository.get_upcoming_matches(team_id)  # type: ignore[arg-type]
                 except TypeError:

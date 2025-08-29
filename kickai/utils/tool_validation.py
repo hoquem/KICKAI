@@ -462,3 +462,41 @@ def create_tool_response(success: bool, message: str, data: Optional[Dict[str, A
     # Return JSON string
     return json.dumps(response_data, ensure_ascii=False, indent=2)
 
+
+def validate_required_input(value: Any, field_name: str, input_type: str = "string") -> Any:
+    """
+    Validate required input with comprehensive checks.
+    
+    Args:
+        value: Input value to validate
+        field_name: Name of the field for error messages
+        input_type: Type of input expected ('string', 'int', 'email', 'phone')
+        
+    Returns:
+        Validated input value
+        
+    Raises:
+        ToolValidationError: If validation fails
+    """
+    # Check if value is None or empty
+    if value is None:
+        raise ToolValidationError(f"{field_name} is required and cannot be None")
+    
+    # Handle different input types
+    if input_type == "string":
+        return validate_string_input(value, field_name, allow_empty=False)
+    elif input_type == "int":
+        return validate_telegram_id(value)
+    elif input_type == "email":
+        email_str = validate_string_input(value, field_name, allow_empty=False)
+        if "@" not in email_str or "." not in email_str:
+            raise ToolValidationError(f"{field_name} must be a valid email address")
+        return email_str
+    elif input_type == "phone":
+        return validate_phone_number(value)
+    else:
+        # Generic validation for other types
+        if isinstance(value, str) and value.strip() == "":
+            raise ToolValidationError(f"{field_name} cannot be empty")
+        return value
+

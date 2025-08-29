@@ -21,7 +21,7 @@ from kickai.features.shared.application.tools.nlp_tools import (
     validate_routing_permissions,
 )
 
-__all__ = [
+_all_ = [
     "advanced_intent_recognition",
     "entity_extraction_tool", 
     "conversation_context_tool",

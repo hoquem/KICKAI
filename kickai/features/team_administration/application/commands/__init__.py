@@ -9,4 +9,4 @@ from . import team_commands
 from . import player_admin_commands
 from . import update_commands
 
-__all__ = ["team_commands", "player_admin_commands", "update_commands"]
+_all_ = ["team_commands", "player_admin_commands", "update_commands"]

@@ -8,8 +8,7 @@ providing user-friendly error messages when commands are not accessible.
 
 from loguru import logger
 from crewai.tools import tool
-from kickai.core.enums import ResponseStatus
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -115,13 +114,11 @@ async def permission_denied_message(
         permission_denied_text = "\n".join(message_parts)
         
         logger.info(f"✅ [PERMISSION] Generated permission denied message for {username}")
-        return create_json_response(ResponseStatus.SUCCESS, data=permission_denied_text)
+        return create_tool_response(True, "Operation completed successfully", data=permission_denied_text)
         
     except Exception as e:
         logger.error(f"❌ [PERMISSION] Error generating permission denied message: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR, 
-            message=f"❌ Access denied for {command_attempted}. Contact team admin for support."
+        return create_tool_response(False, f"❌ Access denied for {command_attempted}. Contact team admin for support."
         )
 
 
@@ -180,11 +177,9 @@ async def command_not_available(
         command_not_found_text = "\n".join(message_parts)
         
         logger.info(f"✅ [COMMAND] Generated command not available message for {username}")
-        return create_json_response(ResponseStatus.SUCCESS, data=command_not_found_text)
+        return create_tool_response(True, "Operation completed successfully", data=command_not_found_text)
         
     except Exception as e:
         logger.error(f"❌ [COMMAND] Error generating command not available message: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=f"❓ Command {command_attempted} not found. Use /help for available commands."
+        return create_tool_response(False, f"❓ Command {command_attempted} not found. Use /help for available commands."
         )

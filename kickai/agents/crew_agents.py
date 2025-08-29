@@ -148,31 +148,44 @@ class TeamManagementSystem:
             # Create manager agent (MESSAGE_PROCESSOR becomes manager)
             manager_agent = Agent(
                 role="Team Manager",
-                goal="Coordinate and delegate tasks to the most appropriate specialist agents based on user intent",
+                goal="Coordinate and delegate tasks to the most appropriate specialist agents based on user intent and preserve their complete responses",
                 backstory="""You are an experienced team manager who coordinates work between specialist agents.
                 
-                CRITICAL INSTRUCTIONS FOR DELEGATION:
-                When using the "Delegate work to coworker" tool, you MUST pass parameters as simple strings, NOT as dictionaries.
+                🚨 ABSOLUTE RESPONSE PRESERVATION MANDATE:
+                YOU ARE STRICTLY FORBIDDEN FROM ALTERING SPECIALIST RESPONSES IN ANY WAY.
+                Your ONLY role is delegation and COMPLETE response passthrough.
                 
-                CORRECT parameter format:
-                - task: "Simple string description of what needs to be done"
-                - context: "Simple string with all necessary context information"
-                - coworker: "help_assistant" (just the role name as a string)
+                RESPONSE PRESERVATION PROTOCOL (MANDATORY):
+                1. Delegate task to appropriate specialist agent
+                2. Receive specialist response
+                3. Return specialist response VERBATIM - character for character
+                4. NO processing, NO summarizing, NO formatting changes whatsoever
                 
-                INCORRECT parameter format (DO NOT USE):
-                - task: {"description": "...", "type": "str"}
-                - context: {"telegram_id": 123, "team_id": "KTI"}
-                - coworker: {"role": "help_assistant"}
+                PRESERVATION REQUIREMENTS:
+                ✅ PRESERVE: Every character, emoji, line break, formatting mark
+                ✅ PRESERVE: Complete invite links, URLs, technical details
+                ✅ PRESERVE: All instructions, next steps, contact information
+                ✅ PRESERVE: Success messages, error details, user guidance
+                ❌ FORBIDDEN: Any summarization, condensation, or modification
+                ❌ FORBIDDEN: Removing details, shortening responses, paraphrasing
+                ❌ FORBIDDEN: Converting detailed responses to brief summaries
                 
-                INTENT-BASED DELEGATION:
-                Use your intelligence to understand the user's intent and delegate to the most appropriate specialist:
+                CRITICAL RULE: If specialist provides 500 words, you return ALL 500 words unchanged.
                 
-                - help_assistant: For general help, system commands, and queries about available commands
-                - player_coordinator: For player information, status, updates, and player-related queries
-                - team_administrator: For team member management, adding players/members (leadership only)
-                - squad_selector: For availability, match management, and squad-related queries
+                DELEGATION STRATEGY:
+                - help_assistant: Help, system commands, available commands
+                - player_coordinator: Player information, status, updates, approvals
+                - team_administrator: Team member management, adding players/members (leadership only)
+                - squad_selector: Availability, match management, squad operations
                 
-                Analyze the user's request and their intent, then delegate to the agent best suited to handle that type of request.""",
+                DELEGATION PARAMETERS FORMAT:
+                - task: "Simple string description"
+                - context: "Simple context string"
+                - coworker: "agent_name" (string only)
+                
+                RESPONSE HANDLING:
+                Upon receiving specialist response, return it EXACTLY as received.
+                Think of yourself as a passthrough proxy - you change NOTHING.""",
                 llm=self.manager_llm,
                 allow_delegation=True,
                 tools=[],  # Manager has no tools - only delegates
@@ -212,13 +225,13 @@ class TeamManagementSystem:
             # Validate execution context
             validated_context = self._prepare_execution_context(execution_context)
 
-            # Create enhanced task description for manager agent
+            # Create enhanced task description for manager agent with absolute preservation mandate
             user = validated_context.get('username', 'user')
             chat_type = validated_context.get('chat_type', 'main')
             telegram_id = validated_context.get('telegram_id', 0)
             team_id = validated_context.get('team_id', self.team_id)
 
-            # Create a simplified task description with context inline to avoid delegation parameter issues
+            # Create task description with absolute response preservation mandate
             enhanced_task = f"""
 User ({user}) in {chat_type} chat says: "{task_description}"
 
@@ -228,26 +241,50 @@ Context Information:
 - Username: {user}
 - Chat Type: {chat_type}
 
-As the team manager, understand what the user wants and delegate to the most appropriate specialist agent.
+🎯 YOUR TASK:
+1. Analyze user intent and delegate to appropriate specialist
+2. PRESERVE specialist response COMPLETELY AND EXACTLY
 
-IMPORTANT: When delegating to a specialist agent, format your parameters as simple strings:
-- task: "Help the user with their request: {task_description}"
-- context: "User ID: {telegram_id}, Team: {team_id}, Username: {user}, Chat Type: {chat_type}"
-- coworker: "help_assistant" (or the appropriate agent role)
+🚨 RESPONSE PRESERVATION MANDATE:
+Whatever response the specialist provides, you MUST return it VERBATIM.
+NO summarizing, NO condensing, NO modifications, NO shortening.
+If specialist returns 1000 characters, you return ALL 1000 characters unchanged.
 
-Available specialist agents:
-- help_assistant: For general help, system commands, and queries about available commands
-- player_coordinator: For player information, status, updates, and player-related queries
-- team_administrator: For team member management, adding players/members (leadership only)
-- squad_selector: For availability, match management, and squad-related queries
+DELEGATION TARGETS:
+- help_assistant: Help, system commands, available commands
+- player_coordinator: Player info, status, updates, approvals
+- team_administrator: Team management, adding players/members (leadership only)  
+- squad_selector: Availability, matches, squad operations
 
-Use your intelligence to analyze the user's intent and delegate to the most appropriate specialist agent.
+DELEGATION FORMAT:
+- task: "Process user request: {task_description}"
+- context: "User: {user}, ID: {telegram_id}, Team: {team_id}, Chat: {chat_type}"
+- coworker: "[agent_name]"
+
+⚡ FINAL INSTRUCTION:
+Return the specialist's response EXACTLY as received - character for character.
+You are a passthrough proxy. Change NOTHING.
 """
 
-            # Create task for the crew - remove context parameter as it conflicts with delegation
+            # Create task for the crew with explicit preservation requirements
             task = Task(
                 description=enhanced_task,
-                expected_output="Appropriate response to the user's request"
+                expected_output="""SPECIALIST RESPONSE VERBATIM - NO CHANGES ALLOWED
+                
+You must return the specialist agent's response EXACTLY as provided:
+                - Every character preserved
+                - All formatting intact (emojis, line breaks, bullets)
+                - Complete invite links and URLs
+                - Full instructions and next steps
+                - All details, no summarization
+                
+FORBIDDEN ACTIONS:
+                - Summarizing or condensing responses
+                - Removing details or formatting
+                - Converting long responses to brief summaries
+                - Any modification or paraphrasing
+                
+REQUIRED: Character-for-character exact reproduction of specialist response."""
             )
 
             # Execute with CrewAI's native delegation - pass minimal inputs to avoid parameter conflicts

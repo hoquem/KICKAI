@@ -12,9 +12,8 @@ from crewai.tools import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
-from kickai.core.enums import ResponseStatus
 from kickai.features.player_registration.domain.services.player_service import PlayerService
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 from kickai.utils.tool_validation import create_tool_response
 from kickai.utils.field_validation import FieldValidator, ValidationError
 
@@ -230,43 +229,31 @@ async def update_player_multiple_fields(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
         
         logger.info(f"🔄 Bulk update for {username} ({telegram_id}): {list(updates.keys()) if updates else 'No updates'}")
         
         # Validate inputs at application boundary
         if not updates or not isinstance(updates, dict):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Updates dictionary is required for bulk update"
+            return create_tool_response(False, "Updates dictionary is required for bulk update"
             )
 
         # Get required services from container (application boundary)
@@ -274,9 +261,7 @@ async def update_player_multiple_fields(
         player_service = container.get_service(PlayerService)
         
         if not player_service:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="PlayerService is not available"
+            return create_tool_response(False, "PlayerService is not available"
             )
 
         # Validate all field values using utility (application layer validation)
@@ -290,15 +275,13 @@ async def update_player_multiple_fields(
             # Use validated updates
             updates = validated_updates
         except ValidationError as e:
-            return create_json_response(ResponseStatus.ERROR, message=str(e))
+            return create_tool_response(False, str(e))
 
         # Get player first, then update using existing service method
         player = await player_service.get_player_by_telegram_id(telegram_id, team_id)
         
         if not player:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Player not found. You may not be registered as a player."
+            return create_tool_response(False, "Player not found. You may not be registered as a player."
             )
             
         # Execute domain operation using existing update_player method
@@ -306,9 +289,7 @@ async def update_player_multiple_fields(
             updated_player = await player_service.update_player(player.player_id, team_id, **updates)
             success = updated_player is not None
         except Exception as e:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message=f"Failed to update player fields: {str(e)}"
+            return create_tool_response(False, f"Failed to update player fields: {str(e)}"
             )
         
         if success:
@@ -321,16 +302,14 @@ async def update_player_multiple_fields(
             }
             
             logger.info(f"✅ Bulk update completed for {username}: {len(updates)} fields")
-            return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+            return create_tool_response(True, "Operation completed successfully", data=response_data)
         else:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Failed to update player fields. Player may not exist or update failed."
+            return create_tool_response(False, "Failed to update player fields. Player may not exist or update failed."
             )
 
     except Exception as e:
         logger.error(f"❌ Error in bulk update for {username}: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to update player fields: {e}")
+        return create_tool_response(False, f"Failed to update player fields: {e}")
 
 
 @tool("get_player_update_help", result_as_answer=True)
@@ -369,34 +348,24 @@ async def get_player_update_help(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
         
         logger.info(f"📖 Update help requested by {username} ({telegram_id})")
@@ -419,11 +388,11 @@ async def get_player_update_help(
         }
         
         logger.info(f"✅ Update help provided to {username}")
-        return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+        return create_tool_response(True, "Operation completed successfully", data=response_data)
 
     except Exception as e:
         logger.error(f"❌ Error providing update help to {username}: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get update help: {e}")
+        return create_tool_response(False, f"Failed to get update help: {e}")
 
 
 @tool("get_player_current_info", result_as_answer=True)
@@ -462,34 +431,24 @@ async def get_player_current_info(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
         
         logger.info(f"📋 Current info request from {username} ({telegram_id})")
@@ -499,18 +458,14 @@ async def get_player_current_info(
         player_service = container.get_service(PlayerService)
         
         if not player_service:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="PlayerService is not available"
+            return create_tool_response(False, "PlayerService is not available"
             )
 
         # Execute domain operation
         player = await player_service.get_player_by_telegram_id(telegram_id, team_id)
         
         if not player:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Player not found. You may not be registered as a player."
+            return create_tool_response(False, "Player not found. You may not be registered as a player."
             )
 
         # Format current information at application boundary
@@ -529,8 +484,6 @@ async def get_player_current_info(
 🆘 EMERGENCY CONTACT:
 • Name: {getattr(player, 'emergency_contact_name', 'Not set')}
 • Phone: {getattr(player, 'emergency_contact_phone', 'Not set')}
-
-
 
 🏥 MEDICAL NOTES:
 {getattr(player, 'medical_notes', 'No medical notes recorded')}
@@ -553,8 +506,8 @@ async def get_player_current_info(
         }
         
         logger.info(f"✅ Current info provided to {username}")
-        return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+        return create_tool_response(True, "Operation completed successfully", data=response_data)
 
     except Exception as e:
         logger.error(f"❌ Error getting current info for {username}: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get current info: {e}")
+        return create_tool_response(False, f"Failed to get current info: {e}")

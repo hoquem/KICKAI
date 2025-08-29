@@ -20,6 +20,6 @@ This module provides tools for player registration and management.
 # - get_player_current_info (service function)
 
 # Domain layer exports nothing - all tools come from application layer
-__all__ = []
+_all_ = []
 
 # Note: Removed unused tools: remove_player, get_player_info, list_players, get_player_status

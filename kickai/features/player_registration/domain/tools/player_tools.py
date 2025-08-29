@@ -13,10 +13,9 @@ from loguru import logger
 from crewai.tools import tool
 
 from kickai.core.dependency_container import get_container
-from kickai.core.enums import ResponseStatus
 from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
 from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
-from kickai.utils.tool_helpers import create_json_response, validate_required_input, sanitize_input
+from kickai.utils.tool_validation import create_tool_response, validate_required_input, sanitize_input
 from kickai.utils.tool_validation import create_tool_response, validate_team_id, validate_telegram_id
 from kickai.core.dependency_container import get_container
 
@@ -39,7 +38,7 @@ def _get_service_from_container(service_class: type) -> Any:
     service = container.get_service(service_class)
     
     if not service:
-        logger.warning(f"⚠️ {service_class.__name__} is not available")
+        logger.warning(f"⚠️ {service_class._name_} is not available")
         
     return service
 
@@ -110,7 +109,7 @@ async def approve_player(telegram_id: int, team_id: str, username: str, chat_typ
         # Get player service
         player_service = _get_service_from_container(IPlayerService)
         if not player_service:
-            return create_json_response(ResponseStatus.ERROR, message="PlayerService is not available")
+            return create_tool_response(False, "PlayerService is not available")
         
         # Approve the player
         success = await player_service.approve_player(player_id, team_id)
@@ -127,11 +126,11 @@ async def approve_player(telegram_id: int, team_id: str, username: str, chat_typ
                 }
             )
         else:
-            return create_json_response(ResponseStatus.ERROR, message=f"Failed to approve player {player_id}")
+            return create_tool_response(False, f"Failed to approve player {player_id}")
             
     except Exception as e:
         logger.error(f"❌ Error in approve_player: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to approve player: {str(e)}")
+        return create_tool_response(False, f"Failed to approve player: {str(e)}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -162,7 +161,7 @@ async def get_my_status(telegram_id: int, team_id: str, username: str, chat_type
             team_member_service = _get_service_from_container(ITeamMemberService)
             
             if not team_member_service:
-                return create_json_response(ResponseStatus.ERROR, message="TeamMemberService is not available")
+                return create_tool_response(False, "TeamMemberService is not available")
             
             # Get team member by telegram ID
             team_member = await team_member_service.get_team_member_by_telegram_id(telegram_id_int, team_id)
@@ -194,7 +193,7 @@ async def get_my_status(telegram_id: int, team_id: str, username: str, chat_type
             # Get player information for main chat
             player_service = _get_service_from_container(IPlayerService)
             if not player_service:
-                return create_json_response(ResponseStatus.ERROR, message="PlayerService is not available")
+                return create_tool_response(False, "PlayerService is not available")
 
             player = await player_service.get_player_by_telegram_id(telegram_id_int, team_id)
 
@@ -212,13 +211,13 @@ async def get_my_status(telegram_id: int, team_id: str, username: str, chat_type
                     data=player_data
                 )
             else:
-                return create_json_response(ResponseStatus.ERROR, message=f"Player not found for telegram ID {telegram_id_int} in team {team_id}")
+                return create_tool_response(False, f"Player not found for telegram ID {telegram_id_int} in team {team_id}")
 
     except Exception as e:
         from kickai.features.player_registration.domain.exceptions import PlayerLookupError
         logger.error(f"❌ Error in get_my_status: {e}")
         lookup_error = PlayerLookupError(str(telegram_id_int), team_id, str(e))
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get user status: {lookup_error.message}")
+        return create_tool_response(False, f"Failed to get user status: {lookup_error.message}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -240,11 +239,11 @@ async def get_all_players(telegram_id: int, team_id: str, username: str, chat_ty
         # Validate inputs
         validation_error = validate_required_input(team_id, "Team ID")
         if validation_error:
-            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ ", ""))
+            return create_tool_response(False, validation_error.replace("❌ ", ""))
 
         validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
-            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ ", ""))
+            return create_tool_response(False, validation_error.replace("❌ ", ""))
 
         # Sanitize and validate inputs
         team_id = sanitize_input(team_id, max_length=20)
@@ -253,7 +252,7 @@ async def get_all_players(telegram_id: int, team_id: str, username: str, chat_ty
         # Get service
         player_service = _get_service_from_container(IPlayerService)
         if not player_service:
-            return create_json_response(ResponseStatus.ERROR, message="PlayerService is not available")
+            return create_tool_response(False, "PlayerService is not available")
 
         # Get all players
         players = await player_service.get_all_players(team_id)
@@ -294,7 +293,7 @@ async def get_all_players(telegram_id: int, team_id: str, username: str, chat_ty
         from kickai.features.player_registration.domain.exceptions import PlayerDataError
         logger.error(f"❌ Error in get_all_players: {e}")
         data_error = PlayerDataError(team_id, str(e))
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get all players: {data_error.message}")
+        return create_tool_response(False, f"Failed to get all players: {data_error.message}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -337,11 +336,11 @@ async def get_active_players(telegram_id: int, team_id: str, username: str, chat
         # Validate inputs
         validation_error = validate_required_input(team_id, "Team ID")
         if validation_error:
-            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ ", ""))
+            return create_tool_response(False, validation_error.replace("❌ ", ""))
 
         validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
-            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ ", ""))
+            return create_tool_response(False, validation_error.replace("❌ ", ""))
 
         # Sanitize and validate inputs
         team_id = sanitize_input(team_id, max_length=20)
@@ -350,7 +349,7 @@ async def get_active_players(telegram_id: int, team_id: str, username: str, chat
         # Get service
         player_service = _get_service_from_container(IPlayerService)
         if not player_service:
-            return create_json_response(ResponseStatus.ERROR, message="PlayerService is not available")
+            return create_tool_response(False, "PlayerService is not available")
 
         # Get active players
         active_players = await player_service.get_active_players(team_id)
@@ -391,7 +390,7 @@ async def get_active_players(telegram_id: int, team_id: str, username: str, chat
         from kickai.features.player_registration.domain.exceptions import PlayerDataError
         logger.error(f"❌ Error in get_active_players: {e}")
         data_error = PlayerDataError(team_id, str(e))
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get active players: {data_error.message}")
+        return create_tool_response(False, f"Failed to get active players: {data_error.message}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -420,7 +419,7 @@ async def get_player_match(telegram_id: int, team_id: str, username: str, chat_t
         # Get player service
         player_service = _get_service_from_container(IPlayerService)
         if not player_service:
-            return create_json_response(ResponseStatus.ERROR, message="PlayerService is not available")
+            return create_tool_response(False, "PlayerService is not available")
         
         # Get player match information
         match_info = await player_service.get_player_match_info(player_id, team_id)
@@ -432,11 +431,11 @@ async def get_player_match(telegram_id: int, team_id: str, username: str, chat_t
                 data=match_info
             )
         else:
-            return create_json_response(ResponseStatus.ERROR, message=f"No match information found for player {player_id}")
+            return create_tool_response(False, f"No match information found for player {player_id}")
             
     except Exception as e:
         logger.error(f"❌ Error in get_player_match: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get player match info: {str(e)}")
+        return create_tool_response(False, f"Failed to get player match info: {str(e)}")
 
 
 # NOTE: list_team_members_and_players functionality moved to team_administration module

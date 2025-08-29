@@ -94,7 +94,7 @@ async def handle_addmember_command(update, context, **kwargs):
         member_name, phone_number = parse_addmember_args(args_text)
 
         if not member_name or not phone_number:
-            return ERROR_MESSAGES["ADDMEMBER_INVALID_FORMAT"] + f"\n\n📝 **What you provided:** {args_text}\n🎯 **What I need:** Member name + phone number"
+            return ERROR_MESSAGES["ADDMEMBER_INVALID_FORMAT"] + f"\n\n📝 What you provided: {args_text}\n🎯 What I need: Member name + phone number"
 
         # Sanitize inputs
         member_name = sanitize_input(member_name, 100)
@@ -102,11 +102,11 @@ async def handle_addmember_command(update, context, **kwargs):
 
         # Validate inputs
         if not member_name or not member_name.strip():
-            return ERROR_MESSAGES["NAME_REQUIRED"] + f"\n\n📝 **What you provided:** {args_text}"
+            return ERROR_MESSAGES["NAME_REQUIRED"] + f"\n\n📝 What you provided: {args_text}"
 
         # Validate name length
         if len(member_name.strip()) < PLAYER_MIN_NAME_LENGTH:
-            return ERROR_MESSAGES["NAME_TOO_SHORT"].format(min_length=PLAYER_MIN_NAME_LENGTH) + f"\n\n📝 **What you provided:** {args_text}"
+            return ERROR_MESSAGES["NAME_TOO_SHORT"].format(min_length=PLAYER_MIN_NAME_LENGTH) + f"\n\n📝 What you provided: {args_text}"
 
         # Validate phone number format
         if not is_valid_phone(phone_number):

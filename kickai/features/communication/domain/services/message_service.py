@@ -34,7 +34,7 @@ class MessageService:
             created_at=datetime.now(),
             status="sent",
         )
-        message_id = await self._repo.save(message.__dict__)
+        message_id = await self._repo.save(message._dict_)
         return message_id
 
     async def fetch_messages(self, conversation_id: str, limit: int = 50) -> List[Message]:

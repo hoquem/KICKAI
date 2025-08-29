@@ -78,7 +78,7 @@ class PlayerToolContext:
     team_id: str
     user_id: str
 
-    def __post_init__(self):
+    def _post_init_(self):
         """Validate context after initialization."""
         if not self.team_id or not self.team_id.strip():
             raise PlayerValidationError(["Team ID is required"])
@@ -94,7 +94,7 @@ class AddPlayerRequest:
     phone: str
     position: str | None = None
 
-    def __post_init__(self):
+    def _post_init_(self):
         """Validate and sanitize the request after initialization."""
         if not self.name or not self.name.strip():
             raise PlayerValidationError(["Player name is required"])

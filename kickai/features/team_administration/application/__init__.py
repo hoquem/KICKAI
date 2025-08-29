@@ -8,4 +8,4 @@ commands, handlers, and services.
 # Import commands for command discovery
 from . import commands
 
-__all__ = ["commands"]
+_all_ = ["commands"]

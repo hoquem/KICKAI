@@ -36,11 +36,11 @@ from kickai.utils.simple_id_generator import generate_simple_team_member_id
 class SimplifiedTeamMemberService:
     """Simplified service for team member management."""
 
-    def __init__(self, team_member_repository: TeamMemberRepositoryInterface, team_service: TeamService, invite_service: InviteLinkService):
+    def __init__(self, team_member_repository: TeamMemberRepositoryInterface, team_service: TeamService):
         self.team_member_repository = team_member_repository
         self.team_service = team_service
-        self.invite_service = invite_service
         self.logger = logger
+        # InviteLinkService will be created when needed with proper team_id
 
     async def add_team_member_or_get_existing(
         self, name: str, phone: str, role: str = None, team_id: str = None, email: str = None
@@ -195,9 +195,14 @@ class SimplifiedTeamMemberService:
             logger.info(f"✅ Team found: {team.name}, leadership_chat_id: {team.leadership_chat_id}")
 
             logger.info(f"🔗 Creating invite link via service for member: {name}")
+            
+            # Create team-specific invite service
+            from kickai.core.dependency_container import get_container
+            database = get_container().get_database()
+            invite_service = InviteLinkService(database=database, team_id=team_id)
 
             # Create invite link
-            invite_result = await self.invite_service.create_team_member_invite_link(
+            invite_result = await invite_service.create_team_member_invite_link(
                 team_id=team_id,
                 member_id=member_id,  # Pass real member_id
                 member_name=name,

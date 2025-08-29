@@ -29,7 +29,7 @@ class Team:
     main_chat_id: Optional[str] = None
     leadership_chat_id: Optional[str] = None
 
-    def __post_init__(self):
+    def _post_init_(self):
         """Ensure data consistency after initialization."""
         # Bot configuration is now stored in explicit fields only
         pass

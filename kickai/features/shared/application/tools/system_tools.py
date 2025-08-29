@@ -10,9 +10,8 @@ All framework dependencies (@tool decorators) are confined to this layer.
 from crewai.tools import tool
 from loguru import logger
 
-from kickai.core.enums import ResponseStatus
 from kickai.features.shared.domain.services.system_service import SystemService
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 from kickai.utils.tool_validation import create_tool_response
 
 
@@ -31,7 +30,7 @@ async def ping(telegram_id: int, team_id: str, username: str, chat_type: str) ->
         chat_type: Chat type context
     
     Returns:
-        JSON formatted pong response with timestamp and bot version
+        Formatted pong response string ready for display
     """
     try:
         logger.info(f"🏓 Ping request from user {username} ({telegram_id}) in team {team_id}")
@@ -45,11 +44,12 @@ async def ping(telegram_id: int, team_id: str, username: str, chat_type: str) ->
         
         logger.info(f"✅ Ping response sent at {ping_result.response_time}")
         
-        return create_tool_response(True, f"Ping response for {username}", {"ping_data": formatted_response})
+        # Return formatted string directly (like help tools do)
+        return formatted_response
         
     except Exception as e:
         logger.error(f"❌ Error in ping tool: {e}")
-        return create_tool_response(False, f"Ping failed: {str(e)}")
+        return f"❌ Ping failed: {str(e)}"
 
 
 @tool("version", result_as_answer=True)
@@ -67,7 +67,7 @@ async def version(telegram_id: int, team_id: str, username: str, chat_type: str)
         chat_type: Chat type context
     
     Returns:
-        JSON formatted version information and system details
+        Formatted version information string ready for display
     """
     try:
         logger.info(f"📱 Version info request from user {username} ({telegram_id}) in team {team_id}")
@@ -81,8 +81,9 @@ async def version(telegram_id: int, team_id: str, username: str, chat_type: str)
         
         logger.info(f"✅ Version info sent at {system_info.timestamp}")
         
-        return create_tool_response(True, f"Version info for {username}", {"version_data": formatted_response})
+        # Return formatted string directly (like help tools do)
+        return formatted_response
         
     except Exception as e:
         logger.error(f"❌ Error in version tool: {e}")
-        return create_tool_response(False, f"Version check failed: {str(e)}")
+        return f"❌ Version check failed: {str(e)}"

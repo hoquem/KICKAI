@@ -11,11 +11,10 @@ from crewai.tools import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
-from kickai.core.enums import ResponseStatus
 from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.features.shared.domain.services.user_service import UserService, UserRepositoryInterface
 from kickai.features.team_administration.domain.services.team_service import TeamService
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 from kickai.utils.tool_validation import create_tool_response
 
 

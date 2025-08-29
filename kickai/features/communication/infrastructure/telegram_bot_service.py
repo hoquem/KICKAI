@@ -597,11 +597,11 @@ class TelegramBotService(TelegramBotServiceInterface):
         """Debug handler to log all incoming updates."""
         try:
             # Get the update type instead of message type
-            update_type = type(update).__name__
+            update_type = type(update)._name_
             logger.info(f"🔍 DEBUG: Received update - Type: {update_type}")
 
             if update.effective_message:
-                message_type = type(update.effective_message).__name__
+                message_type = type(update.effective_message)._name_
                 logger.info(f"🔍 DEBUG: Message Type: {message_type}")
                 logger.info(
                     f"🔍 DEBUG: Chat ID: {update.effective_chat.id}, User ID: {update.effective_user.id if update.effective_user else 'None'}"

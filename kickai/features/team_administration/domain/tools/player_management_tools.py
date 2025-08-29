@@ -9,7 +9,7 @@ including adding new players with invite link generation.
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
-from kickai.core.enums import ChatType, ResponseStatus
+from kickai.core.enums import ChatType
 from kickai.core.exceptions import (
     ServiceNotAvailableError,
     TeamNotConfiguredError,
@@ -30,7 +30,7 @@ from kickai.utils.constants import (
 )
 from crewai.tools import tool
 from kickai.utils.id_generator import generate_player_id
-from kickai.utils.tool_helpers import create_json_response, validate_required_input
+from kickai.utils.tool_validation import create_tool_response, validate_required_input
 from kickai.utils.validation_utils import is_valid_phone, normalize_phone, sanitize_input
 
 
@@ -45,11 +45,11 @@ async def add_player(
     phone_number: str
 ) -> str:
     """
-    🏃‍♂️ **AI EXPERT: Player Registration Tool**
+    🏃‍♂️ AI EXPERT: Player Registration Tool
 
-    **PRIMARY FUNCTION**: Add a new player to the team and generate a secure invite link for main chat access.
+    PRIMARY FUNCTION: Add a new player to the team and generate a secure invite link for main chat access.
 
-    **CORE WORKFLOW**:
+    CORE WORKFLOW:
     1. Validate leadership permissions and input data
     2. Check for duplicate phone numbers (prevent conflicts)
     3. Generate unique player ID using name-based algorithm
@@ -57,20 +57,20 @@ async def add_player(
     5. Generate secure, time-limited invite link
     6. Return formatted success response with instructions
 
-    **CRITICAL VALIDATIONS**:
+    CRITICAL VALIDATIONS:
     - Leadership chat context required (chat_type must be "leadership")
     - Phone number must be unique within team
     - UK phone format validation (+447123456789 or 07123456789)
     - Name length validation (2-100 characters)
     - Team configuration validation (main_chat_id must exist)
 
-    **SECURITY FEATURES**:
+    SECURITY FEATURES:
     - Leadership-only access control
     - Duplicate phone number prevention
     - Secure invite link generation with expiration
     - Input sanitization and validation
 
-    **Args**:
+    Args:
         telegram_id (int): Admin's Telegram ID (from context)
         team_id (str): Team identifier (from context)
         username (str): Admin's username (from context)
@@ -78,63 +78,63 @@ async def add_player(
         player_name (str): Player's full name (2-100 characters)
         phone_number (str): Player's phone number (UK format required)
 
-    **Returns**:
+    Returns:
         JSON string with success/error status and formatted message
 
-    **🎯 CONTEXT USAGE GUIDANCE**:
-    - **LEADERSHIP CHAT**: Primary tool for player registration workflows
-    - **MAIN CHAT**: NOT AVAILABLE - blocked by permission system
-    - **PRIVATE CHAT**: NOT AVAILABLE - blocked by permission system
+    🎯 CONTEXT USAGE GUIDANCE:
+    - LEADERSHIP CHAT: Primary tool for player registration workflows
+    - MAIN CHAT: NOT AVAILABLE - blocked by permission system
+    - PRIVATE CHAT: NOT AVAILABLE - blocked by permission system
 
-    **📋 USE WHEN**:
+    📋 USE WHEN:
     - User requests to add a new player to the team
     - Leadership needs to register players with invite links
     - Player registration workflow initiation
     - Team expansion and player onboarding
 
-    **❌ AVOID WHEN**:
+    ❌ AVOID WHEN:
     - User is not in leadership chat (permission error)
     - Phone number already exists (duplicate error)
     - Team not properly configured (configuration error)
     - Need to update existing player (use different tool)
 
-    **🔄 ALTERNATIVES**:
-    - `team_member_registration`: For adding team members (coaches, managers)
-    - `get_player_status`: For checking existing player information
-    - `approve_player`: For approving pending players
+    🔄 ALTERNATIVES:
+    - team_member_registration: For adding team members (coaches, managers)
+    - get_player_status: For checking existing player information
+    - approve_player: For approving pending players
 
-    **💡 AI AGENT EXAMPLES**:
-    - **User Input**: "Add player John Smith with phone +447123456789"
-    - **Action**: Call `add_player(telegram_id, team_id, username, "leadership", "John Smith", "+447123456789")`
-    - **Expected Output**: Success message with invite link and instructions
+    💡 AI AGENT EXAMPLES:
+    - User Input: "Add player John Smith with phone +447123456789"
+    - Action: Call add_player(telegram_id, team_id, username, "leadership", "John Smith", "+447123456789")
+    - Expected Output: Success message with invite link and instructions
 
-    - **User Input**: "Can you register Sarah Johnson, her number is 07123456789"
-    - **Action**: Call `add_player(telegram_id, team_id, username, "leadership", "Sarah Johnson", "07123456789")`
-    - **Expected Output**: Success message with invite link and instructions
+    - User Input: "Can you register Sarah Johnson, her number is 07123456789"
+    - Action: Call add_player(telegram_id, team_id, username, "leadership", "Sarah Johnson", "07123456789")
+    - Expected Output: Success message with invite link and instructions
 
-    - **User Input**: "I need to add Mike with phone +447987654321"
-    - **Action**: Call `add_player(telegram_id, team_id, username, "leadership", "Mike", "+447987654321")`
-    - **Expected Output**: Success message with invite link and instructions
+    - User Input: "I need to add Mike with phone +447987654321"
+    - Action: Call add_player(telegram_id, team_id, username, "leadership", "Mike", "+447987654321")
+    - Expected Output: Success message with invite link and instructions
 
-    **🚨 ERROR SCENARIOS**:
-    - **Permission Error**: User not in leadership chat → Return permission error message
-    - **Duplicate Phone**: Phone already registered → Return existing player details
-    - **Invalid Phone**: Wrong format → Return format guidance with examples
-    - **Missing Data**: Incomplete information → Return specific missing field guidance
-    - **System Error**: Service unavailable → Return system error with admin contact
+    🚨 ERROR SCENARIOS:
+    - Permission Error: User not in leadership chat → Return permission error message
+    - Duplicate Phone: Phone already registered → Return existing player details
+    - Invalid Phone: Wrong format → Return format guidance with examples
+    - Missing Data: Incomplete information → Return specific missing field guidance
+    - System Error: Service unavailable → Return system error with admin contact
 
-    **🔧 TECHNICAL NOTES**:
+    🔧 TECHNICAL NOTES:
     - Player is created with "PENDING" status (requires approval later)
     - Position field is empty (set via /update command by player)
     - Invite link expires in 7 days (configurable)
     - Player ID is generated using name-based algorithm
     - All inputs are sanitized and validated before processing
 
-    **📊 PERFORMANCE CHARACTERISTICS**:
-    - **Response Time**: < 2 seconds for successful operations
-    - **Database Operations**: 2-3 queries (team lookup, player creation, invite generation)
-    - **External Calls**: 1 Telegram API call for invite link generation
-    - **Error Recovery**: Graceful degradation with clear error messages
+    📊 PERFORMANCE CHARACTERISTICS:
+    - Response Time: < 2 seconds for successful operations
+    - Database Operations: 2-3 queries (team lookup, player creation, invite generation)
+    - External Calls: 1 Telegram API call for invite link generation
+    - Error Recovery: Graceful degradation with clear error messages
     """
     try:
         # Validate required inputs
@@ -149,11 +149,11 @@ async def add_player(
 
         validation_errors = [error for error in validations if error]
         if validation_errors:
-            return create_json_response(ResponseStatus.ERROR, message=f"❌ Missing Information\n\n💡 I need complete details to add a player:\n{'; '.join(validation_errors)}")
+            return create_tool_response(False, f"❌ Missing Information\n\n💡 I need complete details to add a player:\n{'; '.join(validation_errors)}")
 
         # Validate chat type is leadership
         if chat_type.lower() != ChatType.LEADERSHIP.value:
-            return create_json_response(ResponseStatus.ERROR, message=ERROR_MESSAGES["PERMISSION_REQUIRED"])
+            return create_tool_response(False, ERROR_MESSAGES["PERMISSION_REQUIRED"])
 
         # Sanitize inputs using configuration constants
         player_name = sanitize_input(player_name, PLAYER_MAX_NAME_LENGTH)
@@ -162,7 +162,7 @@ async def add_player(
 
         # Validate phone number format
         if not is_valid_phone(phone_number):
-            return create_json_response(ResponseStatus.ERROR, message=ERROR_MESSAGES["INVALID_PHONE_FORMAT"].format(phone=phone_number))
+            return create_tool_response(False, ERROR_MESSAGES["INVALID_PHONE_FORMAT"].format(phone=phone_number))
 
         # Normalize phone number
         normalized_phone = normalize_phone(phone_number)
@@ -262,12 +262,10 @@ async def add_player(
         )
 
         # Return JSON response with properly formatted message
-        return create_json_response(ResponseStatus.SUCCESS, data=success_response)
+        return create_tool_response(True, "Operation completed successfully", data=success_response)
 
     except Exception as e:
         logger.error(f"❌ Error in add_player tool: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=ERROR_MESSAGES["ADDPLAYER_SYSTEM_ERROR"].format(error=str(e))
+        return create_tool_response(False, ERROR_MESSAGES["ADDPLAYER_SYSTEM_ERROR"].format(error=str(e))
         )
 

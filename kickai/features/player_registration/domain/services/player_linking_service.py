@@ -263,10 +263,10 @@ I found pending player record(s) that need to be linked to your Telegram account
 
 📱 To link your account, please share your phone number:
 
-**Option 1: Share Contact**
+Option 1: Share Contact
 Click the "📱 Share My Phone Number" button below
 
-**Option 2: Type Manually**
+Option 2: Type Manually
 Send your phone number in international format:
 Example: +447123456789
 

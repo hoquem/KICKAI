@@ -180,7 +180,7 @@ This is an automated alert from the KICKAI system."""
             }.get(severity, "ℹ️")
 
             # Format the alert message
-            message = f"""{severity_emoji} **SYSTEM ALERT**
+            message = f"""{severity_emoji} SYSTEM ALERT
 
 📋 Alert Type: {alert_type}
 📝 Message: {message_text}

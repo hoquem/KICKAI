@@ -23,8 +23,7 @@ from kickai.features.team_administration.domain.exceptions import (
     RepositoryUnavailableError,
 )
 from crewai.tools import tool
-from kickai.core.enums import ResponseStatus
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 from typing import List, Optional
 
 
@@ -222,17 +221,17 @@ async def update_team_member_information(
 
         # Validate inputs
         if not user_id or not team_id or not field or not value:
-            return create_json_response(ResponseStatus.ERROR, message="Update Failed: Missing required parameters (user_id, team_id, field, value)")
+            return create_tool_response(False, "Update Failed: Missing required parameters (user_id, team_id, field, value)")
 
         # Initialize services
         container = get_container()
         team_member_service = container.get_service(TeamMemberService)
         if not team_member_service:
-            return create_json_response(ResponseStatus.ERROR, message="Update Failed: Team member service not available")
+            return create_tool_response(False, "Update Failed: Team member service not available")
         
         team_repository = container.get_service(TeamRepositoryInterface)
         if not team_repository:
-            return create_json_response(ResponseStatus.ERROR, message="Update Failed: Team repository service not available")
+            return create_tool_response(False, "Update Failed: Team repository service not available")
 
         # Check if team member exists
         logger.info(f"🔍 Checking if team member exists: user_id={user_id}")
@@ -240,7 +239,7 @@ async def update_team_member_information(
 
         if not member:
             logger.warning(f"❌ Team member not found: user_id={user_id}")
-            return create_json_response(ResponseStatus.ERROR, message="Update Failed: You are not registered as a team member. Ask leadership to add you.")
+            return create_tool_response(False, "Update Failed: You are not registered as a team member. Ask leadership to add you.")
 
         member_id = member.member_id
         member_name = member.name
@@ -267,7 +266,7 @@ async def update_team_member_information(
                 logger.warning(
                     f"Duplicate phone number: {validated_value} already used by {existing_member.name}"
                 )
-                return create_json_response(ResponseStatus.ERROR, message=f"Update Failed: Phone number {validated_value} is already registered to another team member ({existing_member.name})")
+                return create_tool_response(False, f"Update Failed: Phone number {validated_value} is already registered to another team member ({existing_member.name})")
 
         # Prepare update data
         current_time = datetime.now().isoformat()
@@ -297,7 +296,7 @@ async def update_team_member_information(
 
             logger.info(f"Approval request created for {field} update")
 
-            return create_json_response(ResponseStatus.SUCCESS, data={
+            return create_tool_response(True, "Operation completed successfully", data={
                 'message': 'Role Change Request Submitted',
                 'status': 'pending_approval',
                 'field': field,
@@ -351,7 +350,7 @@ async def update_team_member_information(
         if not requires_approval:
             field_description = validator.UPDATABLE_FIELDS.get(field, field)
 
-            return create_json_response(ResponseStatus.SUCCESS, data={
+            return create_tool_response(True, "Operation completed successfully", data={
                 'message': 'Information Updated Successfully!',
                 'member_name': member_name,
                 'field': field,
@@ -365,11 +364,11 @@ async def update_team_member_information(
 
     except TeamMemberUpdateValidationError as e:
         logger.warning(f"Validation error: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Update Failed: {e!s}")
+        return create_tool_response(False, f"Update Failed: {e!s}")
 
     except Exception as e:
         logger.error(f"Error updating team member information: {e}", exc_info=True)
-        return create_json_response(ResponseStatus.ERROR, message="Update Failed: An unexpected error occurred. Please try again or contact support.")
+        return create_tool_response(False, "Update Failed: An unexpected error occurred. Please try again or contact support.")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -420,23 +419,23 @@ async def get_team_member_updatable_fields(user_id: TelegramUserId, team_id: Tea
 
 📋 Available Fields to Update:
 
-📱 **phone** - Your contact phone number
+📱 phone - Your contact phone number
    Example: /update phone 07123456789
    Format: UK numbers (+44 or 07xxx format)
 
-📧 **email** - Your email address
+📧 email - Your email address
    Example: /update email admin@example.com
    Format: Valid email address
 
-🚨 **emergency_contact_name** - Emergency contact name
+🚨 emergency_contact_name - Emergency contact name
    Example: /update emergency_contact_name John Doe
    Format: Contact person's name
 
-🚨 **emergency_contact_phone** - Emergency contact phone
+🚨 emergency_contact_phone - Emergency contact phone
    Example: /update emergency_contact_phone +44787654321
    Format: Valid phone number
 
-👔 **role** - Your administrative role ⚠️ ADMIN APPROVAL REQUIRED
+👔 role - Your administrative role ⚠️ ADMIN APPROVAL REQUIRED
    Example: /update role Assistant Coach
    Valid: {roles}
 

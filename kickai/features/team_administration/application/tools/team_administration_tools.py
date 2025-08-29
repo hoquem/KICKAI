@@ -12,10 +12,9 @@ from crewai.tools import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
-from kickai.core.enums import ResponseStatus
 from kickai.features.team_administration.domain.services.team_member_management_service import TeamMemberManagementService
 from kickai.features.team_administration.domain.services.team_service import TeamService
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 from kickai.utils.tool_validation import create_tool_response
 
 
@@ -105,9 +104,7 @@ async def add_team_member_role(
         management_service = container.get_service(TeamMemberManagementService)
 
         if not management_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="TeamMemberManagementService is not available"
+            return create_tool_response(False, "TeamMemberManagementService is not available"
             )
 
         # Execute domain operation
@@ -165,9 +162,7 @@ async def remove_team_member_role(
 
         # Validate inputs at application boundary
         if not member_id or not role:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Both member ID and role are required"
+            return create_tool_response(False, "Both member ID and role are required"
             )
 
         # Get required services from container (application boundary)
@@ -175,9 +170,7 @@ async def remove_team_member_role(
         management_service = container.get_service(TeamMemberManagementService)
 
         if not management_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="TeamMemberManagementService is not available"
+            return create_tool_response(False, "TeamMemberManagementService is not available"
             )
 
         # Execute domain operation
@@ -192,16 +185,14 @@ async def remove_team_member_role(
             }
 
             logger.info(f"✅ Role '{role}' removed from member {member_id} by {username}")
-            return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+            return create_tool_response(True, "Operation completed successfully", data=response_data)
         else:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message=f"Failed to remove role '{role}' from member {member_id}"
+            return create_tool_response(False, f"Failed to remove role '{role}' from member {member_id}"
             )
 
     except Exception as e:
         logger.error(f"❌ Error removing role '{role}' from member {member_id}: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to remove role: {e}")
+        return create_tool_response(False, f"Failed to remove role: {e}")
 
 
 @tool("promote_team_member_to_admin", result_as_answer=True)
@@ -233,9 +224,7 @@ async def promote_team_member_to_admin(
 
         # Validate inputs at application boundary
         if not member_id:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Member ID is required for promotion"
+            return create_tool_response(False, "Member ID is required for promotion"
             )
 
         # Get required services from container (application boundary)
@@ -243,9 +232,7 @@ async def promote_team_member_to_admin(
         management_service = container.get_service(TeamMemberManagementService)
 
         if not management_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="TeamMemberManagementService is not available"
+            return create_tool_response(False, "TeamMemberManagementService is not available"
             )
 
         # Execute domain operation
@@ -260,16 +247,14 @@ async def promote_team_member_to_admin(
             }
 
             logger.info(f"✅ Member {member_id} promoted to admin by {username}")
-            return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+            return create_tool_response(True, "Operation completed successfully", data=response_data)
         else:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message=f"Failed to promote member {member_id} to admin"
+            return create_tool_response(False, f"Failed to promote member {member_id} to admin"
             )
 
     except Exception as e:
         logger.error(f"❌ Error promoting member {member_id} to admin: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to promote member: {e}")
+        return create_tool_response(False, f"Failed to promote member: {e}")
 
 
 @tool("create_team", result_as_answer=True)
@@ -314,43 +299,31 @@ async def create_team(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
         
         logger.info(f"🏆 Creating team '{team_name}' (ID: {team_id}) by {username} ({telegram_id})")
 
         # Validate inputs at application boundary
         if not team_name or not admin_user_id:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Both team name and admin user ID are required"
+            return create_tool_response(False, "Both team name and admin user ID are required"
             )
 
         # Get required services from container (application boundary)
@@ -358,9 +331,7 @@ async def create_team(
         team_service = container.get_service(TeamService)
 
         if not team_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="TeamService is not available"
+            return create_tool_response(False, "TeamService is not available"
             )
 
         # Execute domain operation (delegate to existing create_team function)
@@ -372,7 +343,7 @@ async def create_team(
 
     except Exception as e:
         logger.error(f"❌ Error creating team '{team_name}': {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to create team: {e}")
+        return create_tool_response(False, f"Failed to create team: {e}")
 
 
 @tool("update_team_member_field", result_as_answer=True)
@@ -413,7 +384,7 @@ async def update_team_member_field(
 
     except Exception as e:
         logger.error(f"❌ Error updating team member field '{field}': {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to update field: {e}")
+        return create_tool_response(False, f"Failed to update field: {e}")
 
 
 @tool("update_team_member_multiple_fields", result_as_answer=True)
@@ -452,7 +423,7 @@ async def update_team_member_multiple_fields(
 
     except Exception as e:
         logger.error(f"❌ Error updating multiple team member fields: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to update fields: {e}")
+        return create_tool_response(False, f"Failed to update fields: {e}")
 
 
 @tool("get_team_member_update_help", result_as_answer=True)
@@ -489,7 +460,7 @@ async def get_team_member_update_help(
 
     except Exception as e:
         logger.error(f"❌ Error getting team member update help: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get help: {e}")
+        return create_tool_response(False, f"Failed to get help: {e}")
 
 
 @tool("get_team_member_current_info", result_as_answer=True)
@@ -526,7 +497,7 @@ async def get_team_member_current_info(
 
     except Exception as e:
         logger.error(f"❌ Error getting team member current info: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get info: {e}")
+        return create_tool_response(False, f"Failed to get info: {e}")
 
 
 @tool("update_other_team_member", result_as_answer=True)
@@ -569,4 +540,4 @@ async def update_other_team_member(
 
     except Exception as e:
         logger.error(f"❌ Error in admin update operation: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to update team member: {e}")
+        return create_tool_response(False, f"Failed to update team member: {e}")

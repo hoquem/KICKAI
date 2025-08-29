@@ -7,9 +7,8 @@ decorator-based tools fail to load due to dependency issues.
 """
 
 
-from kickai.core.enums import ResponseStatus
 from crewai.tools import tool
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -76,10 +75,10 @@ Just tell me which type of registration you want:
 ℹ️ Questions? I'm here to help throughout the process!
         """
 
-        return create_json_response(ResponseStatus.SUCCESS, data=guidance.strip())
+        return create_tool_response(True, "Operation completed successfully", data=guidance.strip())
 
     except Exception as e:
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to provide registration guidance: {e!s}")
+        return create_tool_response(False, f"Failed to provide registration guidance: {e!s}")
 
 
 # Tool metadata for manual registration

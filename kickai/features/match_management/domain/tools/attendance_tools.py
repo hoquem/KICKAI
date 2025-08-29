@@ -5,8 +5,7 @@ from typing import List, Optional
 from crewai.tools import tool
 
 from kickai.features.match_management.domain.entities.attendance import AttendanceStatus
-from kickai.core.enums import ResponseStatus
-from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 from kickai.features.match_management.domain.services.attendance_service import AttendanceService
 
 logger = logging.getLogger(__name__)
@@ -32,12 +31,12 @@ async def record_attendance(
         container = get_container()
         attendance_service = container.get_service(AttendanceService)
         if not attendance_service:
-            return create_json_response(ResponseStatus.ERROR, message="Service unavailable: Attendance service not available.")
+            return create_tool_response(False, "Service unavailable: Attendance service not available.")
         # Convert status string to enum
         try:
             attendance_status = AttendanceStatus(status.lower())
         except ValueError:
-            return create_json_response(ResponseStatus.ERROR, message=f"Invalid status: {status}. Valid options: attended, absent, late")
+            return create_tool_response(False, f"Invalid status: {status}. Valid options: attended, absent, late")
 
         # Parse arrival time if provided
         arrival_time_obj = None
@@ -45,7 +44,7 @@ async def record_attendance(
             try:
                 arrival_time_obj = time.fromisoformat(arrival_time)
             except ValueError:
-                return create_json_response(ResponseStatus.ERROR, message=f"Invalid arrival time format: {arrival_time}. Use HH:MM format")
+                return create_tool_response(False, f"Invalid arrival time format: {arrival_time}. Use HH:MM format")
 
         # Record attendance
         attendance = await attendance_service.record_attendance(
@@ -91,11 +90,11 @@ async def record_attendance(
                 'pending': summary['not_recorded']
             }
         }
-        return create_json_response(ResponseStatus.SUCCESS, data=attendance_data)
+        return create_tool_response(True, "Operation completed successfully", data=attendance_data)
 
     except Exception as e:
         logger.error(f"Failed to record attendance: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error recording attendance: {e!s}")
+        return create_tool_response(False, f"Error recording attendance: {e!s}")
 
 
 
@@ -112,7 +111,7 @@ async def get_match_attendance(match_id: str) -> str:
         container = get_container()
         attendance_service = container.get_service(AttendanceService)
         if not attendance_service:
-            return create_json_response(ResponseStatus.ERROR, message="Service unavailable: Attendance service not available.")
+            return create_tool_response(False, "Service unavailable: Attendance service not available.")
         # Get attendance summary
         summary = await attendance_service.get_attendance_summary(match_id)
 
@@ -169,11 +168,11 @@ async def get_match_attendance(match_id: str) -> str:
                 'late': len(late_players)
             }
         }
-        return create_json_response(ResponseStatus.SUCCESS, data=attendance_info)
+        return create_tool_response(True, "Operation completed successfully", data=attendance_info)
 
     except Exception as e:
         logger.error(f"Failed to get match attendance: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error getting match attendance: {e!s}")
+        return create_tool_response(False, f"Error getting match attendance: {e!s}")
 
 
 
@@ -189,11 +188,11 @@ async def get_player_attendance_history(
         container = get_container()
         attendance_service = container.get_service(AttendanceService)
         if not attendance_service:
-            return create_json_response(ResponseStatus.ERROR, message="Service unavailable: Attendance service not available.")
+            return create_tool_response(False, "Service unavailable: Attendance service not available.")
         history = await attendance_service.get_player_attendance_history(player_id, limit)
 
         if not history:
-            return create_json_response(ResponseStatus.SUCCESS, data={"message": f"No attendance records found for player {player_id}", "player_id": player_id, "history": []})
+            return create_tool_response(True, "Operation completed successfully", data={"message": f"No attendance records found for player {player_id}", "player_id": player_id, "history": []})
 
         result = [
             f"📈 Attendance History for {player_id}",
@@ -238,11 +237,11 @@ async def get_player_attendance_history(
             "statistics": stats,
             "formatted_message": "\n".join(result)
         }
-        return create_json_response(ResponseStatus.SUCCESS, data=attendance_data)
+        return create_tool_response(True, "Operation completed successfully", data=attendance_data)
 
     except Exception as e:
         logger.error(f"Failed to get player attendance history: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error getting attendance history: {e!s}")
+        return create_tool_response(False, f"Error getting attendance history: {e!s}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -258,13 +257,13 @@ async def bulk_record_attendance(
         container = get_container()
         attendance_service = container.get_service(AttendanceService)
         if not attendance_service:
-            return create_json_response(ResponseStatus.ERROR, message="Service unavailable: Attendance service not available.")
+            return create_tool_response(False, "Service unavailable: Attendance service not available.")
         # Validate attendance records format
         for record in attendance_records:
             required_fields = ["player_id", "status"]
             missing_fields = [field for field in required_fields if field not in record]
             if missing_fields:
-                return create_json_response(ResponseStatus.ERROR, message=f"Invalid record format: Missing fields {missing_fields}")
+                return create_tool_response(False, f"Invalid record format: Missing fields {missing_fields}")
 
         # Record attendance for all players
         recorded_attendances = await attendance_service.bulk_record_attendance(
@@ -297,8 +296,8 @@ async def bulk_record_attendance(
             "match_summary": summary,
             "formatted_message": "\n".join(result)
         }
-        return create_json_response(ResponseStatus.SUCCESS, data=bulk_data)
+        return create_tool_response(True, "Operation completed successfully", data=bulk_data)
 
     except Exception as e:
         logger.error(f"Failed to bulk record attendance: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error bulk recording attendance: {e!s}")
+        return create_tool_response(False, f"Error bulk recording attendance: {e!s}")

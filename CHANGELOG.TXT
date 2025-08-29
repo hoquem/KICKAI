@@ -3,6 +3,7 @@
 ## [Latest] - 2025-08-28
 
 ### 🔧 Bug Fixes
+- **Super Init Constructor Typos Fix**: Fixed critical typo where `super()._init_()` was used instead of `super().__init__()` in 107 locations across 9 files. This typo prevented proper parent class initialization in exception classes and other inheritance scenarios. Created and executed comprehensive fix script to correct all instances.
 - **Mock UI Connection Fix**: Fixed mock Telegram UI connection issue by updating all references from port 8000 to port 8001 to match the actual mock server configuration. Updated mock_tester.html, test files, constants, and documentation to use the correct port. Added cache-busting parameters and no-cache meta tags to prevent browser caching issues.
 - **Mock Invite Link Processing Fix**: Fixed issue where mock Telegram service was not updating player records in Firestore with telegram_id during invite link processing. The mock service now properly updates the player's telegram_id field when processing player invites, ensuring that /myinfo and other player tools can find the player correctly.
 - **Real Telegram Invite Link Processing**: Implemented proper new_chat_members handler in real Telegram bot service to handle invite link processing and update player records with telegram_id. Added support for new_chat_members data in TelegramMessage class and AgenticMessageRouter.

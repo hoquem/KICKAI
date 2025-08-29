@@ -24,23 +24,17 @@ from kickai.database.interfaces import DataStoreInterface
 class InviteLinkService:
     """Service for creating and managing secure invite links."""
 
-    def __init__(self, bot_token: str = None, database: DataStoreInterface = None, team_id: str = None):
+    def __init__(self, database: DataStoreInterface, team_id: str, bot_token: str = None):
         self.database = database
         self.team_id = team_id
         
         # Use team-specific collection name
-        if team_id:
-            from kickai.core.firestore_constants import get_team_specific_collection_name
-            self.collection_name = get_team_specific_collection_name(team_id, "invite_links")
-        else:
-            # Fallback to global collection (backward compatibility)
-            self.collection_name = "kickai_invite_links"
+        from kickai.core.firestore_constants import get_team_specific_collection_name
+        self.collection_name = get_team_specific_collection_name(team_id, "invite_links")
         self.bot_token = bot_token
         self._bot = None
 
-        # Validate database is provided
-        if self.database is None:
-            raise ValueError("Database interface is required for InviteLinkService")
+        # Database and team_id are now required parameters, so no validation needed
 
         # Get secret key from environment variable
         self._secret_key = os.getenv("KICKAI_INVITE_SECRET_KEY")

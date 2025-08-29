@@ -76,7 +76,7 @@ class Player:
     source: Optional[str] = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
     sync_version: Optional[str] = None
 
-    def __post_init__(self):
+    def _post_init_(self):
         """Validate and set defaults after initialization."""
         self._validate()
         self._set_defaults()
@@ -209,7 +209,7 @@ class Player:
     def from_database_dict(cls, data: dict) -> "Player":
         """Create from database dictionary with relaxed validation for retrieval."""
         # Create player without triggering validation
-        player = cls.__new__(cls)
+        player = object.__new__(cls)
 
         # Set attributes directly
         player.team_id = data.get("team_id", "")

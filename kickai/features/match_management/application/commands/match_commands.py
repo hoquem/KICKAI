@@ -75,7 +75,7 @@ async def handle_creatematch_command(update, context, **kwargs):
         args = text.split()[1:] if len(text.split()) > 1 else []
 
         if len(args) < 3:
-            return "❌ **Insufficient arguments**. Usage: `/creatematch [opponent] [date] [time] [venue] [competition]`"
+            return "❌ Insufficient arguments. Usage: /creatematch [opponent] [date] [time] [venue] [competition]"
 
         opponent = args[0]
         date_str = args[1]
@@ -88,14 +88,14 @@ async def handle_creatematch_command(update, context, **kwargs):
             match_date = datetime.strptime(date_str, "%Y-%m-%d")
             match_time = time.fromisoformat(time_str)
         except ValueError as e:
-            return f"❌ **Invalid date/time format**: {e}. Use YYYY-MM-DD for date and HH:MM for time."
+            return f"❌ Invalid date/time format: {e}. Use YYYY-MM-DD for date and HH:MM for time."
 
         # Get services
         container = get_container()
         match_service = container.get_service(MatchService)
 
         if not match_service:
-            return "❌ **Service unavailable**: Match service not available."
+            return "❌ Service unavailable: Match service not available."
 
         # Create match
         team_id = "KTI"  # Default team ID - should come from context
@@ -111,24 +111,24 @@ async def handle_creatematch_command(update, context, **kwargs):
             created_by=created_by,
         )
 
-        return f"""✅ **Match Created Successfully**
+        return f"""✅ Match Created Successfully
 
-🏆 **Match Details**
-• **Opponent**: {match.opponent}
-• **Date**: {match.formatted_date}
-• **Time**: {match.formatted_time}
-• **Venue**: {match.venue}
-• **Competition**: {match.competition}
-• **Match ID**: {match.match_id}
+🏆 Match Details
+• Opponent: {match.opponent}
+• Date: {match.formatted_date}
+• Time: {match.formatted_time}
+• Venue: {match.venue}
+• Competition: {match.competition}
+• Match ID: {match.match_id}
 
-📋 **Next Steps**:
+📋 Next Steps:
 • Players will be notified automatically
 • Availability requests will be sent 7 days before
 • Squad selection will open 3 days before match"""
 
     except Exception as e:
         logger.error(f"Error in /creatematch command: {e}")
-        return f"❌ **Error creating match**: {e!s}"
+        return f"❌ Error creating match: {e!s}"
 
 
 @command(
@@ -184,20 +184,20 @@ async def handle_listmatches_command(update, context, **kwargs):
         match_service = container.get_service(MatchService)
 
         if not match_service:
-            return "❌ **Service unavailable**: Match service not available."
+            return "❌ Service unavailable: Match service not available."
 
         # Get matches
         team_id = "KTI"  # Default team ID - should come from context
 
         if status == "upcoming":
             matches = await match_service.get_upcoming_matches(team_id, limit)
-            title = f"📅 **Upcoming Matches** (Next {len(matches)})"
+            title = f"📅 Upcoming Matches (Next {len(matches)})"
         elif status == "past":
             matches = await match_service.get_past_matches(team_id, limit)
-            title = f"📅 **Past Matches** (Last {len(matches)})"
+            title = f"📅 Past Matches (Last {len(matches)})"
         else:
             matches = await match_service.list_matches(team_id, limit=limit)
-            title = f"📅 **All Matches** (Last {len(matches)})"
+            title = f"📅 All Matches (Last {len(matches)})"
 
         if not matches:
             return f"{title}\n\nNo matches found."
@@ -205,13 +205,13 @@ async def handle_listmatches_command(update, context, **kwargs):
         result = [title, ""]
         for i, match in enumerate(matches, 1):
             result.append(
-                f"{i}️⃣ **{match.match_id}** - vs {match.opponent}\n"
+                f"{i}️⃣ {match.match_id} - vs {match.opponent}\n"
                 f"   📅 {match.formatted_date}\n"
                 f"   🕐 {match.formatted_time} | 🏟️ {match.venue}\n"
                 f"   📊 Status: {match.status.value.title()}"
             )
 
-        result.append("\n📋 **Quick Actions**")
+        result.append("\n📋 Quick Actions")
         result.append("• /matchdetails [match_id] - View full details")
         result.append("• /markattendance [match_id] - Mark availability")
 
@@ -219,7 +219,7 @@ async def handle_listmatches_command(update, context, **kwargs):
 
     except Exception as e:
         logger.error(f"Error in /listmatches command: {e}")
-        return f"❌ **Error listing matches**: {e!s}"
+        return f"❌ Error listing matches: {e!s}"
 
 
 @command(
@@ -263,7 +263,7 @@ async def handle_matchdetails_command(update, context, **kwargs):
         args = text.split()[1:] if len(text.split()) > 1 else []
 
         if not args:
-            return "❌ **Missing match ID**. Usage: `/matchdetails [match_id]`"
+            return "❌ Missing match ID. Usage: /matchdetails [match_id]"
 
         match_id = args[0]
 
@@ -272,38 +272,38 @@ async def handle_matchdetails_command(update, context, **kwargs):
         match_service = container.get_service(MatchService)
 
         if not match_service:
-            return "❌ **Service unavailable**: Match service not available."
+            return "❌ Service unavailable: Match service not available."
 
         # Get match details
         match = await match_service.get_match(match_id)
         if not match:
-            return f"❌ **Match not found**: {match_id}"
+            return f"❌ Match not found: {match_id}"
 
         result = [
-            f"🏆 **Match Details: {match.match_id}**",
+            f"🏆 Match Details: {match.match_id}",
             "",
-            f"**Opponent**: {match.opponent}",
-            f"**Date**: {match.formatted_date}",
-            f"**Time**: {match.formatted_time}",
-            f"**Venue**: {match.venue}",
-            f"**Competition**: {match.competition}",
-            f"**Status**: {match.status.value.title()}",
+            f"Opponent: {match.opponent}",
+            f"Date: {match.formatted_date}",
+            f"Time: {match.formatted_time}",
+            f"Venue: {match.venue}",
+            f"Competition: {match.competition}",
+            f"Status: {match.status.value.title()}",
         ]
 
         if match.notes:
-            result.append(f"**Notes**: {match.notes}")
+            result.append(f"Notes: {match.notes}")
 
         if match.result:
             result.append("")
-            result.append("📊 **Match Result**")
-            result.append(f"**Score**: {match.result.home_score} - {match.result.away_score}")
+            result.append("📊 Match Result")
+            result.append(f"Score: {match.result.home_score} - {match.result.away_score}")
             if match.result.scorers:
-                result.append(f"**Scorers**: {', '.join(match.result.scorers)}")
+                result.append(f"Scorers: {', '.join(match.result.scorers)}")
             if match.result.notes:
-                result.append(f"**Notes**: {match.result.notes}")
+                result.append(f"Notes: {match.result.notes}")
 
         result.append("")
-        result.append("📋 **Actions**")
+        result.append("📋 Actions")
         result.append("• /markattendance [match_id] - Mark availability")
         result.append("• /selectsquad [match_id] - Select final squad (Leadership only)")
 
@@ -311,7 +311,7 @@ async def handle_matchdetails_command(update, context, **kwargs):
 
     except Exception as e:
         logger.error(f"Error in /matchdetails command: {e}")
-        return f"❌ **Error getting match details**: {e!s}"
+        return f"❌ Error getting match details: {e!s}"
 
 
 @command(
@@ -362,7 +362,7 @@ async def handle_markattendance_command(update, context, **kwargs):
         args = text.split()[1:] if len(text.split()) > 1 else []
 
         if len(args) < 2:
-            return "❌ **Insufficient arguments**. Usage: `/markattendance [match_id] [status] [reason]`"
+            return "❌ Insufficient arguments. Usage: /markattendance [match_id] [status] [reason]"
 
         match_id = args[0]
         status = args[1]
@@ -373,7 +373,7 @@ async def handle_markattendance_command(update, context, **kwargs):
         availability_service = container.get_service(AvailabilityService)
 
         if not availability_service:
-            return "❌ **Service unavailable**: Availability service not available."
+            return "❌ Service unavailable: Availability service not available."
 
         # Mark availability
         player_id = str(update.effective_user.id) if update.effective_user else "unknown"
@@ -381,7 +381,7 @@ async def handle_markattendance_command(update, context, **kwargs):
         try:
             availability_status = AvailabilityStatus(status.lower())
         except ValueError:
-            return f"❌ **Invalid status**: {status}. Valid options: available, unavailable, maybe"
+            return f"❌ Invalid status: {status}. Valid options: available, unavailable, maybe"
 
         availability = await availability_service.mark_availability(
             match_id=match_id,
@@ -394,31 +394,31 @@ async def handle_markattendance_command(update, context, **kwargs):
         summary = await availability_service.get_availability_summary(match_id)
 
         result = [
-            "✅ **Availability Updated**",
+            "✅ Availability Updated",
             "",
-            f"**Match**: {match_id}",
-            f"**Your Status**: {availability.status_emoji} {availability_status.value.title()}",
+            f"Match: {match_id}",
+            f"Your Status: {availability.status_emoji} {availability_status.value.title()}",
         ]
 
         if reason:
-            result.append(f"**Reason**: {reason}")
+            result.append(f"Reason: {reason}")
 
         result.extend([
             "",
-            "📊 **Team Availability**",
+            "📊 Team Availability",
             f"• Available: {summary['available']} players",
             f"• Unavailable: {summary['unavailable']} players",
             f"• Maybe: {summary['maybe']} players",
             f"• Pending: {summary['pending']} players",
             "",
-            "💡 **Tip**: You can update your availability anytime before squad selection",
+            "💡 Tip: You can update your availability anytime before squad selection",
         ])
 
         return "\n".join(result)
 
     except Exception as e:
         logger.error(f"Error in /markattendance command: {e}")
-        return f"❌ **Error marking availability**: {e!s}"
+        return f"❌ Error marking availability: {e!s}"
 
 
 @command(
@@ -459,7 +459,7 @@ async def handle_attendance_command(update, context, **kwargs):
         args = text.split()[1:] if len(text.split()) > 1 else []
 
         if not args:
-            return "❌ **Missing match ID**. Usage: `/attendance [match_id]`"
+            return "❌ Missing match ID. Usage: /attendance [match_id]"
 
         match_id = args[0]
 
@@ -468,7 +468,7 @@ async def handle_attendance_command(update, context, **kwargs):
         availability_service = container.get_service(AvailabilityService)
 
         if not availability_service:
-            return "❌ **Service unavailable**: Availability service not available."
+            return "❌ Service unavailable: Availability service not available."
 
         # Get availability information
         summary = await availability_service.get_availability_summary(match_id)
@@ -478,22 +478,22 @@ async def handle_attendance_command(update, context, **kwargs):
         pending_players = await availability_service.get_pending_players(match_id)
 
         result = [
-            f"📊 **Match Attendance: {match_id}**",
+            f"📊 Match Attendance: {match_id}",
             "",
-            f"**Total Players**: {summary['total_players']}",
+            f"Total Players: {summary['total_players']}",
             "",
         ]
 
         # Available players
         if available_players:
-            result.append(f"✅ **Available** ({len(available_players)}):")
+            result.append(f"✅ Available ({len(available_players)}):")
             for availability in available_players:
                 result.append(f"• {availability.player_id}")
             result.append("")
 
         # Unavailable players
         if unavailable_players:
-            result.append(f"❌ **Unavailable** ({len(unavailable_players)}):")
+            result.append(f"❌ Unavailable ({len(unavailable_players)}):")
             for availability in unavailable_players:
                 result.append(f"• {availability.player_id}")
                 if availability.reason:
@@ -502,7 +502,7 @@ async def handle_attendance_command(update, context, **kwargs):
 
         # Maybe players
         if maybe_players:
-            result.append(f"❓ **Maybe** ({len(maybe_players)}):")
+            result.append(f"❓ Maybe ({len(maybe_players)}):")
             for availability in maybe_players:
                 result.append(f"• {availability.player_id}")
                 if availability.reason:
@@ -511,19 +511,19 @@ async def handle_attendance_command(update, context, **kwargs):
 
         # Pending players
         if pending_players:
-            result.append(f"⏳ **Pending** ({len(pending_players)}):")
+            result.append(f"⏳ Pending ({len(pending_players)}):")
             for availability in pending_players:
                 result.append(f"• {availability.player_id}")
             result.append("")
 
-        result.append("📋 **Actions**")
+        result.append("📋 Actions")
         result.append("• /markattendance [match_id] [status] - Mark your availability")
 
         return "\n".join(result)
 
     except Exception as e:
         logger.error(f"Error in /attendance command: {e}")
-        return f"❌ **Error getting attendance**: {e!s}"
+        return f"❌ Error getting attendance: {e!s}"
 
 
 @command(
@@ -572,19 +572,19 @@ async def handle_attendancehistory_command(update, context, **kwargs):
         availability_service = container.get_service(AvailabilityService)
 
         if not availability_service:
-            return "❌ **Service unavailable**: Availability service not available."
+            return "❌ Service unavailable: Availability service not available."
 
         # Get player history
         player_id = str(update.effective_user.id) if update.effective_user else "unknown"
         history = await availability_service.get_player_history(player_id, limit)
 
         if not history:
-            return "📈 **Attendance History**\n\nNo availability records found for you."
+            return "📈 Attendance History\n\nNo availability records found for you."
 
         result = [
-            "📈 **Your Attendance History**",
+            "📈 Your Attendance History",
             "",
-            f"**Last {len(history)} matches**:",
+            f"Last {len(history)} matches:",
             "",
         ]
 
@@ -605,11 +605,11 @@ async def handle_attendancehistory_command(update, context, **kwargs):
 
         result.extend([
             "",
-            "📊 **Statistics**",
-            f"• **Availability Rate**: {availability_rate:.1f}% ({available_count}/{total_matches} matches)",
-            f"• **Available**: {available_count} matches",
-            f"• **Unavailable**: {unavailable_count} matches",
-            f"• **Maybe**: {maybe_count} matches",
+            "📊 Statistics",
+            f"• Availability Rate: {availability_rate:.1f}% ({available_count}/{total_matches} matches)",
+            f"• Available: {available_count} matches",
+            f"• Unavailable: {unavailable_count} matches",
+            f"• Maybe: {maybe_count} matches",
         ])
 
         # Reliability rating
@@ -624,13 +624,13 @@ async def handle_attendancehistory_command(update, context, **kwargs):
         else:
             reliability = "⭐ (Very Poor)"
 
-        result.append(f"• **Reliability Rating**: {reliability}")
+        result.append(f"• Reliability Rating: {reliability}")
 
         return "\n".join(result)
 
     except Exception as e:
         logger.error(f"Error in /attendancehistory command: {e}")
-        return f"❌ **Error getting attendance history**: {e!s}"
+        return f"❌ Error getting attendance history: {e!s}"
 
 
 @command(
@@ -677,7 +677,7 @@ async def handle_selectsquad_command(update, context, **kwargs):
         args = text.split()[1:] if len(text.split()) > 1 else []
 
         if not args:
-            return "❌ **Missing match ID**. Usage: `/selectsquad [match_id] [player_ids]`"
+            return "❌ Missing match ID. Usage: /selectsquad [match_id] [player_ids]"
 
         match_id = args[0]
         player_ids = args[1:] if len(args) > 1 else []
@@ -688,34 +688,34 @@ async def handle_selectsquad_command(update, context, **kwargs):
         availability_service = container.get_service(AvailabilityService)
 
         if not match_service or not availability_service:
-            return "❌ **Service unavailable**: Required services not available."
+            return "❌ Service unavailable: Required services not available."
 
         # Get match details
         match = await match_service.get_match(match_id)
         if not match:
-            return f"❌ **Match not found**: {match_id}"
+            return f"❌ Match not found: {match_id}"
 
         if not match.is_upcoming:
-            return "❌ **Cannot select squad**: Match is not in upcoming status"
+            return "❌ Cannot select squad: Match is not in upcoming status"
 
         # TODO: Implement squad selection logic
         # This would integrate with the availability service to get available players
         # and then create a squad selection record
 
         result = [
-            f"👥 **Squad Selection: {match.match_id}**",
+            f"👥 Squad Selection: {match.match_id}",
             "",
-            f"**Match**: vs {match.opponent}",
-            f"**Date**: {match.formatted_date}",
-            f"**Time**: {match.formatted_time}",
+            f"Match: vs {match.opponent}",
+            f"Date: {match.formatted_date}",
+            f"Time: {match.formatted_time}",
             "",
-            "📋 **Squad Selection**",
+            "📋 Squad Selection",
             "Squad selection functionality will be implemented in the next phase.",
             "",
-            "**Available Players**: To be determined from availability data",
-            "**Selected Squad**: To be selected",
+            "Available Players: To be determined from availability data",
+            "Selected Squad: To be selected",
             "",
-            "📋 **Actions**",
+            "📋 Actions",
             "• /markattendance [match_id] - Mark availability",
             "• /attendance [match_id] - View current availability",
         ]
@@ -724,7 +724,7 @@ async def handle_selectsquad_command(update, context, **kwargs):
 
     except Exception as e:
         logger.error(f"Error in /selectsquad command: {e}")
-        return f"❌ **Error selecting squad**: {e!s}"
+        return f"❌ Error selecting squad: {e!s}"
 
 
 @command(
@@ -776,7 +776,7 @@ async def handle_markmatchattendance_command(update, context, **kwargs):
         args = text.split()[1:] if len(text.split()) > 1 else []
 
         if len(args) < 3:
-            return "❌ **Insufficient arguments**. Usage: `/markmatchattendance [match_id] [player_id] [status] [reason]`"
+            return "❌ Insufficient arguments. Usage: /markmatchattendance [match_id] [player_id] [status] [reason]"
 
         match_id = args[0]
         player_id = args[1]
@@ -788,7 +788,7 @@ async def handle_markmatchattendance_command(update, context, **kwargs):
         attendance_service = container.get_service(AttendanceService)
 
         if not attendance_service:
-            return "❌ **Service unavailable**: Attendance service not available."
+            return "❌ Service unavailable: Attendance service not available."
 
         # Record attendance
         recorded_by = str(update.effective_user.id) if update.effective_user else ""
@@ -796,7 +796,7 @@ async def handle_markmatchattendance_command(update, context, **kwargs):
         try:
             attendance_status = AttendanceStatus(status.lower())
         except ValueError:
-            return f"❌ **Invalid status**: {status}. Valid options: attended, absent, late"
+            return f"❌ Invalid status: {status}. Valid options: attended, absent, late"
 
         attendance = await attendance_service.record_attendance(
             match_id=match_id,
@@ -810,21 +810,21 @@ async def handle_markmatchattendance_command(update, context, **kwargs):
         summary = await attendance_service.get_attendance_summary(match_id)
 
         result = [
-            "✅ **Match Attendance Recorded**",
+            "✅ Match Attendance Recorded",
             "",
-            f"**Match**: {match_id}",
-            f"**Player**: {player_id}",
-            f"**Status**: {attendance.status_emoji} {attendance_status.value.title()}",
+            f"Match: {match_id}",
+            f"Player: {player_id}",
+            f"Status: {attendance.status_emoji} {attendance_status.value.title()}",
         ]
 
         if reason:
-            result.append(f"**Reason**: {reason}")
+            result.append(f"Reason: {reason}")
 
         result.extend([
-            f"**Recorded by**: {recorded_by or 'System'}",
-            f"**Time**: {attendance.recorded_at.strftime('%H:%M')}",
+            f"Recorded by: {recorded_by or 'System'}",
+            f"Time: {attendance.recorded_at.strftime('%H:%M')}",
             "",
-            "📊 **Match Summary**",
+            "📊 Match Summary",
             f"• Attended: {summary['attended']} players",
             f"• Absent: {summary['absent']} players",
             f"• Late: {summary['late']} players",
@@ -835,4 +835,4 @@ async def handle_markmatchattendance_command(update, context, **kwargs):
 
     except Exception as e:
         logger.error(f"Error in /markmatchattendance command: {e}")
-        return f"❌ **Error recording attendance**: {e!s}"
+        return f"❌ Error recording attendance: {e!s}"

@@ -12,8 +12,7 @@ from loguru import logger
 import kickai.core.constants as constants_module
 from kickai.core.enums import ChatType as ChatTypeEnum
 from crewai.tools import tool
-from kickai.core.enums import ResponseStatus
-from kickai.utils.tool_helpers import create_json_response, validate_required_input
+from kickai.utils.tool_validation import create_tool_response, validate_required_input
 from kickai.utils.tool_validation import create_tool_response
 
 
@@ -44,7 +43,7 @@ async def help_response(
     try:
         # Validate required parameters
         if not all([chat_type, telegram_id, team_id, username]):
-            return create_json_response(ResponseStatus.ERROR, message="Missing required parameters for help generation")
+            return create_tool_response(False, "Missing required parameters for help generation")
 
         logger.info(
             f"🔧 [TOOL DEBUG] Generating help for chat_type: {chat_type}, user: {telegram_id}, team: {team_id}, username: {username}"
@@ -60,11 +59,11 @@ async def help_response(
         help_message = _format_help_message(chat_type_enum, commands, username)
 
         logger.info(f"✅ [TOOL DEBUG] Generated help message for {username}")
-        return create_json_response(ResponseStatus.SUCCESS, data=help_message)
+        return create_tool_response(True, "Operation completed successfully", data=help_message)
 
     except Exception as e:
         logger.error(f"❌ [TOOL DEBUG] Error in help_response: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to generate help response: {e}")
+        return create_tool_response(False, f"Failed to generate help response: {e}")
 
 
 def _normalize_chat_type(chat_type: str) -> ChatTypeEnum:
@@ -294,7 +293,7 @@ async def get_command_help(telegram_id: int, team_id: str, username: str, chat_t
         # Validate command name input
         validation_error = validate_required_input(command_name, "Command Name")
         if validation_error:
-            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ Error: ", ""))
+            return create_tool_response(False, validation_error.replace("❌ Error: ", ""))
 
         # Normalize command name
         if not command_name.startswith("/"):
@@ -308,7 +307,7 @@ async def get_command_help(telegram_id: int, team_id: str, username: str, chat_t
         command = registry.get_command(command_name)
 
         if not command:
-            return create_json_response(ResponseStatus.ERROR, message=f"Command {command_name} not found or not available in {chat_type_enum.value} chat.")
+            return create_tool_response(False, f"Command {command_name} not found or not available in {chat_type_enum.value} chat.")
 
         # Format detailed help
         # Handle permission level safely
@@ -340,11 +339,11 @@ async def get_command_help(telegram_id: int, team_id: str, username: str, chat_t
         else:
             help_text += "• No specific examples available\n"
 
-        return create_json_response(ResponseStatus.SUCCESS, data=help_text)
+        return create_tool_response(True, "Operation completed successfully", data=help_text)
 
     except Exception as e:
         logger.error(f"Error getting command help: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get command help: {e}")
+        return create_tool_response(False, f"Failed to get command help: {e}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -450,8 +449,8 @@ Welcome to the leadership team! Let's lead this team to success! 🏆⚽
 Welcome to the KICKAI family! We're here to support your football journey! ⚽💪
             """
 
-        return create_json_response(ResponseStatus.SUCCESS, data=welcome_message.strip())
+        return create_tool_response(True, "Operation completed successfully", data=welcome_message.strip())
 
     except Exception as e:
         logger.error(f"Error generating welcome message: {e}", exc_info=True)
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to generate welcome message: {e}")
+        return create_tool_response(False, f"Failed to generate welcome message: {e}")

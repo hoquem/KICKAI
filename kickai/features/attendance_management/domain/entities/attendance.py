@@ -54,7 +54,7 @@ class Attendance:
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
-    def __post_init__(self):
+    def _post_init_(self):
         now = datetime.utcnow().isoformat()
         if self.created_at is None:
             self.created_at = now

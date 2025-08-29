@@ -1,4 +1,4 @@
-from __future__ import annotations
+from _future_ import annotations
 
 """
 Minimal AccessControlService for unit tests.

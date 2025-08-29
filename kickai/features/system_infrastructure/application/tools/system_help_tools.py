@@ -11,9 +11,8 @@ from typing import Optional
 from crewai.tools import tool
 from loguru import logger
 
-from kickai.core.enums import ResponseStatus
 from kickai.features.system_infrastructure.domain.services.bot_status_service import BotStatusService
-from kickai.utils.tool_helpers import create_json_response, validate_required_input, sanitize_input
+from kickai.utils.tool_validation import create_tool_response, validate_required_input, sanitize_input
 from kickai.utils.constants import MAX_TEAM_ID_LENGTH, MAX_USER_ID_LENGTH
 
 
@@ -49,34 +48,24 @@ async def get_version_info(telegram_id: int, team_id: str, username: str, chat_t
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
         
         logger.info(f"📱 Version info request from user {username} ({telegram_id}) in team {team_id}")
@@ -86,38 +75,36 @@ async def get_version_info(telegram_id: int, team_id: str, username: str, chat_t
         version_info = bot_status_service.get_version_info()
 
         if version_info.get("status") == "error":
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message=f"Error retrieving version information: {version_info.get('error', 'Unknown error')}"
+            return create_tool_response(False, f"Error retrieving version information: {version_info.get('error', 'Unknown error')}"
             )
 
         # Format the response at application boundary
         response = f"""📱 KICKAI Bot Version Information
 
-🤖 **Bot Details:**
+🤖 Bot Details:
 • Name: {version_info.get("name", "KICKAI Bot")}
 • Version: {version_info.get("version", "Unknown")}
 • Description: {version_info.get("description", "AI-powered football team management bot")}
 
-⏰ **System Status:**
+⏰ System Status:
 • Last Updated: {version_info.get("timestamp", "Unknown")}
 • Status: ✅ Active and Running
 
-💡 **Features:**
+💡 Features:
 • 6-Agent CrewAI System
 • Intelligent Message Processing
 • Context-Aware Responses
 • Multi-Chat Support
 • Advanced Team Management
 
-🎯 **Current Capabilities:**
+🎯 Current Capabilities:
 • Player Registration & Management
 • Team Administration
 • Match Scheduling
 • Attendance Tracking
 • Communication Tools
 
-🔧 **Technical Stack:**
+🔧 Technical Stack:
 • AI Engine: CrewAI with Google Gemini/OpenAI/Ollama
 • Database: Firebase Firestore
 • Bot Platform: Telegram Bot API
@@ -126,11 +113,11 @@ async def get_version_info(telegram_id: int, team_id: str, username: str, chat_t
 💪 Ready to help with all your football team management needs!"""
 
         logger.info(f"✅ Version info retrieved successfully for {username}")
-        return create_json_response(ResponseStatus.SUCCESS, data=response)
+        return create_tool_response(True, "Operation completed successfully", data=response)
 
     except Exception as e:
         logger.error(f"❌ Error getting version info: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error retrieving version information: {e!s}")
+        return create_tool_response(False, f"Error retrieving version information: {e!s}")
 
 
 @tool("get_system_available_commands", result_as_answer=True)
@@ -178,9 +165,7 @@ async def get_system_available_commands(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(False, "Invalid telegram_id format"
                     )
                     
             # Boolean conversion for optional parameters
@@ -193,27 +178,19 @@ async def get_system_available_commands(
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(False, "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(False, "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(False, "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(False, "Valid chat_type is required"
             )
         
         logger.info(
@@ -235,18 +212,14 @@ async def get_system_available_commands(
         elif chat_type.lower() in ["leadership", "leadership_chat"]:
             chat_type_enum = ChatType.LEADERSHIP
         else:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message=f"Invalid chat type: {chat_type}. Must be 'main' or 'leadership'"
+            return create_tool_response(False, f"Invalid chat type: {chat_type}. Must be 'main' or 'leadership'"
             )
 
         # Get commands for this chat type
         commands = registry.get_commands_by_chat_type(chat_type)
 
         if not commands:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message=f"No commands found for chat type: {chat_type}"
+            return create_tool_response(False, f"No commands found for chat type: {chat_type}"
             )
 
         # Filter commands based on user registration status (business logic at application boundary)
@@ -302,17 +275,17 @@ async def get_system_available_commands(
         # Add registration guidance for unregistered users
         if not is_registered:
             if chat_type.lower() in ["main", "main_chat"]:
-                response += "📞 **To access more commands, contact team leadership to be added as a player.**\n\n"
+                response += "📞 To access more commands, contact team leadership to be added as a player.\n\n"
             elif chat_type.lower() in ["leadership", "leadership_chat"]:
-                response += "📝 **To access more commands, ask team leadership to add you as a player.**\n\n"
+                response += "📝 To access more commands, ask team leadership to add you as a player.\n\n"
 
         response += "💡 Tip: You can also ask me questions in natural language!"
 
         logger.info(
             f"✅ Retrieved {len(available_commands)} commands for {chat_type} (filtered from {len(commands)} total)"
         )
-        return create_json_response(ResponseStatus.SUCCESS, data=response)
+        return create_tool_response(True, "Operation completed successfully", data=response)
 
     except Exception as e:
         logger.error(f"❌ Error getting available commands: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Error retrieving available commands: {e!s}")
+        return create_tool_response(False, f"Error retrieving available commands: {e!s}")

@@ -175,9 +175,9 @@ class HelpService:
         
         for cmd in help_content.commands:
             lines.extend([
-                f"🔸 **{cmd.name}**",
+                f"🔸 {cmd.name}",
                 f"   {cmd.description}",
-                f"   Example: `{cmd.examples[0] if cmd.examples else cmd.name}`",
+                f"   Example: {cmd.examples[0] if cmd.examples else cmd.name}",
                 ""
             ])
         
@@ -187,3 +187,68 @@ class HelpService:
         ])
         
         return "\n".join(lines)
+
+    def generate_welcome_message(self, username: str, chat_type: ChatType) -> str:
+        """
+        Generate a personalized welcome message for users.
+        
+        Args:
+            username: User's name for personalization
+            chat_type: The chat type context
+            
+        Returns:
+            Formatted welcome message string
+        """
+        if chat_type == ChatType.LEADERSHIP:
+            return f"""🎉 Welcome to Leadership, {username}!
+
+👥 You're now part of the KICKAI Leadership Team! You have access to administrative features including:
+
+🛠️ LEADERSHIP COMMANDS:
+• /addplayer - Add new players to the team
+• /addmember - Add new team members  
+• /list - View all players and members
+• /help - Get detailed command help
+
+📋 RESPONSIBILITIES:
+• Player registration and approval
+• Team communication and coordination
+• Match organization and management
+
+💡 Get started with /help to see all available commands!"""
+
+        elif chat_type == ChatType.PRIVATE:
+            return f"""🎉 Welcome, {username}!
+
+👋 You're connected to KICKAI in private chat! Here you can:
+
+⚽ PERSONAL FEATURES:
+• /myinfo - Check your player/member status
+• /help - See all available commands
+• Update your personal information
+• Access team communications
+
+🔗 GETTING STARTED:
+1. Use /myinfo to check your current status
+2. Use /help to explore available commands
+3. Contact leadership for team registration
+
+💡 Ready to get started? Try /myinfo to see your current status!"""
+
+        else:  # Main chat
+            return f"""🎉 Welcome to the Team, {username}!
+
+👋 Welcome to KICKAI! We're excited to have you in our football community!
+
+⚽ WHAT YOU CAN DO HERE:
+• /myinfo - Check your player status
+• /help - See available commands
+• /ping - Test bot connectivity
+• Ask leadership to add you as a player
+
+🔗 GETTING STARTED:
+1. Check your status with /myinfo
+2. Contact leadership to join as a player
+3. Use /help to explore all commands
+
+💡 Need help getting started? Use '/help' to see what you can do!"""

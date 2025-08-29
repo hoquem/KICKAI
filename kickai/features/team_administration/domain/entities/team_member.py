@@ -43,7 +43,7 @@ class TeamMember:
     source: Optional[str] = None  # e.g., "telegram_sync", "manual_entry"
     sync_version: Optional[str] = None
 
-    def __post_init__(self):
+    def _post_init_(self):
         """Validate and set defaults after initialization."""
         # Parse status first to ensure it's an enum before validation
         self.status = self._parse_status(self.status)

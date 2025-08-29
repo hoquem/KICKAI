@@ -86,7 +86,7 @@ async def get_available_players_for_match(team_id: str, telegram_id: Union[str, 
             try:
                 telegram_id_int = int(telegram_id)
             except ValueError:
-                return create_json_response(ResponseStatus.ERROR, message=f"Invalid telegram_id format: {telegram_id}")
+                return create_tool_response(False, f"Invalid telegram_id format: {telegram_id}")
         else:
             telegram_id_int = int(telegram_id)
         match_id = sanitize_input(match_id, max_length=50)
@@ -96,7 +96,7 @@ async def get_available_players_for_match(team_id: str, telegram_id: Union[str, 
         match_service = container.get_service("MatchService")
 
         if not match_service:
-            return create_json_response(ResponseStatus.ERROR, message="Match service not available")
+            return create_tool_response(False, "Match service not available")
 
         # Get available players for match
         try:
@@ -117,13 +117,13 @@ async def get_available_players_for_match(team_id: str, telegram_id: Union[str, 
 {message}
 
 💡 Use /squad [match_id] to select the squad for this match"""
-            return create_json_response(ResponseStatus.SUCCESS, data=data)
+            return create_tool_response(True, "Operation completed successfully", data=data)
         else:
-            return create_json_response(ResponseStatus.ERROR, message=f"Failed to get available players: {message}")
+            return create_tool_response(False, f"Failed to get available players: {message}")
 
     except Exception as e:
         logger.error(f"Failed to get available players for match: {e}", exc_info=True)
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get available players for match: {e}")
+        return create_tool_response(False, f"Failed to get available players for match: {e}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -177,7 +177,7 @@ async def select_squad(
         squad_service = container.get_service("SquadService")
 
         if not squad_service:
-            return create_json_response(ResponseStatus.ERROR, message="Squad service not available")
+            return create_tool_response(False, "Squad service not available")
 
         # Select squad
         try:
@@ -198,13 +198,13 @@ async def select_squad(
 {message}
 
 💡 Use /squad [match_id] to view or modify the squad selection"""
-            return create_json_response(ResponseStatus.SUCCESS, data=data)
+            return create_tool_response(True, "Operation completed successfully", data=data)
         else:
-            return create_json_response(ResponseStatus.ERROR, message=f"Failed to select squad: {message}")
+            return create_tool_response(False, f"Failed to select squad: {message}")
 
     except Exception as e:
         logger.error(f"Failed to select squad: {e}", exc_info=True)
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to select squad: {e}")
+        return create_tool_response(False, f"Failed to select squad: {e}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -249,7 +249,7 @@ async def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -
         match_service = container.get_service("MatchService")
 
         if not match_service:
-            return create_json_response(ResponseStatus.ERROR, message="Match service not available")
+            return create_tool_response(False, "Match service not available")
 
         # Get match details
         match = await match_service.get_match(match_id)
@@ -266,13 +266,13 @@ async def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -
 {message}
 
 💡 Use /match [match_id] to view detailed match information"""
-            return create_json_response(ResponseStatus.SUCCESS, data=data)
+            return create_tool_response(True, "Operation completed successfully", data=data)
         else:
-            return create_json_response(ResponseStatus.ERROR, message=f"Failed to get match details: {message}")
+            return create_tool_response(False, f"Failed to get match details: {message}")
 
     except Exception as e:
         logger.error(f"Failed to get match: {e}", exc_info=True)
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get match: {e}")
+        return create_tool_response(False, f"Failed to get match: {e}")
 
 
 # REMOVED: @tool decorator - this is now a domain service function only
@@ -311,7 +311,7 @@ async def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
             try:
                 telegram_id_int = int(telegram_id)
             except ValueError:
-                return create_json_response(ResponseStatus.ERROR, message=f"Invalid telegram_id format: {telegram_id}")
+                return create_tool_response(False, f"Invalid telegram_id format: {telegram_id}")
         else:
             telegram_id_int = int(telegram_id)
 
@@ -320,13 +320,13 @@ async def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
         player_service = container.get_service("PlayerService")
 
         if not player_service:
-            return create_json_response(ResponseStatus.ERROR, message="Player service not available")
+            return create_tool_response(False, "Player service not available")
 
         # Get all players
         players = await player_service.get_all_players(team_id=team_id)
 
         if not players:
-            return create_json_response(ResponseStatus.SUCCESS, data="📋 No players found in the team.")
+            return create_tool_response(True, "Operation completed successfully", data="📋 No players found in the team.")
 
         # Format response
         result = "👥 All Team Players\n\n"
@@ -340,8 +340,8 @@ async def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
             result += f"   • Phone: {player.phone_number or 'Not provided'}\n\n"
 
         result += "💡 Use /players to view all team players for squad selection"
-        return create_json_response(ResponseStatus.SUCCESS, data=result)
+        return create_tool_response(True, "Operation completed successfully", data=result)
 
     except Exception as e:
         logger.error(f"Failed to get all players: {e}", exc_info=True)
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get all players: {e}")
+        return create_tool_response(False, f"Failed to get all players: {e}")

@@ -66,7 +66,7 @@ class TeamService:
             main_chat_id=main_chat_id,
             leadership_chat_id=leadership_chat_id,
         )
-        # Some tests expect `create`, interface defines `create_team`
+        # Some tests expect create, interface defines create_team
         try:
             return await getattr(self.team_repository, "create")(team)  # type: ignore[attr-defined]
         except AttributeError:

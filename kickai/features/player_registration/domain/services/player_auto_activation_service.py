@@ -364,7 +364,7 @@ class PlayerAutoActivationService:
 ❌ It looks like you joined without a valid invite link. This is a private team chat.
 
 🔗 To join the team:
-1. Contact a team leader to invite you with `/addplayer`
+1. Contact a team leader to invite you with /addplayer
 2. Use the invite link they provide
 3. You'll be automatically activated when you join!
 
@@ -382,7 +382,7 @@ Please leave this chat and rejoin with a proper invite link. Thanks! ⚽
 - Proper invitation from existing leadership
 - Team administrator approval
 
-📞 **Please contact team administration for proper access.**
+📞 Please contact team administration for proper access.
 
 Thanks for understanding! ⚽
             """.strip()

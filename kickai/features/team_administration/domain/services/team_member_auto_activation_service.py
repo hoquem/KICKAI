@@ -359,15 +359,15 @@ class TeamMemberAutoActivationService:
 ❌ It looks like you joined the leadership chat without a valid invite link. This is a private leadership channel.
 
 🔗 To join as a team member:
-1. Contact existing leadership to invite you with `/addmember`
+1. Contact existing leadership to invite you with /addmember
 2. Use the invite link they provide
 3. You'll be automatically activated when you join!
 
-🔒 **Leadership chat access requires:**
+🔒 Leadership chat access requires:
 - Proper invitation from existing leadership
 - Team administrator approval
 
-📞 **Please contact team administration for proper access.**
+📞 Please contact team administration for proper access.
 
 Thanks for understanding! ⚽
         """.strip()
