@@ -1,7 +1,8 @@
 # CrewAI Documentation - Comprehensive Guide
 
-*Last Updated: January 2025*  
-*CrewAI Version: 0.98+ (Latest)*
+*Last Updated: August 2025*  
+*CrewAI Version: 0.98+ (Latest)*  
+*KICKAI Integration: Native Intent-Based Routing with Clean Tool Naming*
 
 ## Table of Contents
 
@@ -882,7 +883,7 @@ result = crew.kickoff(inputs={"company": "AAPL"})
 ### 3. KICKAI Integration Example
 
 ```python
-# KICKAI-specific CrewAI integration
+# KICKAI-specific CrewAI integration with clean tool naming
 from kickai.config.llm_config import get_llm_config
 from kickai.core.enums import AgentRole
 
@@ -894,30 +895,74 @@ class KICKAICrewFactory:
     def create_player_management_crew(self):
         # Use KICKAI's LLM configuration
         main_llm = self.llm_config.main_llm
-        tool_llm = self.llm_config.tool_llm
         
-        # Player coordinator agent
+        # Player coordinator agent with clean tool names
         player_agent = Agent(
             role="Player Coordinator",
-            goal="Manage player registrations and status updates",
-            backstory="Expert in football team player management",
+            goal="Manage player registrations and status updates with clean tool naming",
+            backstory="Expert in football team player management using standardized tool conventions. Uses clean tool names following [action]_[entity]_[modifier] pattern for maximum clarity and agent understanding.",
             llm=main_llm,
-            tools=[get_player_status_tool, register_player_tool],
+            tools=[
+                get_status_my,          # Clean naming: get_[entity]_[modifier]
+                get_status_user,        # Clean naming: get_[entity]_[modifier]
+                update_player_field,   # Clean naming: [action]_[entity]_[modifier]
+                register_player_simplified  # Clean naming with descriptive modifier
+            ],
             verbose=True
         )
         
-        # Player analysis task
+        # Player analysis task with structured context
         analysis_task = Task(
-            description="Analyze player {player_name} performance and status",
-            expected_output="Player analysis report with recommendations", 
-            agent=player_agent
+            description="Analyze player {player_name} using clean tool naming convention",
+            expected_output="Player analysis report with status and recommendations", 
+            agent=player_agent,
+            config={
+                'team_id': self.team_id,
+                'telegram_id': '{telegram_id}',
+                'username': '{username}',
+                'chat_type': '{chat_type}'
+            }
         )
         
         return Crew(
             agents=[player_agent],
             tasks=[analysis_task],
-            verbose=True
+            process=Process.hierarchical,  # Use native CrewAI process
+            verbose=True,
+            memory=True  # Enable learning from interactions
         )
+```
+
+#### KICKAI Clean Tool Naming Convention
+
+```python
+# KICKAI follows strict [action]_[entity]_[modifier] pattern
+# Examples of KICKAI's clean tool naming:
+
+# Status Tools
+get_status_my           # Get my own status
+get_status_user         # Get another user's status
+
+# Player Tools  
+update_player_field           # Update single player field
+update_player_multiple_fields # Update multiple player fields
+register_player_simplified    # Simplified player registration
+
+# Team Administration Tools
+add_team_member_simplified    # Add team member with clean process
+update_team_member_information # Update team member details
+
+# Help Tools
+show_help_commands      # Show available commands
+show_help_final         # Show final help response
+check_system_ping       # System connectivity check
+check_system_version    # System version information
+
+# This naming convention provides:
+# - Clear agent understanding
+# - Consistent patterns across 75+ tools
+# - Easy tool selection by CrewAI's native intelligence
+# - Reduced confusion and improved reliability
 ```
 
 ---
@@ -955,7 +1000,7 @@ def my_tool(param: str) -> str:
 #### 3. Memory Configuration Issues
 ```python
 # Problem: Memory not persisting
-# Solution: Proper memory configuration
+# Solution: Proper memory configuration with KICKAI integration
 crew = Crew(
     agents=[agent],
     tasks=[task],
@@ -965,13 +1010,36 @@ crew = Crew(
         "config": {
             "host": "localhost",
             "port": 6333,
-            "collection_name": f"crew_memory_{team_id}"
+            "collection_name": f"kickai_crew_memory_{team_id}"
         }
     }
 )
 ```
 
-#### 4. Task Execution Failures
+#### 4. KICKAI Clean Tool Naming Issues
+```python
+# Problem: Agent can't find or understand tools
+# Solution: Use KICKAI's clean naming convention
+
+# ❌ Bad: Unclear, inconsistent naming
+tools = ["ping", "get_my_status", "help_response", "version"]
+
+# ✅ Good: Clean [action]_[entity]_[modifier] pattern
+tools = [
+    "check_system_ping",     # check_[entity]_[modifier]
+    "get_status_my",         # get_[entity]_[modifier] 
+    "show_help_commands",    # show_[entity]_[modifier]
+    "check_system_version"   # check_[entity]_[modifier]
+]
+
+# Benefits:
+# - Agents understand tool purposes immediately
+# - Consistent patterns across all features
+# - Native CrewAI intelligence works optimally
+# - Reduced tool selection errors
+```
+
+#### 5. Task Execution Failures
 ```python
 # Problem: Task fails with unclear error
 # Solution: Add verbose logging and error handling

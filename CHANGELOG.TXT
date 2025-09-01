@@ -1,6 +1,45 @@
 # KICKAI Project Changelog
 
-## [Latest] - 2025-08-28
+## [Latest] - 2025-08-31
+
+### 🐛 **Fixed Test Data Configuration**
+- **Team ID Alignment**: Updated test data setup to use team ID "KTI" to match mock service expectations
+- **Collection Naming**: Fixed collection names in test data setup to use `kickai_KTI_players` and `kickai_KTI_team_members`
+- **Test Member Addition**: Added Coach Wilson (telegram_id: 1003) to leadership members for proper testing
+- **Data Consistency**: Ensured test data matches mock service configuration for seamless testing
+- **Field Name Compatibility**: Fixed `_doc_to_team_member` to handle both `phone` and `phone_number` field names for backward compatibility
+- **Context-Aware Error Messages**: Updated status tool to show "Member Not Found" in leadership chat vs "User Not Found" in main chat
+- **Enhanced Error Reporting**: Added detailed logging to status tools and repository layer for better debugging
+- **Admin Status Detection**: Fixed `_doc_to_team_member` to properly detect admin status from `roles` array
+- **Method Name Consistency**: Fixed incorrect method calls from `get_member_by_telegram_id` to `get_team_member_by_telegram_id`
+- **Attribute Name Consistency**: Fixed status tool to use `phone_number` instead of `phone` attribute for TeamMember entities
+- **Telegram UI Optimization**: Converted status tool responses from markdown to plain text for better Telegram compatibility
+- **CrewAI Delegation Fix**: Added explicit delegation format instructions to prevent dictionary context parameter errors
+- **Tool Import Fixes**: Fixed `update_member_field` and `update_member_multiple` tools to use correct service imports instead of non-existent domain tools
+- **Code Quality Improvements**: Added TeamMemberFields constants, standardized response format, and moved imports to module level
+- **CrewAI Delegation Enhancement**: Added explicit delegation format instructions and list request routing rule
+- **CrewAI Native Implementation**: Refactored to use proper hierarchical process, eliminated manual delegation tools, and simplified agent configuration
+- **CrewAI Hierarchical Fix**: Added required `manager_llm` parameter for hierarchical process to resolve initialization error
+- **Critical CrewAI Architecture Fixes**: Removed all delegation tools, fixed parameter type conversions, and strengthened anti-hallucination rules
+- **CrewAI Delegation Tools Removal**: Removed delegation tools from agent creation in `configurable_agent.py` to prevent "Delegate work to coworker" tool usage in hierarchical process (manager_llm handles coordination, no manual delegation needed)
+
+### 🚀 CrewAI Native Parameter Passing Implementation
+- **CrewAI Task Description Context**: Implemented context passing through task descriptions instead of invalid context injection. CrewAI's `Task` context parameter is for task dependencies, not arbitrary data injection.
+- **Simplified Tool Parameters**: Updated all tools to accept direct string parameters, removing complex JSON parsing logic and parameter handling complexity.
+- **Enhanced Agent Backstories**: Updated agent configurations to handle context information passed through task descriptions.
+- **Fixed Parameter Passing Issues**: Resolved both "unhashable type: 'dict'" and "'<' not supported between instances of 'str' and 'int'" errors through proper CrewAI parameter handling.
+- **Entity-Consistent Tool Naming**: Updated tool names to match system entities (players and members) instead of generic "users". Split `approve_user` into `approve_player` and `approve_member`, and renamed `get_pending_users` to `list_pending_approvals` for consistency with the tool naming convention.
+- **Improved Response Preservation**: Enhanced agent prompts to ensure exact specialist response reproduction with strict anti-hallucination measures.
+
+### 🚀 Native CrewAI Implementation (Previous)
+- **Removed `result_as_answer=True` from All Tools**: Updated 50+ tools across the codebase to remove `result_as_answer=True` parameter, enabling proper native CrewAI delegation and agent coordination. This change allows the MESSAGE_PROCESSOR (manager agent) to properly coordinate responses from specialist agents instead of having tools respond directly to users.
+- **Native CrewAI Parameter Passing**: All tools now use simple string parameters compatible with CrewAI's native delegation system, ensuring proper parameter validation and type conversion within tool functions.
+- **Enhanced Agent Coordination**: Manager agent can now properly format, preserve, and coordinate responses from specialist agents, providing better user experience and error handling.
+- **Fixed CrewAI Delegation Error**: Resolved "unhashable type: 'dict'" error by updating remaining tools that still used dictionary parameters to use native CrewAI string parameters. Updated `get_player_current_info`, `update_player_multiple`, and `get_player_update_help` tools to use proper string parameter format.
+- **Anti-Hallucination Implementation**: Added comprehensive validation helpers and updated agent prompts to prevent data hallucination, ensuring all responses come from validated tool outputs only.
+
+### 🚀 System Upgrades
+- **CrewAI Version Upgrade**: Successfully upgraded from CrewAI 0.165.1 to 0.175.0. This upgrade includes improved Flow handling, enhanced RAG capabilities, better memory management, and various bug fixes. Updated both requirements.txt and requirements-local.txt to reflect the new version.
 
 ### 🔧 Bug Fixes
 - **Super Init Constructor Typos Fix**: Fixed critical typo where `super()._init_()` was used instead of `super().__init__()` in 107 locations across 9 files. This typo prevented proper parent class initialization in exception classes and other inheritance scenarios. Created and executed comprehensive fix script to correct all instances.
@@ -229,6 +268,11 @@
 - tests/mock_telegram/backend/bot_integration.py - Removed ResponseFormatter usage
 - kickai/features/communication/domain/services/response_formatter.py - Deleted (unnecessary complexity)
 - mock_api_server.py - Fixed API endpoints to include `/api` prefix and updated invite request model
+
+## [2025-01-27] - CrewAI Hierarchical Implementation
+- **CrewAI Hierarchical Implementation**: Simplified task descriptions, proper context passing, and manager_llm coordination
+- **CrewAI Bug Workaround**: Force crew recreation to avoid "Manager agent should not have tools" bug on subsequent executions
+- **CrewAI Task Context Fix**: Fixed Task.context validation error by embedding context in description instead of using context parameter
 
 ---
 

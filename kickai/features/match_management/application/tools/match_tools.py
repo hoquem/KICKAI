@@ -13,12 +13,10 @@ from loguru import logger
 from datetime import datetime, time
 
 from kickai.core.dependency_container import get_container
-from kickai.features.match_management.domain.services.match_service import MatchService
-from kickai.utils.tool_validation import create_tool_response
 
 
-@tool("list_matches", result_as_answer=True)
-async def list_matches(telegram_id: int, team_id: str, username: str, chat_type: str, status: str = "all", limit: int = 10) -> str:
+@tool("list_matches_all")
+async def list_matches_all(telegram_id: int, team_id: str, username: str, chat_type: str, status: str = "all", limit: int = 10) -> str:
     """
     List matches for a team with optional status filter.
 
@@ -41,7 +39,8 @@ async def list_matches(telegram_id: int, team_id: str, username: str, chat_type:
 
         # Get domain service from container and delegate to domain function
         container = get_container()
-        match_service = container.get_service(MatchService)
+        from kickai.features.match_management.domain.interfaces.match_service_interface import IMatchService
+        match_service = container.get_service(IMatchService)
 
         # Execute domain operation based on status
         if status == "upcoming":
@@ -55,7 +54,7 @@ async def list_matches(telegram_id: int, team_id: str, username: str, chat_type:
             title = f"📅 ALL MATCHES (Last {len(matches)})"
 
         if not matches:
-            return create_tool_response(True, "Operation completed successfully", data=f"{title}\n\nNo matches found.")
+            return f"{title}\n\nNo matches found."
 
         # Format at application boundary
         result = [title, ""]
@@ -79,7 +78,7 @@ async def list_matches(telegram_id: int, team_id: str, username: str, chat_type:
         return create_tool_response(False, f"Failed to list matches: {e}")
 
 
-@tool("create_match", result_as_answer=True)
+@tool("create_match")
 async def create_match(
     telegram_id: int, 
     team_id: str, 
@@ -122,7 +121,8 @@ async def create_match(
 
         # Get domain service from container and delegate to domain function
         container = get_container()
-        match_service = container.get_service(MatchService)
+        from kickai.features.match_management.domain.interfaces.match_service_interface import IMatchService
+        match_service = container.get_service(IMatchService)
 
         # Parse date and time at application boundary
         try:
@@ -161,7 +161,7 @@ async def create_match(
         return create_tool_response(False, f"Failed to create match: {e}")
 
 
-@tool("get_match_details", result_as_answer=True)
+@tool("get_match_details")
 async def get_match_details(telegram_id: int, team_id: str, username: str, chat_type: str, match_id: str) -> str:
     """
     Get detailed match information.
@@ -188,7 +188,8 @@ async def get_match_details(telegram_id: int, team_id: str, username: str, chat_
 
         # Get domain service from container and delegate to domain function
         container = get_container()
-        match_service = container.get_service(MatchService)
+        from kickai.features.match_management.domain.interfaces.match_service_interface import IMatchService
+        match_service = container.get_service(IMatchService)
 
         # Execute domain operation
         match = await match_service.get_match(match_id)
@@ -234,7 +235,7 @@ async def get_match_details(telegram_id: int, team_id: str, username: str, chat_
         return create_tool_response(False, f"Failed to get match details: {e}")
 
 
-@tool("record_match_result", result_as_answer=True)
+@tool("record_match_result")
 async def record_match_result(
     telegram_id: int,
     team_id: str,
@@ -277,7 +278,8 @@ async def record_match_result(
 
         # Get required services from container (application boundary)
         container = get_container()
-        match_service = container.get_service(MatchService)
+        from kickai.features.match_management.domain.interfaces.match_service_interface import IMatchService
+        match_service = container.get_service(IMatchService)
         
         if not match_service:
             return create_tool_response(False, "MatchService is not available"
@@ -321,8 +323,8 @@ async def record_match_result(
         return create_tool_response(False, f"Failed to record match result: {e}")
 
 
-@tool("select_squad", result_as_answer=True)
-async def select_squad(telegram_id: int, team_id: str, username: str, chat_type: str, match_id: str, player_ids: Optional[List[str]] = None) -> str:
+@tool("select_squad_match")
+async def select_squad_match(telegram_id: int, team_id: str, username: str, chat_type: str, match_id: str, player_ids: Optional[List[str]] = None) -> str:
     """
     Select squad for a match.
 
@@ -349,7 +351,8 @@ async def select_squad(telegram_id: int, team_id: str, username: str, chat_type:
 
         # Get required services from container (application boundary)
         container = get_container()
-        match_service = container.get_service(MatchService)
+        from kickai.features.match_management.domain.interfaces.match_service_interface import IMatchService
+        match_service = container.get_service(IMatchService)
         
         if not match_service:
             return create_tool_response(False, "MatchService is not available"
@@ -393,8 +396,8 @@ async def select_squad(telegram_id: int, team_id: str, username: str, chat_type:
         return create_tool_response(False, f"Failed to select squad: {e}")
 
 
-@tool("get_available_players_for_match", result_as_answer=True)
-async def get_available_players_for_match(telegram_id: int, team_id: str, username: str, chat_type: str, match_id: str) -> str:
+@tool("list_squad_available")
+async def list_squad_available(telegram_id: int, team_id: str, username: str, chat_type: str, match_id: str) -> str:
     """
     Get available players for a specific match.
 
@@ -420,7 +423,8 @@ async def get_available_players_for_match(telegram_id: int, team_id: str, userna
 
         # Get required services from container (application boundary)
         container = get_container()
-        match_service = container.get_service(MatchService)
+        from kickai.features.match_management.domain.interfaces.match_service_interface import IMatchService
+        match_service = container.get_service(IMatchService)
         
         if not match_service:
             return create_tool_response(False, "MatchService is not available"

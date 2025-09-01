@@ -146,7 +146,7 @@ class WelcomeMessageBuilder:
             return f"👋 Welcome to the leadership team, {member_name}!"
 
     @staticmethod
-    def get_unrecognized_command_message(command: str, chat_type: ChatType) -> str:
+    async def get_unrecognized_command_message(command: str, chat_type: ChatType) -> str:
         """
         Get dynamic help message for unrecognized commands.
 
@@ -162,13 +162,13 @@ class WelcomeMessageBuilder:
             from kickai.features.shared.domain.tools.help_tools import help_response
 
             # Use dynamic help tailored to chat context; preserve emojis and formatting
-            # Convert telegram_id to string for the help tool (which expects string)
-            telegram_id_str = "0"  # Default for unregistered users
-            return help_response(
-                chat_type=chat_type.value,
-                telegram_id=telegram_id_str,
+            # Convert telegram_id to int for the help tool (which expects int)
+            telegram_id_int = 0  # Default for unregistered users
+            return await help_response(
+                telegram_id=telegram_id_int,
                 team_id="",  # Will be filled by the calling context
                 username="user",
+                chat_type=chat_type.value,
             )
             
         except Exception as e:

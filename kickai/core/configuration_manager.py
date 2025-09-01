@@ -17,8 +17,6 @@ from enum import Enum
 
 import yaml
 
-from kickai.config.command_routing_manager import CommandRoutingManager
-from kickai.config.config_validator import ConfigValidator, ValidationResult
 from kickai.config.agents import YAMLAgentConfigurationManager
 
 logger = logging.getLogger(__name__)
@@ -27,7 +25,6 @@ logger = logging.getLogger(__name__)
 class ConfigType(Enum):
     """Configuration file types."""
     AGENTS = "agents"
-    ROUTING = "command_routing" 
     TASKS = "tasks"
     LLM = "llm_config"
 
@@ -67,9 +64,7 @@ class ConfigurationManager:
         self.enable_hot_reload = enable_hot_reload
         
         # Configuration managers
-        self.routing_manager: Optional[CommandRoutingManager] = None
         self.agent_config_manager: Optional[YAMLAgentConfigurationManager] = None
-        self.validator: Optional[ConfigValidator] = None
         
         # Configuration cache
         self._config_cache: Dict[ConfigType, Dict[str, Any]] = {}
@@ -92,16 +87,8 @@ class ConfigurationManager:
     def _initialize_managers(self) -> None:
         """Initialize configuration managers."""
         try:
-            # Initialize routing manager
-            routing_config_path = self.config_dir / "command_routing.yaml"
-            if routing_config_path.exists():
-                self.routing_manager = CommandRoutingManager(str(routing_config_path))
-            
             # Initialize agent config manager
             self.agent_config_manager = YAMLAgentConfigurationManager()
-            
-            # Initialize validator
-            self.validator = ConfigValidator(str(self.config_dir))
             
             logger.info("✅ Configuration managers initialized")
             
@@ -139,7 +126,6 @@ class ConfigurationManager:
         """Get the file path for a configuration type."""
         file_mapping = {
             ConfigType.AGENTS: "agents.yaml",
-            ConfigType.ROUTING: "command_routing.yaml",
             ConfigType.TASKS: "tasks.yaml",
             ConfigType.LLM: "llm_config.yaml"
         }
@@ -185,7 +171,7 @@ class ConfigurationManager:
             
         return current_mtime > self._file_timestamps[file_path_str]
 
-    def reload_all_configurations(self) -> ValidationResult:
+    def reload_all_configurations(self) -> Dict[str, Any]:
         """
         Reload all configuration files and validate.
         
@@ -200,11 +186,7 @@ class ConfigurationManager:
             self._file_timestamps.clear()
             
             # Reload individual managers
-            if self.routing_manager:
-                try:
-                    self.routing_manager.reload_configuration()
-                except Exception as e:
-                    logger.error(f"Failed to reload routing configuration: {e}")
+            # (No routing manager to reload after legacy removal)
             
             # Preload all configuration types
             for config_type in ConfigType:
@@ -228,20 +210,87 @@ class ConfigurationManager:
         logger.info("✅ All configurations reloaded")
         return validation_result
 
-    def validate_all_configurations(self) -> ValidationResult:
+    def validate_all_configurations(self) -> Dict[str, Any]:
         """
         Validate all configuration files.
         
         Returns:
-            ValidationResult with validation issues
+            Basic validation result with actual validation checks
         """
-        if not self.validator:
-            logger.warning("Validator not available")
-            return ValidationResult(is_valid=True, errors=[], warnings=[], info=[])
+        errors = []
+        warnings = []
+        info = []
         
-        return self.validator.validate_all_configurations()
+        # Validate each configuration type
+        for config_type in ConfigType:
+            try:
+                config = self.get_config(config_type)
+                validation_errors = self._validate_config_structure(config_type, config)
+                errors.extend(validation_errors)
+                
+                if not config:
+                    warnings.append(f"Empty configuration for {config_type.value}")
+                else:
+                    info.append(f"Configuration {config_type.value} loaded successfully")
+                    
+            except Exception as e:
+                errors.append(f"Failed to load {config_type.value}: {str(e)}")
+        
+        is_valid = len(errors) == 0
+        
+        if is_valid:
+            logger.info("✅ Configuration validation passed")
+        else:
+            logger.error(f"❌ Configuration validation failed with {len(errors)} errors")
+            
+        return {"is_valid": is_valid, "errors": errors, "warnings": warnings, "info": info}
 
-    def validate_specific_configuration(self, config_type: ConfigType) -> ValidationResult:
+    def _validate_config_structure(self, config_type: ConfigType, config: Dict[str, Any]) -> List[str]:
+        """
+        Validate configuration structure for a specific type.
+        
+        Args:
+            config_type: Type of configuration to validate
+            config: Configuration dictionary to validate
+            
+        Returns:
+            List of validation error messages
+        """
+        errors = []
+        
+        if config_type == ConfigType.AGENTS:
+            if 'agents' not in config:
+                errors.append("Missing 'agents' section in agents.yaml")
+            elif not isinstance(config['agents'], list):
+                errors.append("'agents' section must be a list")
+            else:
+                # Validate agent structure
+                for i, agent in enumerate(config['agents']):
+                    if not isinstance(agent, dict):
+                        errors.append(f"Agent {i} must be a dictionary")
+                        continue
+                    
+                    required_fields = ['name', 'role', 'goal', 'backstory', 'tools']
+                    for field in required_fields:
+                        if field not in agent:
+                            errors.append(f"Agent '{agent.get('name', i)}' missing required field: {field}")
+                        elif field == 'tools' and not isinstance(agent[field], list):
+                            errors.append(f"Agent '{agent.get('name', i)}' tools must be a list")
+        
+        elif config_type == ConfigType.TASKS:
+            if config and 'tasks' in config:
+                if not isinstance(config['tasks'], list):
+                    errors.append("'tasks' section must be a list")
+        
+        elif config_type == ConfigType.LLM:
+            # Basic LLM configuration validation
+            if config and 'providers' in config:
+                if not isinstance(config['providers'], dict):
+                    errors.append("'providers' section must be a dictionary")
+        
+        return errors
+
+    def validate_specific_configuration(self, config_type: ConfigType) -> Dict[str, Any]:
         """
         Validate a specific configuration type.
         
@@ -249,28 +298,27 @@ class ConfigurationManager:
             config_type: Configuration type to validate
             
         Returns:
-            ValidationResult for the specific configuration
+            Validation result for the specific configuration
         """
-        if not self.validator:
-            logger.warning("Validator not available")
-            return ValidationResult(is_valid=True, errors=[], warnings=[], info=[])
+        errors = []
+        warnings = []
+        info = []
         
-        type_mapping = {
-            ConfigType.AGENTS: "agents",
-            ConfigType.ROUTING: "routing",
-            ConfigType.TASKS: "tasks"
-        }
+        try:
+            config = self.get_config(config_type)
+            errors = self._validate_config_structure(config_type, config)
+            
+            if not config:
+                warnings.append(f"Empty configuration for {config_type.value}")
+            else:
+                info.append(f"Configuration {config_type.value} structure is valid")
+                
+        except Exception as e:
+            errors.append(f"Failed to load {config_type.value}: {str(e)}")
         
-        validator_type = type_mapping.get(config_type)
-        if not validator_type:
-            logger.warning(f"No validator available for {config_type.value}")
-            return ValidationResult(is_valid=True, errors=[], warnings=[], info=[])
-        
-        return self.validator.validate_specific_file(validator_type)
+        is_valid = len(errors) == 0
+        return {"is_valid": is_valid, "errors": errors, "warnings": warnings, "info": info}
 
-    def get_routing_manager(self) -> Optional[CommandRoutingManager]:
-        """Get the command routing manager."""
-        return self.routing_manager
 
     def get_agent_config_manager(self) -> Optional[YAMLAgentConfigurationManager]:
         """Get the agent configuration manager."""
@@ -372,7 +420,6 @@ class ConfigurationManager:
         # Backup all configuration files
         config_files = [
             "agents.yaml",
-            "command_routing.yaml", 
             "tasks.yaml",
             "llm_config.yaml"
         ]
@@ -397,15 +444,11 @@ class ConfigurationManager:
             "change_listeners": len(self._change_listeners),
             "cached_configs": list(self._config_cache.keys()),
             "managers": {
-                "routing_manager": self.routing_manager is not None,
-                "agent_config_manager": self.agent_config_manager is not None,
-                "validator": self.validator is not None
+                "agent_config_manager": self.agent_config_manager is not None
             }
         }
         
-        # Add routing manager stats if available
-        if self.routing_manager:
-            status["routing_stats"] = self.routing_manager.get_routing_statistics()
+        # Legacy routing manager removed
         
         return status
 

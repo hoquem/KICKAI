@@ -10,6 +10,8 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
+from threading import RLock
+from cachetools import TTLCache
 
 # Local application
 from kickai.features.team_administration.domain.services.team_service import TeamService
@@ -107,6 +109,39 @@ class PlayerService:
     def __init__(self, player_repository: PlayerRepositoryInterface, team_service: TeamService):
         self.player_repository = player_repository
         self.team_service = team_service
+        # TTLCache: 500 entries max, 5-minute TTL, thread-safe
+        self._player_cache = TTLCache(maxsize=500, ttl=300)
+        self._cache_lock = RLock()
+
+    def _get_cache_key(self, telegram_id: Optional[int] = None, player_id: Optional[str] = None, team_id: str = "") -> str:
+        """Generate cache key for player lookup."""
+        if telegram_id is not None:
+            return f"tg_{telegram_id}_{team_id}"
+        elif player_id:
+            return f"id_{player_id}_{team_id}"
+        else:
+            raise ValueError("Either telegram_id or player_id must be provided")
+
+    def invalidate_player_cache(self, player_id: Optional[str] = None, telegram_id: Optional[int] = None, team_id: str = ""):
+        """Invalidate cache entries for a player using exact key matching."""
+        with self._cache_lock:
+            keys_to_remove = []
+            
+            # Generate exact keys to invalidate
+            if player_id and team_id:
+                exact_key = self._get_cache_key(player_id=player_id, team_id=team_id)
+                if exact_key in self._player_cache:
+                    keys_to_remove.append(exact_key)
+            
+            if telegram_id is not None and team_id:
+                exact_key = self._get_cache_key(telegram_id=telegram_id, team_id=team_id)
+                if exact_key in self._player_cache:
+                    keys_to_remove.append(exact_key)
+            
+            # Remove exact matching keys
+            for key in keys_to_remove:
+                self._player_cache.pop(key, None)
+                logger.debug(f"Invalidated player cache key: {key}")
 
     async def create_player(self, params: PlayerCreateParams) -> Player:
         """Create a new player."""
@@ -168,7 +203,27 @@ class PlayerService:
 
     async def get_player_by_id(self, player_id: str, team_id: str) -> Player | None:
         """Get a player by ID."""
-        return await self.player_repository.get_player_by_id(player_id, team_id)
+        try:
+            # Check cache first (thread-safe)
+            cache_key = self._get_cache_key(player_id=player_id, team_id=team_id)
+            with self._cache_lock:
+                cached_player = self._player_cache.get(cache_key)
+                if cached_player is not None:
+                    logger.debug(f"Player cache hit for player_id {player_id}")
+                    return cached_player
+            
+            # Get from repository
+            player = await self.player_repository.get_player_by_id(player_id, team_id)
+            
+            # Cache the result (thread-safe)
+            with self._cache_lock:
+                self._player_cache[cache_key] = player
+                logger.debug(f"Player cached for player_id {player_id}")
+            
+            return player
+        except Exception as e:
+            logger.error(f"Error getting player by ID {player_id}: {e}")
+            return None
 
     async def get_player_by_phone(self, *, phone: str, team_id: str) -> Player | None:
         """Get a player by phone number."""
@@ -182,8 +237,23 @@ class PlayerService:
             # Convert string to int if needed
             telegram_id_int = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
             
+            # Check cache first (thread-safe)
+            cache_key = self._get_cache_key(telegram_id=telegram_id_int, team_id=team_id)
+            with self._cache_lock:
+                cached_player = self._player_cache.get(cache_key)
+                if cached_player is not None:
+                    logger.debug(f"Player cache hit for telegram_id {telegram_id_int}")
+                    return cached_player
+            
             # Use repository interface (Clean Architecture compliant)
-            return await self.player_repository.get_player_by_telegram_id(telegram_id_int, team_id)
+            player = await self.player_repository.get_player_by_telegram_id(telegram_id_int, team_id)
+            
+            # Cache the result (thread-safe)
+            with self._cache_lock:
+                self._player_cache[cache_key] = player
+                logger.debug(f"Player cached for telegram_id {telegram_id_int}")
+            
+            return player
             
         except (RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.error(ERROR_TEMPLATES["TELEGRAM_ID_ERROR"].format(telegram_id, e))
@@ -336,7 +406,27 @@ class PlayerService:
                 setattr(player, key, value)
 
         player.updated_at = datetime.now()
-        return await self.player_repository.update_player(player)
+        updated_player = await self.player_repository.update_player(player)
+        
+        # Invalidate cache for this player
+        self.invalidate_player_cache(
+            player_id=player.player_id, 
+            telegram_id=player.telegram_id, 
+            team_id=team_id
+        )
+        
+        # Cache the updated player with both keys if we have the data (thread-safe)
+        if updated_player:
+            with self._cache_lock:
+                if updated_player.telegram_id:
+                    tg_cache_key = self._get_cache_key(telegram_id=updated_player.telegram_id, team_id=team_id)
+                    self._player_cache[tg_cache_key] = updated_player
+                if updated_player.player_id:
+                    id_cache_key = self._get_cache_key(player_id=updated_player.player_id, team_id=team_id)
+                    self._player_cache[id_cache_key] = updated_player
+                logger.debug(f"Player cache refreshed after update for player {player_id}")
+        
+        return updated_player
 
     async def add_player(
         self, name: str, phone: str, position: str | None = None, team_id: str | None = None

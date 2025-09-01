@@ -3,14 +3,16 @@
 Simplified CrewAI Football Team Management System - 5-Agent Architecture
 
 This module provides a simplified, production-ready implementation using
-CrewAI's native delegation and hierarchical process.
+CrewAI's native sequential process for reliable task execution.
 
-5-AGENT SYSTEM:
-1. MESSAGE_PROCESSOR - Manager agent (no tools, coordinates delegation)
+5-AGENT WORKER SYSTEM (All agents are workers with tools):
+1. MESSAGE_PROCESSOR - General communication and system queries
 2. HELP_ASSISTANT - Help system and guidance
 3. PLAYER_COORDINATOR - Player management and onboarding
 4. TEAM_ADMINISTRATOR - Team member management
 5. SQUAD_SELECTOR - Squad selection and match management
+
+COORDINATION: Sequential process with MESSAGE_PROCESSOR as the entry point agent
 """
 
 # Standard library imports
@@ -36,10 +38,10 @@ class ConfigurationError(Exception):
 
 class TeamManagementSystem:
     """
-    Simplified Team Management System using CrewAI native delegation.
+    Simplified Team Management System using CrewAI sequential process.
     
-    This system leverages CrewAI's built-in hierarchical process and delegation
-    capabilities, eliminating the need for manual task routing and execution.
+    This system uses CrewAI's sequential process for reliable and predictable
+    task execution without the complexity of hierarchical delegation.
     """
 
     def __init__(self, team_id: str):
@@ -54,6 +56,9 @@ class TeamManagementSystem:
         if not self.config_manager:
             raise ConfigurationError(f"No configuration found for {team_id}")
 
+        # No delegation patches needed - using CrewAI native sequential process
+        logger.info("[TEAM INIT] Using CrewAI native sequential process")
+
         # Initialize tool registry once for all agents
         logger.info("[TEAM INIT] Initializing tool registry")
         from kickai.agents.tool_registry import initialize_tool_registry
@@ -67,8 +72,8 @@ class TeamManagementSystem:
         logger.info("[TEAM INIT] Initializing agents")
         self._initialize_agents()
 
-        # Create hierarchical crew
-        logger.info("[TEAM INIT] Creating hierarchical crew")
+        # Create sequential crew
+        logger.info("[TEAM INIT] Creating sequential crew")
         self._create_crew()
 
         logger.info(f"✅ TeamManagementSystem initialized for team {team_id}")
@@ -80,15 +85,9 @@ class TeamManagementSystem:
             main_llm, _ = llm_config.get_llm_for_agent(AgentRole.MESSAGE_PROCESSOR)
             self.llm = main_llm
 
-            # Initialize manager LLM for delegation
-            self.manager_llm = llm_config.create_llm(
-                model_name=llm_config.advanced_model,
-                temperature=llm_config.settings.ai_temperature,
-                max_tokens=llm_config.settings.ai_max_tokens
-            )
+            # No manager_llm needed for sequential process - agents work independently
 
-            logger.info(f"✅ LLM initialized: {type(self.llm).__name__}")
-            logger.info(f"✅ Manager LLM initialized: {llm_config.advanced_model}")
+            logger.info(f"✅ LLM initialized: {type(self.llm).__name__} (sequential process)")
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize LLM: {e}")
@@ -129,78 +128,31 @@ class TeamManagementSystem:
             raise AgentInitializationError("TeamManagementSystem", f"Failed to initialize agents: {e}") from e
 
     def _create_crew(self):
-        """Create the CrewAI crew with hierarchical process."""
+        """Create the CrewAI crew with sequential process."""
         try:
-            # Get all specialist agents (exclude MESSAGE_PROCESSOR as it becomes manager)
-            crew_agents = [
+            # Get all agents as worker agents with their tools
+            all_agents = [
                 agent.crew_agent 
                 for role, agent in self.agents.items() 
-                if role != AgentRole.MESSAGE_PROCESSOR and hasattr(agent, 'crew_agent')
+                if hasattr(agent, 'crew_agent')
             ]
 
-            if not crew_agents:
-                raise AgentInitializationError("TeamManagementSystem", "No specialist agents available")
+            if not all_agents:
+                raise AgentInitializationError("TeamManagementSystem", "No agents available")
 
             # Get verbose setting
             settings = get_settings()
             verbose_mode = settings.verbose_logging or settings.debug
 
-            # Create manager agent (MESSAGE_PROCESSOR becomes manager)
-            manager_agent = Agent(
-                role="Team Manager",
-                goal="Coordinate and delegate tasks to the most appropriate specialist agents based on user intent and preserve their complete responses",
-                backstory="""You are an experienced team manager who coordinates work between specialist agents.
-                
-                🚨 ABSOLUTE RESPONSE PRESERVATION MANDATE:
-                YOU ARE STRICTLY FORBIDDEN FROM ALTERING SPECIALIST RESPONSES IN ANY WAY.
-                Your ONLY role is delegation and COMPLETE response passthrough.
-                
-                RESPONSE PRESERVATION PROTOCOL (MANDATORY):
-                1. Delegate task to appropriate specialist agent
-                2. Receive specialist response
-                3. Return specialist response VERBATIM - character for character
-                4. NO processing, NO summarizing, NO formatting changes whatsoever
-                
-                PRESERVATION REQUIREMENTS:
-                ✅ PRESERVE: Every character, emoji, line break, formatting mark
-                ✅ PRESERVE: Complete invite links, URLs, technical details
-                ✅ PRESERVE: All instructions, next steps, contact information
-                ✅ PRESERVE: Success messages, error details, user guidance
-                ❌ FORBIDDEN: Any summarization, condensation, or modification
-                ❌ FORBIDDEN: Removing details, shortening responses, paraphrasing
-                ❌ FORBIDDEN: Converting detailed responses to brief summaries
-                
-                CRITICAL RULE: If specialist provides 500 words, you return ALL 500 words unchanged.
-                
-                DELEGATION STRATEGY:
-                - help_assistant: Help, system commands, available commands
-                - player_coordinator: Player information, status, updates, approvals
-                - team_administrator: Team member management, adding players/members (leadership only)
-                - squad_selector: Availability, match management, squad operations
-                
-                DELEGATION PARAMETERS FORMAT:
-                - task: "Simple string description"
-                - context: "Simple context string"
-                - coworker: "agent_name" (string only)
-                
-                RESPONSE HANDLING:
-                Upon receiving specialist response, return it EXACTLY as received.
-                Think of yourself as a passthrough proxy - you change NOTHING.""",
-                llm=self.manager_llm,
-                allow_delegation=True,
-                tools=[],  # Manager has no tools - only delegates
-                verbose=verbose_mode
-            )
-
-            # Create hierarchical crew
+            # Create crew with sequential process - simpler and more reliable
+            # CrewAI will automatically route tasks to the most appropriate agent
             self.crew = Crew(
-                agents=crew_agents,
-                manager_agent=manager_agent,
-                process=Process.hierarchical,
+                agents=all_agents,  # All 5 agents with their specialized tools
+                process=Process.sequential,  # Use sequential process - more stable
                 verbose=verbose_mode
             )
 
-            logger.info(f"✅ Created hierarchical crew with {len(crew_agents)} specialist agents and manager agent")
+            logger.info(f"✅ Created sequential crew with {len(all_agents)} specialized agents")
             return True
 
         except Exception as e:
@@ -225,70 +177,48 @@ class TeamManagementSystem:
             # Validate execution context
             validated_context = self._prepare_execution_context(execution_context)
 
-            # Create enhanced task description for manager agent with absolute preservation mandate
-            user = validated_context.get('username', 'user')
-            chat_type = validated_context.get('chat_type', 'main')
-            telegram_id = validated_context.get('telegram_id', 0)
-            team_id = validated_context.get('team_id', self.team_id)
-
-            # Create task description with absolute response preservation mandate
-            enhanced_task = f"""
-User ({user}) in {chat_type} chat says: "{task_description}"
+            # Create task description with context embedded (CrewAI Task.context expects list of Task objects)
+            task_description_with_context = f"""
+User ({validated_context.get('username', 'user')}) in {validated_context.get('chat_type', 'main')} chat says: "{task_description}"
 
 Context Information:
-- User ID: {telegram_id}
-- Team ID: {team_id}
-- Username: {user}
-- Chat Type: {chat_type}
+- User ID: {validated_context.get('telegram_id', 0)}
+- Team ID: {validated_context.get('team_id', self.team_id)}
+- Username: {validated_context.get('username', 'user')}
+- Chat Type: {validated_context.get('chat_type', 'main')}
 
-🎯 YOUR TASK:
-1. Analyze user intent and delegate to appropriate specialist
-2. PRESERVE specialist response COMPLETELY AND EXACTLY
+🎯 TASK:
+Process this user request using appropriate tools and provide a complete response.
 
-🚨 RESPONSE PRESERVATION MANDATE:
-Whatever response the specialist provides, you MUST return it VERBATIM.
-NO summarizing, NO condensing, NO modifications, NO shortening.
-If specialist returns 1000 characters, you return ALL 1000 characters unchanged.
-
-DELEGATION TARGETS:
-- help_assistant: Help, system commands, available commands
-- player_coordinator: Player info, status, updates, approvals
-- team_administrator: Team management, adding players/members (leadership only)  
-- squad_selector: Availability, matches, squad operations
-
-DELEGATION FORMAT:
-- task: "Process user request: {task_description}"
-- context: "User: {user}, ID: {telegram_id}, Team: {team_id}, Chat: {chat_type}"
-- coworker: "[agent_name]"
-
-⚡ FINAL INSTRUCTION:
-Return the specialist's response EXACTLY as received - character for character.
-You are a passthrough proxy. Change NOTHING.
+🚨 ANTI-HALLUCINATION (ABSOLUTE):
+- Use tools to gather factual information
+- NEVER invent fake data or additional entries
+- NEVER invent fake names like "Michael Jordan", "Steve Jobs", "Bill Gates"
+- If tools return "No data found", state this clearly
+- Provide accurate, tool-based responses only
 """
 
-            # Create task for the crew with explicit preservation requirements
+            # Create task and assign to appropriate agent based on task content
+            # For sequential process, we assign to the first agent (MESSAGE_PROCESSOR) as entry point
+            message_processor_agent = None
+            for role, agent in self.agents.items():
+                if role == AgentRole.MESSAGE_PROCESSOR:
+                    message_processor_agent = agent.crew_agent
+                    break
+            
+            if not message_processor_agent:
+                # Fallback to first available agent
+                message_processor_agent = list(self.agents.values())[0].crew_agent
+            
             task = Task(
-                description=enhanced_task,
-                expected_output="""SPECIALIST RESPONSE VERBATIM - NO CHANGES ALLOWED
-                
-You must return the specialist agent's response EXACTLY as provided:
-                - Every character preserved
-                - All formatting intact (emojis, line breaks, bullets)
-                - Complete invite links and URLs
-                - Full instructions and next steps
-                - All details, no summarization
-                
-FORBIDDEN ACTIONS:
-                - Summarizing or condensing responses
-                - Removing details or formatting
-                - Converting long responses to brief summaries
-                - Any modification or paraphrasing
-                
-REQUIRED: Character-for-character exact reproduction of specialist response."""
+                description=task_description_with_context,
+                expected_output="Complete response to user request",
+                agent=message_processor_agent  # Assign to MESSAGE_PROCESSOR as entry point
             )
 
-            # Execute with CrewAI's native delegation - pass minimal inputs to avoid parameter conflicts
+            # Execute with CrewAI's native sequential process
             self.crew.tasks = [task]
+            
             result = await self.crew.kickoff_async()
             result = result.raw if hasattr(result, 'raw') else str(result)
 

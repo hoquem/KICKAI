@@ -11,13 +11,9 @@ from crewai.tools import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
-from kickai.features.player_registration.domain.services.player_service import PlayerService
-from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
-from kickai.utils.tool_validation import create_tool_response
-from kickai.utils.tool_validation import create_tool_response
 
 
-@tool("list_team_members_and_players", result_as_answer=True)
+@tool("list_team_members_and_players")
 async def list_team_members_and_players(
     telegram_id: int,
     team_id: str,
@@ -53,48 +49,32 @@ async def list_team_members_and_players(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_tool_response(
-                        False, 
-                        "Invalid telegram_id format"
-                    )
+                    return "❌ Invalid telegram_id format"
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_tool_response(
-                False, 
-                "Valid telegram_id is required"
-            )
+            return "❌ Valid telegram_id is required"
         
         if not team_id or not isinstance(team_id, str):
-            return create_tool_response(
-                False, 
-                "Valid team_id is required"
-            )
+            return "❌ Valid team_id is required"
             
         if not username or not isinstance(username, str):
-            return create_tool_response(
-                False, 
-                "Valid username is required"
-            )
+            return "❌ Valid username is required"
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_tool_response(
-                False, 
-                "Valid chat_type is required"
-            )
+            return "❌ Valid chat_type is required"
         
         logger.info(f"📋 Complete team list request from {username} ({telegram_id}) in team {team_id}")
 
         # Get required services from container (application boundary)
         container = get_container()
-        player_service = container.get_service(PlayerService)
-        team_member_service = container.get_service(TeamMemberService)
+        from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+        from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
+        player_service = container.get_service(IPlayerService)
+        team_member_service = container.get_service(ITeamMemberService)
 
         if not player_service or not team_member_service:
-            return create_tool_response(
-                False,
-                "Required services are not available"
-            )
+            return "❌ Required services are not available"
 
         # Execute domain operations
         players = await player_service.get_all_players(team_id)

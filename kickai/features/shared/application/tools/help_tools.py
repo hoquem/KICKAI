@@ -13,18 +13,18 @@ from loguru import logger
 from kickai.core.dependency_container import get_container
 from kickai.core.enums import ChatType
 from kickai.features.shared.domain.services.help_service import HelpService
-from kickai.utils.tool_validation import create_tool_response
+# Removed unused import: create_tool_response (now returning formatted text directly)
 
 
-@tool("help_response", result_as_answer=True)
-async def help_response(
-    telegram_id: int,
+@tool("show_help_commands")
+async def show_help_commands(
+    telegram_id: str,
     team_id: str,
     username: str,
     chat_type: str
 ) -> str:
     """
-    Generate a comprehensive help response for users based on their chat type and context.
+    Show comprehensive help and available commands based on user's context.
 
     This tool serves as the application boundary for help functionality.
     It handles framework concerns and delegates business logic to the domain service.
@@ -36,18 +36,21 @@ async def help_response(
         chat_type: Chat type (main/leadership/private)
 
     Returns:
-        JSON formatted help response string
+        Formatted help text string for direct display
     """
     try:
         # Validate required parameters at application boundary
         if not all([chat_type, telegram_id, team_id, username]):
-            return create_tool_response(
-                False, 
-                "Missing required parameters for help generation"
-            )
+            return "❌ Error: Missing required parameters for help generation. Please try again."
+
+        # Simple type conversion
+        try:
+            telegram_id_int = int(telegram_id)
+        except (ValueError, TypeError):
+            return "❌ Invalid telegram_id format"
 
         logger.info(
-            f"🔧 Help request from user {username} ({telegram_id}) in {chat_type} chat for team {team_id}"
+            f"🔧 Help request from user {username} ({telegram_id_int}) in {chat_type} chat for team {team_id}"
         )
 
         # Normalize chat type to enum
@@ -62,18 +65,12 @@ async def help_response(
 
         logger.info(f"✅ Generated help message for {username} in {chat_type} chat")
         
-        return create_tool_response(
-            True, 
-            f"Help information for {username}",
-            {"help_content": formatted_message}
-        )
+        # Return formatted text directly (no JSON wrapper)
+        return formatted_message
 
     except Exception as e:
         logger.error(f"❌ Error generating help response: {e}")
-        return create_tool_response(
-            False, 
-            f"Failed to generate help response: {e}"
-        )
+        return f"❌ Sorry, I couldn't generate the help information right now. Error: {str(e)}\n\nPlease contact team leadership for assistance."
 
 
 def _normalize_chat_type(chat_type: str) -> ChatType:
@@ -104,15 +101,15 @@ def _normalize_chat_type(chat_type: str) -> ChatType:
         return ChatType.MAIN
 
 
-@tool("FINAL_HELP_RESPONSE", result_as_answer=True)
-async def FINAL_HELP_RESPONSE(
+@tool("show_help_final")
+async def show_help_final(
     chat_type: str,
     telegram_id: int,
     team_id: str, 
     username: str
 ) -> str:
     """
-    Final help response tool - maintains compatibility with existing system.
+    Show final comprehensive help response with full context information.
     
     Args:
         chat_type: Chat type context
@@ -121,22 +118,22 @@ async def FINAL_HELP_RESPONSE(
         username: User's username
         
     Returns:
-        JSON formatted help response
+        Formatted help text for direct display
     """
     # Delegate to main help response tool
-    return await help_response(telegram_id, team_id, username, chat_type)
+    return await show_help_commands(telegram_id, team_id, username, chat_type)
 
 
-@tool("get_command_help", result_as_answer=True)
-async def get_command_help(
-    telegram_id: int,
+@tool("show_help_usage")
+async def show_help_usage(
+    telegram_id: str,
     team_id: str,
     username: str,
     chat_type: str,
     command: str = ""
 ) -> str:
     """
-    Get detailed help for a specific command.
+    Show detailed usage help for a specific command.
     
     This tool serves as the application boundary for command-specific help.
     It handles framework concerns and delegates to the domain service.
@@ -149,38 +146,32 @@ async def get_command_help(
         command: Specific command to get help for
         
     Returns:
-        JSON formatted command help response
+        Formatted command help text for direct display
     """
     try:
         logger.info(f"🔧 Command help request from {username} for command: {command}")
         
-        # Import and use the domain function directly
-        from kickai.features.shared.domain.tools.help_tools import get_command_help as domain_get_command_help
-        
-        # Call the domain function
-        result = await domain_get_command_help(telegram_id, team_id, username, chat_type, command)
-        
-        logger.info(f"✅ Generated command help for {username}")
-        
-        return result
+        # For now, return specific command help or delegate to main help
+        if command:
+            return f"📚 **Command Help: {command}**\n\nFor detailed help with all commands, use `/help`.\n\nIf you need specific assistance with {command}, please contact team leadership."
+        else:
+            # No specific command, show general help
+            return await show_help_commands(telegram_id, team_id, username, chat_type)
         
     except Exception as e:
         logger.error(f"❌ Error getting command help: {e}")
-        return create_tool_response(
-            False,
-            "Unable to retrieve command help. Please try '/help' for general assistance."
-        )
+        return f"❌ Unable to retrieve command help. Please try '/help' for general assistance.\n\nError: {str(e)}"
 
 
-@tool("get_welcome_message", result_as_answer=True)
-async def get_welcome_message(
-    telegram_id: int,
+@tool("show_help_welcome")
+async def show_help_welcome(
+    telegram_id: str,
     team_id: str,
     username: str,
     chat_type: str
 ) -> str:
     """
-    Generate a welcome message for new users or first-time interactions.
+    Show welcome message for new users or first-time interactions.
     
     This tool serves as the application boundary for welcome message functionality.
     It handles framework concerns and delegates to the domain service.
@@ -192,7 +183,7 @@ async def get_welcome_message(
         chat_type: Chat type (main/leadership/private)
         
     Returns:
-        JSON formatted welcome message
+        Formatted welcome message text for direct display
     """
     try:
         logger.info(f"🔧 Welcome message request from {username}")
@@ -206,29 +197,23 @@ async def get_welcome_message(
         
         logger.info(f"✅ Generated welcome message for {username}")
         
-        return create_tool_response(
-            True,
-            f"Welcome message for {username}",
-            {"welcome_content": welcome_content}
-        )
+        # Return formatted welcome text directly
+        return welcome_content
         
     except Exception as e:
         logger.error(f"❌ Error generating welcome message: {e}")
-        return create_tool_response(
-            False,
-            "Welcome to KICKAI! Use '/help' to get started."
-        )
+        return f"🎉 Welcome to KICKAI, {username}!\n\n👋 Use '/help' to get started and see available commands."
 
 
-@tool("get_available_commands", result_as_answer=True)
-async def get_available_commands(
-    telegram_id: int,
+@tool("get_system_commands")
+async def get_system_commands(
+    telegram_id: str,
     team_id: str,
     username: str,
     chat_type: str
 ) -> str:
     """
-    Get a list of available commands based on user context and permissions.
+    Get a list of available system commands based on user context and permissions.
     
     This tool serves as the application boundary for command listing functionality.
     It handles framework concerns and delegates to the domain service.
@@ -240,24 +225,33 @@ async def get_available_commands(
         chat_type: Chat type (main/leadership/private)
         
     Returns:
-        JSON formatted available commands list
+        Formatted available commands list for direct display
     """
     try:
         logger.info(f"🔧 Available commands request from {username}")
         
-        # Import and use the domain function directly
-        from kickai.features.shared.domain.tools.help_tools import get_available_commands as domain_get_available_commands
+        # Use help service to generate command list
+        help_service = HelpService()
+        chat_type_enum = _normalize_chat_type(chat_type)
         
-        # Call the domain function
-        result = await domain_get_available_commands(telegram_id, team_id, username, chat_type)
+        # Generate help content and extract commands
+        help_content = help_service.generate_help_content(chat_type_enum, username)
+        
+        # Format as simple command list
+        commands_text = f"📋 **Available Commands ({chat_type} chat):**\n\n"
+        
+        for cmd in help_content.commands:
+            commands_text += f"🔸 **{cmd.name}** - {cmd.description}\n"
+            if cmd.examples:
+                commands_text += f"   Example: `{cmd.examples[0]}`\n"
+            commands_text += "\n"
+        
+        commands_text += f"\n💡 Use '/help' for detailed information about each command."
         
         logger.info(f"✅ Generated available commands list for {username}")
         
-        return result
+        return commands_text
         
     except Exception as e:
         logger.error(f"❌ Error getting available commands: {e}")
-        return create_tool_response(
-            False,
-            "Unable to retrieve available commands. Use '/help' for assistance."
-        )
+        return f"❌ Unable to retrieve available commands right now.\n\nPlease use '/help' for assistance.\n\nError: {str(e)}"

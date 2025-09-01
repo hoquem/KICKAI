@@ -9,13 +9,12 @@ All framework dependencies (@tool decorators, container access) are confined to 
 
 from crewai.tools import tool
 from loguru import logger
+from kickai.core.dependency_container import get_container
+from kickai.utils.tool_helpers import create_json_response, ResponseStatus
 
-# Import the domain layer function
-from kickai.features.team_administration.domain.tools.player_management_tools import add_player as add_player_domain
 
-
-@tool("add_player", result_as_answer=True)
-async def add_player(
+@tool("create_player")
+async def create_player(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -24,7 +23,7 @@ async def add_player(
     phone_number: str
 ) -> str:
     """
-    Add a new player to the team with invite link generation.
+    Create a new player in the team with invite link generation.
 
     This tool serves as the application boundary for player creation by team administrators.
     It delegates all business logic to the domain layer function.
@@ -62,19 +61,37 @@ async def add_player(
                         "Invalid telegram_id format"
                     )
 
-        logger.info(f"🏃‍♂️ Application layer: Adding player '{player_name}' by {username} ({telegram_id}) in team {team_id}")
+        logger.info(f"🏃‍♂️ Application layer: Creating player '{player_name}' by {username} ({telegram_id}) in team {team_id}")
 
-        # Delegate to domain layer function (contains all business logic including invite link generation)
-        return await add_player_domain(
-            telegram_id=telegram_id,
+        # Get services from container
+        container = get_container()
+        from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+        player_service = container.get_service(IPlayerService)
+        
+        # Create player using domain service
+        from kickai.features.player_registration.domain.entities.player_create_params import PlayerCreateParams
+        
+        params = PlayerCreateParams(
+            name=player_name,
+            phone=phone_number,
             team_id=team_id,
-            username=username,
-            chat_type=chat_type,
-            player_name=player_name,
-            phone_number=phone_number
+            position="TBD"  # Default position
+        )
+        
+        player = await player_service.create_player(params)
+        
+        return create_json_response(
+            ResponseStatus.SUCCESS,
+            f"Player '{player_name}' created successfully with ID: {player.player_id}",
+            data={
+                "player_id": player.player_id,
+                "name": player.name,
+                "phone": player.phone_number,
+                "status": player.status.value if hasattr(player.status, 'value') else str(player.status)
+            }
         )
 
     except Exception as e:
-        logger.error(f"❌ Application layer error adding player '{player_name}': {e}")
+        logger.error(f"❌ Application layer error creating player '{player_name}': {e}")
         from kickai.utils.tool_validation import create_tool_response
-        return create_tool_response(False, f"Failed to add player: {e}")
+        return create_tool_response(False, f"Failed to create player: {e}")

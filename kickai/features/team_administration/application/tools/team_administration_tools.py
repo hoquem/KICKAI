@@ -12,14 +12,47 @@ from crewai.tools import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
-from kickai.features.team_administration.domain.services.team_member_management_service import TeamMemberManagementService
-from kickai.features.team_administration.domain.services.team_service import TeamService
-from kickai.utils.tool_validation import create_tool_response
-from kickai.utils.tool_validation import create_tool_response
+from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
 
 
-@tool("add_team_member_role", result_as_answer=True)
-async def add_team_member_role(
+class TeamMemberFields:
+    """Constants for team member field names."""
+    EMAIL = "email"
+    PHONE = "phone"
+    PHONE_NUMBER = "phone_number"
+    NAME = "name"
+    ROLE = "role"
+    
+    VALID_FIELDS = {EMAIL, PHONE, PHONE_NUMBER, NAME, ROLE}
+    
+    @classmethod
+    def is_valid(cls, field: str) -> bool:
+        """Check if a field name is valid."""
+        return field.lower() in cls.VALID_FIELDS
+    
+    @classmethod
+    def get_entity_field(cls, field: str) -> str:
+        """Get the corresponding entity field name."""
+        field_mapping = {
+            cls.EMAIL: "email",
+            cls.PHONE: "phone_number",
+            cls.PHONE_NUMBER: "phone_number",
+            cls.NAME: "name",
+            cls.ROLE: "role"
+        }
+        return field_mapping.get(field.lower(), field.lower())
+
+
+def create_tool_response(success: bool, message: str) -> str:
+    """Create a standardized tool response."""
+    if success:
+        return f"✅ {message}"
+    else:
+        return f"❌ {message}"
+
+
+@tool("create_member_role")
+async def create_member_role(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -101,6 +134,7 @@ async def add_team_member_role(
 
         # Get required services from container (application boundary)
         container = get_container()
+        from kickai.features.team_administration.domain.services.team_member_management_service import TeamMemberManagementService
         management_service = container.get_service(TeamMemberManagementService)
 
         if not management_service:
@@ -131,8 +165,8 @@ async def add_team_member_role(
         return create_tool_response(False, f"Failed to add role: {e}")
 
 
-@tool("remove_team_member_role", result_as_answer=True)
-async def remove_team_member_role(
+@tool("remove_member_role")
+async def remove_member_role(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -167,6 +201,7 @@ async def remove_team_member_role(
 
         # Get required services from container (application boundary)
         container = get_container()
+        from kickai.features.team_administration.domain.services.team_member_management_service import TeamMemberManagementService
         management_service = container.get_service(TeamMemberManagementService)
 
         if not management_service:
@@ -195,8 +230,8 @@ async def remove_team_member_role(
         return create_tool_response(False, f"Failed to remove role: {e}")
 
 
-@tool("promote_team_member_to_admin", result_as_answer=True)
-async def promote_team_member_to_admin(
+@tool("promote_member_admin")
+async def promote_member_admin(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -229,6 +264,7 @@ async def promote_team_member_to_admin(
 
         # Get required services from container (application boundary)
         container = get_container()
+        from kickai.features.team_administration.domain.services.team_member_management_service import TeamMemberManagementService
         management_service = container.get_service(TeamMemberManagementService)
 
         if not management_service:
@@ -257,7 +293,7 @@ async def promote_team_member_to_admin(
         return create_tool_response(False, f"Failed to promote member: {e}")
 
 
-@tool("create_team", result_as_answer=True)
+@tool("create_team")
 async def create_team(
     telegram_id: int,
     team_id: str,
@@ -328,7 +364,8 @@ async def create_team(
 
         # Get required services from container (application boundary)
         container = get_container()
-        team_service = container.get_service(TeamService)
+        from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
+        team_service = container.get_service(ITeamService)
 
         if not team_service:
             return create_tool_response(False, "TeamService is not available"
@@ -346,8 +383,8 @@ async def create_team(
         return create_tool_response(False, f"Failed to create team: {e}")
 
 
-@tool("update_team_member_field", result_as_answer=True)
-async def update_team_member_field(
+@tool("update_member_field")
+async def update_member_field(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -370,25 +407,45 @@ async def update_team_member_field(
         value: New value for the field
 
     Returns:
-        JSON formatted response with update result
+        Formatted response with update result
     """
     try:
         logger.info(f"🔄 Updating team member field '{field}' for {username} ({telegram_id})")
 
-        # Delegate to domain service (which was converted from tool to function)
-        from kickai.features.team_administration.domain.tools.team_member_update_tools import update_team_member_field as domain_update_field
-        result = await domain_update_field(telegram_id, team_id, username, chat_type, field, value)
+        # Get container and service
+        container = get_container()
+        team_service = container.get_service(ITeamMemberService)
 
-        logger.info(f"✅ Team member field '{field}' updated for {username}")
-        return result  # Domain function already returns proper JSON response
+        # Get the current team member
+        member = await team_service.get_team_member_by_telegram_id(telegram_id, team_id)
+        if not member:
+            return create_tool_response(False, f"Team member not found for telegram_id {telegram_id}")
+
+        # Validate field
+        if not TeamMemberFields.is_valid(field):
+            return create_tool_response(False, f"Invalid field '{field}'. Valid fields: {', '.join(TeamMemberFields.VALID_FIELDS)}")
+
+        # Update the specific field
+        entity_field = TeamMemberFields.get_entity_field(field)
+        setattr(member, entity_field, value)
+
+        # Update the member
+        success = await team_service.update_team_member(member)
+        
+        if success:
+            logger.info(f"✅ Team member field '{field}' updated for {username}")
+            return create_tool_response(True, f"Successfully updated {field} to '{value}' for {username}")
+        else:
+            logger.error(f"❌ Failed to update team member field '{field}' for {username}")
+            return create_tool_response(False, f"Failed to update {field} for {username}")
 
     except Exception as e:
         logger.error(f"❌ Error updating team member field '{field}': {e}")
-        return create_tool_response(False, f"Failed to update field: {e}")
+        return create_tool_response(False, f"Error updating {field}: {str(e)}")
 
 
-@tool("update_team_member_multiple_fields", result_as_answer=True)
-async def update_team_member_multiple_fields(
+@tool("update_member_multiple")
+async def update_member_multiple(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -409,25 +466,50 @@ async def update_team_member_multiple_fields(
         field_updates: Dictionary of field names to new values
 
     Returns:
-        JSON formatted response with update result
+        Formatted response with update result
     """
     try:
         logger.info(f"🔄 Updating multiple team member fields for {username} ({telegram_id})")
 
-        # Delegate to domain service (which was converted from tool to function)
-        from kickai.features.team_administration.domain.tools.team_member_update_tools import update_team_member_multiple_fields as domain_update_fields
-        result = await domain_update_fields(telegram_id, team_id, username, chat_type, field_updates)
+        # Get container and service
+        container = get_container()
+        team_service = container.get_service(ITeamMemberService)
 
-        logger.info(f"✅ Multiple team member fields updated for {username}")
-        return result  # Domain function already returns proper JSON response
+        # Get the current team member
+        member = await team_service.get_team_member_by_telegram_id(telegram_id, team_id)
+        if not member:
+            return create_tool_response(False, f"Team member not found for telegram_id {telegram_id}")
+
+        # Update multiple fields
+        updated_fields = []
+        for field, value in field_updates.items():
+            if TeamMemberFields.is_valid(field):
+                entity_field = TeamMemberFields.get_entity_field(field)
+                setattr(member, entity_field, value)
+                updated_fields.append(field)
+            else:
+                logger.warning(f"⚠️ Invalid field '{field}' ignored")
+
+        if not updated_fields:
+            return create_tool_response(False, f"No valid fields to update. Valid fields: {', '.join(TeamMemberFields.VALID_FIELDS)}")
+
+        # Update the member
+        success = await team_service.update_team_member(member)
+        
+        if success:
+            logger.info(f"✅ Multiple team member fields updated for {username}")
+            return create_tool_response(True, f"Successfully updated {', '.join(updated_fields)} for {username}")
+        else:
+            logger.error(f"❌ Failed to update multiple team member fields for {username}")
+            return create_tool_response(False, f"Failed to update fields for {username}")
 
     except Exception as e:
         logger.error(f"❌ Error updating multiple team member fields: {e}")
-        return create_tool_response(False, f"Failed to update fields: {e}")
+        return create_tool_response(False, f"Error updating fields: {str(e)}")
 
 
-@tool("get_team_member_update_help", result_as_answer=True)
-async def get_team_member_update_help(
+@tool("get_member_update_help")
+async def get_member_update_help(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -463,81 +545,141 @@ async def get_team_member_update_help(
         return create_tool_response(False, f"Failed to get help: {e}")
 
 
-@tool("get_team_member_current_info", result_as_answer=True)
-async def get_team_member_current_info(
-    telegram_id: int,
-    team_id: str,
-    username: str,
-    chat_type: str
-) -> str:
-    """
-    Get current team member information before making updates.
-
-    This tool serves as the application boundary for team member info retrieval.
-    It handles framework concerns and delegates business logic to the domain service.
-
-    Args:
-        telegram_id: Team member's Telegram ID
-        team_id: Team ID (required)
-        username: Team member's username
-        chat_type: Chat type context
-
-    Returns:
-        JSON formatted current team member information
-    """
-    try:
-        logger.info(f"📋 Getting current team member info for {username} ({telegram_id})")
-
-        # Delegate to domain service (which was converted from tool to function)
-        from kickai.features.team_administration.domain.tools.team_member_update_tools import get_team_member_current_info as domain_get_info
-        result = await domain_get_info(telegram_id, team_id, username, chat_type)
-
-        logger.info(f"✅ Current team member info retrieved for {username}")
-        return result  # Domain function already returns proper JSON response
-
-    except Exception as e:
-        logger.error(f"❌ Error getting team member current info: {e}")
-        return create_tool_response(False, f"Failed to get info: {e}")
 
 
-@tool("update_other_team_member", result_as_answer=True)
-async def update_other_team_member(
+@tool("update_member_info")
+async def update_member_info(
     telegram_id: int,
     team_id: str,
     username: str,
     chat_type: str,
-    target_member_id: str,
+    target_telegram_id: int,
     field: str,
     value: str
 ) -> str:
     """
-    Update another team member's information (admin-only operation).
+    Update team member information (leadership only).
 
-    This tool serves as the application boundary for admin team member updates.
+    This tool serves as the application boundary for team member updates.
     It handles framework concerns and delegates business logic to the domain service.
 
     Args:
-        telegram_id: Admin's Telegram ID
+        telegram_id: Admin's Telegram ID or dictionary with all parameters
         team_id: Team ID (required)
-        username: Admin's username
+        username: Admin's username for logging
         chat_type: Chat type context (should be 'leadership')
-        target_member_id: ID of the team member to update
-        field: Field name to update
+        target_telegram_id: Telegram ID of the team member to update
+        field: Field name to update (name, phone_number, role, etc.)
         value: New value for the field
 
     Returns:
-        JSON formatted response with update result
+        Plain text response with update result
     """
     try:
-        logger.info(f"🔄 Admin {username} updating member {target_member_id} field '{field}'")
+        # Handle CrewAI parameter dictionary passing
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            target_telegram_id = params.get('target_telegram_id', 0)
+            field = params.get('field', '')
+            value = params.get('value', '')
+            
+            # Type conversion with error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    return "❌ Invalid admin telegram_id format"
+                    
+            if isinstance(target_telegram_id, str):
+                try:
+                    target_telegram_id = int(target_telegram_id)
+                except (ValueError, TypeError):
+                    return "❌ Invalid target_telegram_id format"
+        
+        # Parameter validation
+        if not all([telegram_id, team_id, username, chat_type, target_telegram_id, field, value]):
+            return "❌ Missing required parameters for member update"
+        
+        if chat_type.lower() != 'leadership':
+            return "❌ Member updates can only be performed from leadership chat"
 
-        # Delegate to domain service (which was converted from tool to function)
-        from kickai.features.team_administration.domain.tools.team_member_update_tools import update_other_team_member as domain_update_other
-        result = await domain_update_other(telegram_id, team_id, username, chat_type, target_member_id, field, value)
+        logger.info(f"🔄 Leadership {username} updating member {target_telegram_id} field '{field}' to '{value}' in team {team_id}")
 
-        logger.info(f"✅ Admin update completed by {username}")
-        return result  # Domain function already returns proper JSON response
+        # Get services from container
+        container = get_container()
+        from kickai.features.team_administration.domain.services.team_member_management_service import TeamMemberManagementService
+        team_member_service = container.get_service(TeamMemberManagementService)
+        
+        if not team_member_service:
+            return f"""❌ System Error
+
+Team member service is currently unavailable. Please try again later.
+
+Technical Details:
+• Service: TeamMemberManagementService
+• Admin: {username} ({telegram_id})
+• Team: {team_id}"""
+
+        # Get the target team member
+        target_member = await team_member_service.get_team_member_by_telegram_id(target_telegram_id, team_id)
+        
+        if not target_member:
+            return f"""❌ Team Member Not Found
+
+No team member found with Telegram ID {target_telegram_id} in team {team_id}.
+
+💡 What you can try:
+• Verify the Telegram ID is correct
+• Check if the member is registered in the team
+• Use /list to see all team members"""
+
+        # Update the team member field
+        updates = {field: value}
+        updated_member = await team_member_service.update_team_member(target_member.member_id, team_id, **updates)
+        
+        if updated_member:
+            logger.info(f"✅ Team member {target_telegram_id} field '{field}' updated by {username}")
+            return f"""✅ Team Member Updated Successfully
+
+👤 Member: {target_member.name}
+🔄 Field: {field}
+📝 New Value: {value}
+👑 Updated By: {username}
+🏢 Team: {team_id}
+
+The team member information has been updated successfully."""
+        else:
+            return f"""❌ Update Failed
+
+Failed to update {field} for team member {target_member.name}.
+
+💡 What you can try:
+• Check if the field name is valid
+• Verify the new value is appropriate
+• Try again in a moment
+
+Technical Details:
+• Target Member: {target_member.name} ({target_telegram_id})
+• Field: {field}
+• Value: {value}"""
 
     except Exception as e:
-        logger.error(f"❌ Error in admin update operation: {e}")
-        return create_tool_response(False, f"Failed to update team member: {e}")
+        logger.error(f"❌ Error updating team member field by {username}: {e}")
+        return f"""❌ System Error
+
+Unable to update team member information.
+
+💡 What you can try:
+• Wait a moment and try again
+• Check your parameters are correct
+• Contact system administrator if the issue persists
+
+Technical Details:
+• Error: {str(e)[:100]}{'...' if len(str(e)) > 100 else ''}
+• Admin: {username} ({telegram_id})
+• Target: {target_telegram_id}
+• Team: {team_id}"""

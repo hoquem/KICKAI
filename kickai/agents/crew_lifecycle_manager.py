@@ -103,23 +103,14 @@ class CrewLifecycleManager:
     async def get_or_create_crew(self, team_id: str) -> Any:
         """
         Get an existing crew or create a new one for the team.
-
-        Args:
-            team_id: The team ID to get/create crew for
-
-        Returns:
-            TeamManagementSystem instance for the team
+        
+        CREWAI BUG WORKAROUND: Always create fresh crew to avoid manager agent tools bug.
         """
-        # Check if crew already exists
+        # CREWAI BUG WORKAROUND: Always create new crew to avoid "Manager agent should not have tools" bug
         if team_id in self._crews:
-            crew = self._crews[team_id]
-            if self._crew_status[team_id] == CrewStatus.ACTIVE:
-                logger.info(f"🔄 Reusing existing crew for team {team_id}")
-                return crew
-            elif self._crew_status[team_id] == CrewStatus.ERROR:
-                logger.warning(f"⚠️ Crew for team {team_id} in error state, recreating")
-                await self._shutdown_crew(team_id)
-
+            logger.warning(f"🔄 CrewAI bug workaround: Shutting down existing crew for team {team_id}")
+            await self._shutdown_crew(team_id)
+        
         # Create new crew
         logger.info(f"🆕 Creating new crew for team {team_id}")
         return await self._create_crew(team_id)
@@ -265,6 +256,12 @@ If the problem persists, please contact your team administrator."""
         timeout_seconds = AgentConstants.CREW_MAX_EXECUTION_TIME
 
         try:
+            # Clear manager tools before execution (workaround for CrewAI issues #1851, #909)
+            # This prevents "Manager agent should not have tools" error on crew reuse
+            if hasattr(crew, 'crew') and hasattr(crew.crew, 'manager_agent') and crew.crew.manager_agent:
+                crew.crew.manager_agent.tools = []
+                logger.debug("🧹 Cleared manager agent tools (CrewAI bug workaround)")
+            
             # Execute CrewAI task with timeout - task description is already enhanced in crew_agents.py
             result = await asyncio.wait_for(
                 crew.execute_task(task_description, execution_context),
@@ -374,6 +371,31 @@ If the problem persists, please contact your team administrator."""
 
         except Exception as e:
             logger.error(f"❌ Error shutting down crew for team {team_id}: {e}")
+
+    async def force_recreate_crew(self, team_id: str) -> Any:
+        """
+        Force recreation of a crew for configuration changes.
+        
+        This method ensures that any cached crew is removed and a new one is created
+        with the latest configuration. Useful when the underlying crew configuration
+        has changed (e.g., manager agent fixes, tool updates, etc.).
+        
+        Args:
+            team_id: The team ID to force recreate crew for
+            
+        Returns:
+            Newly created TeamManagementSystem instance
+        """
+        logger.info(f"🔄 Force recreating crew for team {team_id}")
+        
+        # Always shutdown existing crew regardless of status
+        if team_id in self._crews:
+            logger.info(f"🛑 Shutting down existing crew for configuration update")
+            await self._shutdown_crew(team_id)
+        
+        # Create new crew with updated configuration
+        logger.info(f"🆕 Creating new crew with updated configuration")
+        return await self._create_crew(team_id)
 
     async def get_crew_status(self, team_id: str) -> CrewStatus | None:
         """Get the status of a crew for the specified team."""

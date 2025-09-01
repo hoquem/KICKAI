@@ -1,55 +1,75 @@
 # CrewAI Guidelines for KICKAI Development
 
-**Version**: 3.1 | **CrewAI**: Native 2025 Patterns | **Architecture**: 6-Agent Collaboration System
+**Version**: 3.2 | **CrewAI**: Native Intent-Based Routing | **Architecture**: 5-Agent Clean Tool Naming System
 
-This document provides comprehensive CrewAI-specific guidelines for working with KICKAI's intelligent agent system.
+This document provides comprehensive CrewAI-specific guidelines for working with KICKAI's native intent-based agent system with clean tool naming convention.
 
 ## 🤖 KICKAI Agent System Overview
 
-### 6-Agent Native Collaboration Architecture
+### 5-Agent Native Intent-Based Architecture
 
 ```
-🎯 INTELLIGENT ROUTING SYSTEM
+🎯 NATIVE CREWAI INTENT-BASED ROUTING
     ↓
-🧠 NLP_PROCESSOR (Primary Intelligence)
-├── Intent Analysis & Recognition  
-├── Context Understanding
-├── Specialist Recommendation
-└── Routing Optimization
+🧠 MESSAGE_PROCESSOR (Hierarchical Manager)
+├── Native Semantic Understanding
+├── CrewAI Intelligence
+├── Clean Tool Selection  
+└── Agent Delegation
     ↓
-👥 SPECIALIST AGENTS
-├── 📱 MESSAGE_PROCESSOR - Interface coordination
+👥 SPECIALIST AGENTS (Clean Tool Naming)
 ├── 🏃 PLAYER_COORDINATOR - Player operations  
 ├── 👔 TEAM_ADMINISTRATOR - Team management
 ├── ⚽ SQUAD_SELECTOR - Match & availability
 └── 🆘 HELP_ASSISTANT - Help & documentation
 ```
 
+### Clean Tool Naming Convention
+
+**Pattern**: `[action]_[entity]_[modifier]`
+
+**Examples**:
+- `get_status_my` (get_[entity]_[modifier])
+- `check_system_ping` (check_[entity]_[modifier])
+- `show_help_commands` (show_[entity]_[modifier])
+- `update_player_field` ([action]_[entity]_[modifier])
+- `add_team_member_simplified` ([action]_[entity]_[modifier])
+
 ### Agent Responsibilities
 
-| Agent | Primary Role | Key Tools | Chat Types |
-|-------|--------------|-----------|------------|
-| **NLP_PROCESSOR** | Intent analysis & routing | `advanced_intent_recognition`, `routing_recommendation_tool` | All |
-| **MESSAGE_PROCESSOR** | Interface orchestration | `ping`, `version`, `list_active_players` | All |
-| **PLAYER_COORDINATOR** | Player operations | `update_player_field`, `get_player_info`, `get_my_status` | All |
-| **TEAM_ADMINISTRATOR** | Team management | `add_player`, `add_team_member_simplified` | Leadership |
-| **SQUAD_SELECTOR** | Match management | `mark_availability`, `list_matches`, `select_squad` | All |
-| **HELP_ASSISTANT** | Help & documentation | `get_contextual_help`, `explain_command` | All |
+| Agent | Primary Role | Key Tools (Clean Naming) | Chat Types |
+|-------|--------------|---------------------------|------------|
+| **MESSAGE_PROCESSOR** | Hierarchical manager & native routing | `check_system_ping`, `check_system_version`, `get_active_players` | All |
+| **PLAYER_COORDINATOR** | Player operations | `update_player_field`, `get_player_current_info`, `get_status_my` | All |
+| **TEAM_ADMINISTRATOR** | Team management | `add_team_member_simplified`, `update_team_member_information` | Leadership |
+| **SQUAD_SELECTOR** | Match management | `mark_player_availability`, `list_team_matches`, `select_match_squad` | All |
+| **HELP_ASSISTANT** | Help & documentation | `show_help_commands`, `show_help_final`, `show_help_usage` | All |
 
 ## 🔧 CrewAI Tool Development Patterns
 
 ### 1. Tool Implementation Standard
 
-**Application Layer Tool (Clean Architecture):**
+**Application Layer Tool with Clean Naming (Clean Architecture):**
 ```python
 # kickai/features/[feature]/application/tools/[feature]_tools.py
 from crewai.tools import tool
-from kickai.features.[feature].domain.tools.[tool_name]_domain import [tool_name]_domain
+from kickai.features.[feature].domain.services.[service_name] import [ServiceClass]
+from kickai.core.dependency_container import get_container
+from kickai.utils.tool_validation import create_tool_response
 
-@tool("[tool_name]", result_as_answer=True)
-async def [tool_name](telegram_id: int, team_id: str, username: str, chat_type: str, **kwargs) -> str:
+@tool("[action]_[entity]_[modifier]", result_as_answer=True)
+async def [action]_[entity]_[modifier](
+    telegram_id: int, 
+    team_id: str, 
+    username: str, 
+    chat_type: str, 
+    **kwargs
+) -> str:
     """
-    [Tool description for CrewAI agent understanding]
+    [Clear tool description following clean naming convention]
+    
+    Clean naming pattern: [action]_[entity]_[modifier]
+    Example: update_player_field, get_status_my, show_help_commands
     
     Args:
         telegram_id: User's Telegram ID
@@ -61,37 +81,55 @@ async def [tool_name](telegram_id: int, team_id: str, username: str, chat_type: 
     Returns:
         JSON formatted response string
     """
-    return await [tool_name]_domain(telegram_id, team_id, username, chat_type, **kwargs)
+    try:
+        service = get_container().get_service([ServiceClass])
+        result = await service.[method_name](telegram_id, team_id, **kwargs)
+        return create_tool_response(True, data=result)
+    except Exception as e:
+        return create_tool_response(False, f"Error in {[action]_[entity]_[modifier]}: {str(e)}")
 ```
 
-### 2. Parameter Handling Best Practices
+### 2. CrewAI Best Practice Parameter Handling
 
-**CrewAI Dictionary Parameter Pattern:**
+**CrewAI Dictionary Parameter Pattern (Standard 2025):**
 ```python
 @tool("update_player_field", result_as_answer=True)
 async def update_player_field(params) -> str:
-    """Handle CrewAI dictionary parameter passing."""
+    """Handle CrewAI dictionary parameter passing following 2025 best practices."""
     try:
-        # Extract parameters from CrewAI dictionary
+        # CrewAI 2025: Detect dictionary parameter passing
         if isinstance(params, dict):
+            # Extract from CrewAI parameter dictionary
             telegram_id = params.get('telegram_id')
-            team_id = params.get('team_id')
+            team_id = params.get('team_id') 
             username = params.get('username')
             chat_type = params.get('chat_type')
             field = params.get('field')
             value = params.get('value')
         else:
-            # Handle individual parameters (backward compatibility)
-            telegram_id, team_id, username, chat_type, field, value = params
+            # Fallback: Individual parameters
+            telegram_id = params  # First parameter
+            # Additional parameters would be handled via **kwargs
         
-        # Type conversion and validation
-        telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+        # Robust type conversion
+        try:
+            telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+        except (ValueError, TypeError):
+            return create_tool_response(False, "Invalid telegram_id format")
         
-        # Delegate to domain layer
-        return await update_player_field_domain(telegram_id, team_id, username, chat_type, field, value)
+        # Parameter validation
+        if not team_id:
+            return create_tool_response(False, "team_id is required")
+        if not username:
+            return create_tool_response(False, "username is required")
+            
+        # Clean service delegation
+        service = get_container().get_service(PlayerService)
+        result = await service.update_field(telegram_id, team_id, field, value)
+        return create_tool_response(True, data=result)
         
     except Exception as e:
-        return create_json_response(ResponseStatus.ERROR, message=f"Parameter handling error: {str(e)}")
+        return create_tool_response(False, f"Error in update_player_field: {str(e)}")
 ```
 
 ### 3. Response Format Standards
@@ -128,57 +166,83 @@ return create_json_response(
 
 ## 🎯 Agent Collaboration Patterns
 
-### 1. NLP-Driven Routing
+### 1. Native CrewAI Intent-Based Routing
 
-**Intelligent Routing Flow:**
+**Native Semantic Understanding (No Hardcoded Patterns):**
 ```python
-# Example of how NLP_PROCESSOR analyzes and routes requests
-async def analyze_and_route_request(user_message: str, context: dict) -> str:
-    """NLP_PROCESSOR analysis and routing recommendation."""
-    
-    # Step 1: Intent Recognition
-    intent_analysis = await advanced_intent_recognition(
-        message=user_message,
-        **context
-    )
-    
-    # Step 2: Context Analysis
-    context_data = await analyze_update_context(
-        message=user_message,
-        **context
-    )
-    
-    # Step 3: Routing Recommendation
-    routing_decision = await routing_recommendation_tool(
-        intent_data=intent_analysis,
-        **context
-    )
-    
-    return routing_decision
+# MESSAGE_PROCESSOR uses CrewAI's native intelligence for routing
+class MessageProcessorAgent:
+    def __init__(self):
+        self.role = "Primary Interface Manager"
+        self.goal = "Route requests using native CrewAI semantic understanding"
+        self.backstory = """Expert in understanding user intent and delegating to 
+                           appropriate specialists using clean tool naming convention.
+                           Uses CrewAI's native intelligence rather than hardcoded patterns."""
+        self.process = Process.hierarchical  # Native CrewAI hierarchical process
+        
+    async def route_request(self, user_message: str, context: dict) -> str:
+        """Route using CrewAI's native semantic understanding."""
+        
+        # CrewAI automatically analyzes intent and selects appropriate agent
+        # No explicit NLP tools needed - CrewAI handles this natively
+        
+        # Clean tool naming makes agent selection clear
+        # Example: "check my status" -> get_status_my tool
+        # Example: "update my position" -> update_player_field tool
+        # Example: "add new player" -> add_team_member_simplified tool
+        
+        return "CrewAI handles routing via native semantic understanding"
 ```
 
-### 2. Specialist Agent Delegation
+### 2. Native CrewAI Hierarchical Process
 
-**Task Delegation Pattern:**
+**Clean Agent Delegation Pattern:**
 ```python
-# TeamManagementSystem delegation logic
-async def execute_task(self, message: TelegramMessage) -> str:
-    """Execute task with intelligent routing."""
-    
-    context = self._create_context(message)
-    
-    # Primary: NLP-driven routing
-    if self.nlp_processor_enabled:
-        agent_role = await self._nlp_route_command(message.text, context)
-    else:
-        # Fallback: Rule-based routing
-        agent_role = self._route_command_to_agent(message.text, message.chat_type.value)
-    
-    # Execute with specialist agent
-    specialist_agent = self.agents[agent_role.value]
-    result = await specialist_agent.execute_task(message.text, context)
-    
-    return result
+# TeamManagementSystem using native CrewAI process
+class TeamManagementSystem:
+    def __init__(self, team_id: str):
+        self.team_id = team_id
+        self.process = Process.hierarchical  # Native CrewAI process
+        self.manager_agent = self._create_message_processor()
+        self.specialist_agents = self._create_specialists()
+        
+    def _create_message_processor(self):
+        """Create hierarchical manager with clean tool understanding."""
+        return Agent(
+            role="Primary Interface Manager",
+            goal="Understand user requests and delegate to appropriate specialists",
+            backstory="""Expert in understanding user intent using clean tool naming.
+                        Delegates to specialists: PLAYER_COORDINATOR for player ops,
+                        TEAM_ADMINISTRATOR for team management, SQUAD_SELECTOR for matches,
+                        HELP_ASSISTANT for guidance.""",
+            tools=[
+                check_system_ping,      # Clean: check_[entity]_[modifier]
+                check_system_version,   # Clean: check_[entity]_[modifier] 
+                get_active_players      # Clean: get_[entity]_[modifier]
+            ],
+            allow_delegation=True,
+            process=Process.hierarchical
+        )
+        
+    async def execute_task(self, message: TelegramMessage) -> str:
+        """Execute using native CrewAI hierarchical process."""
+        
+        # CrewAI's native process handles:
+        # 1. Semantic understanding of user request
+        # 2. Tool selection based on clean naming
+        # 3. Agent delegation to specialists
+        # 4. Result aggregation and formatting
+        
+        crew = Crew(
+            agents=[self.manager_agent] + self.specialist_agents,
+            tasks=[self._create_task(message)],
+            process=Process.hierarchical,
+            manager_llm=self.llm_config.main_llm,
+            verbose=True
+        )
+        
+        result = crew.kickoff()
+        return result.raw if hasattr(result, 'raw') else str(result)
 ```
 
 ### 3. Context Sharing Between Agents
@@ -457,4 +521,4 @@ PYTHONPATH=. python scripts/run_health_checks.py
 
 ---
 
-**Status**: Production Ready | **Agent System**: 6-Agent Collaboration | **Routing**: NLP-Driven Intelligence
+**Status**: Production Ready | **Agent System**: 5-Agent Clean Naming | **Routing**: Native CrewAI Intent-Based | **Tools**: 75+ with Clean Convention

@@ -554,12 +554,12 @@ class ToolRegistry:
         try:
             # System tools - APPLICATION LAYER
             from kickai.features.shared.application.tools.system_tools import (
-                ping,
-                version,
+                check_system_ping,
+                check_system_version,
             )
             from kickai.features.shared.application.tools.help_tools import (
-                help_response,
-                FINAL_HELP_RESPONSE,
+                show_help_commands,
+                show_help_final,
             )
             from kickai.features.shared.application.tools.user_tools import get_user_status
             
@@ -590,42 +590,42 @@ class ToolRegistry:
 
             # Register system tools - APPLICATION LAYER
             self.register_tool(
-                tool_id="ping",
+                tool_id="check_system_ping",
                 tool_type=ToolType.SYSTEM,
                 category=ToolCategory.CORE,
-                name="ping",
+                name="check_system_ping",
                 description="System connectivity test",
-                tool_function=ping,
+                tool_function=check_system_ping,
                 feature_module="shared",
             )
 
             self.register_tool(
-                tool_id="version",
+                tool_id="check_system_version",
                 tool_type=ToolType.SYSTEM,
                 category=ToolCategory.CORE,
-                name="version",
+                name="check_system_version",
                 description="System version information",
-                tool_function=version,
+                tool_function=check_system_version,
                 feature_module="shared",
             )
 
             self.register_tool(
-                tool_id="help_response",
+                tool_id="show_help_commands",
                 tool_type=ToolType.HELP,
                 category=ToolCategory.CORE,
-                name="help_response",
-                description="Comprehensive help response system",
-                tool_function=help_response,
+                name="show_help_commands",
+                description="Show comprehensive help and available commands",
+                tool_function=show_help_commands,
                 feature_module="shared",
             )
 
             self.register_tool(
-                tool_id="FINAL_HELP_RESPONSE",
+                tool_id="show_help_final", 
                 tool_type=ToolType.HELP,
                 category=ToolCategory.CORE,
-                name="FINAL_HELP_RESPONSE",
-                description="Final help response tool for compatibility",
-                tool_function=FINAL_HELP_RESPONSE,
+                name="show_help_final",
+                description="Show final comprehensive help response",
+                tool_function=show_help_final,
                 feature_module="shared",
             )
 
@@ -660,34 +660,40 @@ class ToolRegistry:
                 feature_module="communication",
             )
 
-            # Register help tools
+            # Register additional help tools
+            from kickai.features.shared.application.tools.help_tools import (
+                show_help_usage,
+                show_help_welcome,
+                get_system_commands
+            )
+            
             self.register_tool(
-                tool_id="get_available_commands",
+                tool_id="show_help_usage",
                 tool_type=ToolType.HELP,
                 category=ToolCategory.CORE,
-                name="get_available_commands",
-                description="Get available commands for the current context",
-                tool_function=get_available_commands,
+                name="show_help_usage",
+                description="Show detailed usage help for a specific command",
+                tool_function=show_help_usage,
                 feature_module="shared",
             )
 
             self.register_tool(
-                tool_id="get_command_help",
+                tool_id="show_help_welcome",
                 tool_type=ToolType.HELP,
                 category=ToolCategory.CORE,
-                name="get_command_help",
-                description="Get help for a specific command",
-                tool_function=get_command_help,
+                name="show_help_welcome",
+                description="Show welcome message for new users",
+                tool_function=show_help_welcome,
                 feature_module="shared",
             )
 
             self.register_tool(
-                tool_id="get_welcome_message",
+                tool_id="get_system_commands",
                 tool_type=ToolType.HELP,
                 category=ToolCategory.CORE,
-                name="get_welcome_message",
-                description="Get welcome message for new users",
-                tool_function=get_welcome_message,
+                name="get_system_commands", 
+                description="Get available system commands based on user context",
+                tool_function=get_system_commands,
                 feature_module="shared",
             )
 

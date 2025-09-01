@@ -27,10 +27,6 @@ from kickai.features.player_registration.domain.entities.player import (
 )
 from kickai.features.team_administration.domain.entities.team import Team, TeamStatus
 from kickai.features.team_administration.domain.entities.team_member import TeamMember
-from kickai.features.team_administration.domain.entities.bot_mapping import BotMapping
-from kickai.features.team_administration.domain.entities.match import Match, MatchStatus
-from kickai.features.team_administration.domain.entities.payment import Payment, PaymentType, PaymentStatus
-from kickai.utils.football_id_generator import FootballIDGenerator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -44,7 +40,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # Test configuration
-TEAM_ID = "SUNKAI"
+TEAM_ID = "KTI"
 TEAM_NAME = "KickAI Testing"
 BOT_USERNAME = "KickAITesting_bot"
 # Bot token should come from environment variables, not hardcoded in source code
@@ -59,7 +55,7 @@ TEST_PLAYERS = [
         "phone": "+447123456789",
         "position": PlayerPosition.MIDFIELDER,
         "role": PlayerRole.PLAYER,
-        "onboarding_status": OnboardingStatus.COMPLETED,
+        "onboarding_status": OnboardingStatus.ACTIVE,
         "admin_approved": True,
         "fa_registered": True,
         "fa_registration_number": "FA123456",
@@ -72,7 +68,7 @@ TEST_PLAYERS = [
         "phone": "+447234567890",
         "position": PlayerPosition.FORWARD,
         "role": PlayerRole.CAPTAIN,
-        "onboarding_status": OnboardingStatus.COMPLETED,
+        "onboarding_status": OnboardingStatus.ACTIVE,
         "admin_approved": True,
         "fa_registered": True,
         "fa_registration_number": "FA234567",
@@ -84,8 +80,8 @@ TEST_PLAYERS = [
         "name": "Mike Wilson",
         "phone": "+447345678901",
         "position": PlayerPosition.DEFENDER,
-        "role": PlayerRole.VICE_CAPTAIN,
-        "onboarding_status": OnboardingStatus.COMPLETED,
+        "role": PlayerRole.CAPTAIN,
+        "onboarding_status": OnboardingStatus.ACTIVE,
         "admin_approved": True,
         "fa_registered": True,
         "fa_registration_number": "FA345678",
@@ -98,7 +94,7 @@ TEST_PLAYERS = [
         "phone": "+447456789012",
         "position": PlayerPosition.GOALKEEPER,
         "role": PlayerRole.PLAYER,
-        "onboarding_status": OnboardingStatus.IN_PROGRESS,
+        "onboarding_status": OnboardingStatus.PENDING,
         "admin_approved": False,
         "fa_registered": False,
         "player_id": "01GKED",
@@ -110,7 +106,7 @@ TEST_PLAYERS = [
         "phone": "+447567890123",
         "position": PlayerPosition.UTILITY,
         "role": PlayerRole.PLAYER,
-        "onboarding_status": OnboardingStatus.PENDING_APPROVAL,
+        "onboarding_status": OnboardingStatus.PENDING,
         "admin_approved": False,
         "fa_registered": False,
         "player_id": "06MFAB",
@@ -121,8 +117,8 @@ TEST_PLAYERS = [
         "name": "Lisa Thompson",
         "phone": "+447678901234",
         "position": PlayerPosition.MIDFIELDER,
-        "role": PlayerRole.MANAGER,
-        "onboarding_status": OnboardingStatus.COMPLETED,
+        "role": PlayerRole.PLAYER,
+        "onboarding_status": OnboardingStatus.ACTIVE,
         "admin_approved": True,
         "fa_registered": False,
         "player_id": "06MFLT",
@@ -133,8 +129,8 @@ TEST_PLAYERS = [
         "name": "David Clark",
         "phone": "+447789012345",
         "position": PlayerPosition.UTILITY,
-        "role": PlayerRole.COACH,
-        "onboarding_status": OnboardingStatus.COMPLETED,
+        "role": PlayerRole.PLAYER,
+        "onboarding_status": OnboardingStatus.ACTIVE,
         "admin_approved": True,
         "fa_registered": False,
         "player_id": "06MFDC",
@@ -146,9 +142,17 @@ TEST_PLAYERS = [
 # Leadership team members (non-players)
 LEADERSHIP_MEMBERS = [
     {
-        "name": "Admin User",
+        "name": "Coach Wilson",
         "phone": "+447890123456",
-        "role": PlayerRole.MANAGER,
+        "role": PlayerRole.PLAYER,
+        "telegram_id": "1003",
+        "telegram_username": "coach_wilson",
+        "is_player": False
+    },
+    {
+        "name": "Admin User",
+        "phone": "+447890123457",
+        "role": PlayerRole.PLAYER,
         "telegram_id": "1581500062",
         "telegram_username": "admin_user",
         "is_player": False
@@ -156,7 +160,7 @@ LEADERSHIP_MEMBERS = [
     {
         "name": "Team Secretary",
         "phone": "+447901234567",
-        "role": PlayerRole.MANAGER,
+        "role": PlayerRole.PLAYER,
         "telegram_id": "1581500063",
         "telegram_username": "team_secretary",
         "is_player": False
@@ -190,72 +194,7 @@ def create_test_team() -> Dict[str, Any]:
         "updated_at": datetime.now()
     }
 
-def create_test_matches() -> List[Dict[str, Any]]:
-    """Create test match data."""
-    now = datetime.now()
-    return [
-        {
-            "id": "FRI2024-01-15-SUNKAI-TESTFC",
-            "team_id": TEAM_ID,
-            "opponent": "Test FC",
-            "date": now + timedelta(days=7),
-            "location": "Test Ground",
-            "status": MatchStatus.SCHEDULED.value,  # Convert enum to string
-            "home_away": "home",
-            "competition": "Friendly",
-            "confirmed_players": ["06MFJS", "09FWSJ", "02DFMW"],
-            "attendees": ["JS", "SJ", "MW"],
-            "created_at": now,
-            "updated_at": now
-        },
-        {
-            "id": "SUN2024-01-22-RIVALS-SUNKAI",
-            "team_id": TEAM_ID,
-            "opponent": "Rivals United",
-            "date": now + timedelta(days=14),
-            "location": "Away Ground",
-            "status": MatchStatus.CONFIRMED.value,  # Convert enum to string
-            "home_away": "away",
-            "competition": "League",
-            "confirmed_players": ["06MFJS", "09FWSJ", "02DFMW", "01GKED"],
-            "attendees": ["JS", "SJ", "MW"],
-            "created_at": now,
-            "updated_at": now
-        }
-    ]
 
-def create_test_payments() -> List[Dict[str, Any]]:
-    """Create test payment data."""
-    now = datetime.now()
-    return [
-        {
-            "id": "PAY001",
-            "team_id": TEAM_ID,
-            "player_id": "06MFJS",
-            "amount": 10.0,
-            "type": PaymentType.MATCH_FEE.value,  # Convert enum to string
-            "status": PaymentStatus.PAID.value,  # Convert enum to string
-            "due_date": now - timedelta(days=1),
-            "paid_date": now - timedelta(hours=2),
-            "related_entity_id": "FRI2024-01-15-SUNKAI-TESTFC",
-            "description": "Match fee for Test FC game",
-            "created_at": now - timedelta(days=2),
-            "updated_at": now - timedelta(hours=2)
-        },
-        {
-            "id": "PAY002",
-            "team_id": TEAM_ID,
-            "player_id": "09FWSJ",
-            "amount": 10.0,
-            "type": PaymentType.MATCH_FEE.value,  # Convert enum to string
-            "status": PaymentStatus.PENDING.value,  # Convert enum to string
-            "due_date": now + timedelta(days=6),
-            "related_entity_id": "FRI2024-01-15-SUNKAI-TESTFC",
-            "description": "Match fee for Test FC game",
-            "created_at": now - timedelta(days=1),
-            "updated_at": now - timedelta(days=1)
-        }
-    ]
 
 
 
@@ -277,7 +216,7 @@ async def setup_test_data():
         logger.info("👥 Creating test players...")
         for player_data in TEST_PLAYERS:
             player_id = player_data['player_id']
-            player_ref = db.collection('kickai_players').document(player_id)
+            player_ref = db.collection('kickai_KTI_players').document(player_id)
             
             # Convert to Firestore format
             firestore_data = {
@@ -293,12 +232,12 @@ async def setup_test_data():
                 "admin_approved_by": "test_admin",
                 "fa_registered": player_data['fa_registered'],
                 "fa_registration_number": player_data.get('fa_registration_number'),
-                "match_eligible": player_data['admin_approved'] and player_data['onboarding_status'] == OnboardingStatus.COMPLETED,
+                "match_eligible": player_data['admin_approved'] and player_data['onboarding_status'] == OnboardingStatus.ACTIVE,
                 "team_id": TEAM_ID,
                 "telegram_id": player_data['telegram_id'],
                 "telegram_username": player_data['telegram_username'],
-                "onboarding_started_at": datetime.now() if player_data['onboarding_status'] in [OnboardingStatus.IN_PROGRESS, OnboardingStatus.COMPLETED] else None,
-                "onboarding_completed_at": datetime.now() if player_data['onboarding_status'] == OnboardingStatus.COMPLETED else None,
+                            "onboarding_started_at": datetime.now() if player_data['onboarding_status'] in [OnboardingStatus.PENDING, OnboardingStatus.ACTIVE] else None,
+            "onboarding_completed_at": datetime.now() if player_data['onboarding_status'] == OnboardingStatus.ACTIVE else None,
                 "last_activity": datetime.now(),
                 "created_at": datetime.now(),
                 "updated_at": datetime.now()
@@ -311,17 +250,17 @@ async def setup_test_data():
         logger.info("👤 Creating team members...")
         for player_data in TEST_PLAYERS:
             member_id = f"TM_{player_data['player_id']}"
-            member_ref = db.collection('kickai_team_members').document(member_id)
+            member_ref = db.collection('kickai_KTI_team_members').document(member_id)
             
             # Determine roles based on player role
             roles = [player_data['role'].value]
-            if player_data['role'] in [PlayerRole.CAPTAIN, PlayerRole.VICE_CAPTAIN, PlayerRole.MANAGER, PlayerRole.COACH]:
+            if player_data['role'] in [PlayerRole.CAPTAIN]:
                 roles.append('admin')
             
             # Determine chat access
             chat_access = {
                 "main_chat": True,
-                "leadership_chat": player_data['role'] in [PlayerRole.CAPTAIN, PlayerRole.VICE_CAPTAIN, PlayerRole.MANAGER, PlayerRole.COACH]
+                "leadership_chat": player_data['role'] in [PlayerRole.CAPTAIN]
             }
             
             member_data = {
@@ -331,7 +270,7 @@ async def setup_test_data():
                 "roles": roles,
                 "permissions": ["read", "write"] if "admin" in roles else ["read"],
                 "chat_access": chat_access,
-                "telegram_id": player_data['telegram_id'],
+                "telegram_id": int(player_data['telegram_id']),
                 "telegram_username": player_data['telegram_username'],
                 "joined_at": datetime.now(),
                 "created_at": datetime.now(),
@@ -345,19 +284,25 @@ async def setup_test_data():
         logger.info("👑 Creating leadership members...")
         for leader_data in LEADERSHIP_MEMBERS:
             member_id = f"TM_LEADER_{leader_data['telegram_username']}"
-            member_ref = db.collection('kickai_team_members').document(member_id)
+            member_ref = db.collection('kickai_KTI_team_members').document(member_id)
             
             member_data = {
                 "id": member_id,
+                "member_id": member_id,
                 "team_id": TEAM_ID,
-                "user_id": leader_data['telegram_username'],
+                "name": leader_data['name'],
+                "username": leader_data['telegram_username'],
+                "role": leader_data['role'].value,
+                "phone": leader_data['phone'],
+                "status": "active",
+                "is_admin": True,
                 "roles": [leader_data['role'].value, 'admin'],
                 "permissions": ["read", "write", "admin"],
                 "chat_access": {
                     "main_chat": True,
                     "leadership_chat": True
                 },
-                "telegram_id": leader_data['telegram_id'],
+                "telegram_id": int(leader_data['telegram_id']),
                 "telegram_username": leader_data['telegram_username'],
                 "joined_at": datetime.now(),
                 "created_at": datetime.now(),
@@ -367,27 +312,11 @@ async def setup_test_data():
             member_ref.set(member_data)
             logger.info(f"  ✅ Created leadership member: {leader_data['name']} ({leader_data['role'].value})")
         
-        # 5. Create test matches
-        logger.info("⚽ Creating test matches...")
-        for match_data in create_test_matches():
-            match_ref = db.collection('kickai_matches').document(match_data['id'])
-            match_ref.set(match_data)
-            logger.info(f"  ✅ Created match: {match_data['opponent']} ({match_data['id']})")
-        
-        # 6. Create test payments
-        logger.info("💰 Creating test payments...")
-        for payment_data in create_test_payments():
-            payment_ref = db.collection('kickai_payments').document(payment_data['id'])
-            payment_ref.set(payment_data)
-            logger.info(f"  ✅ Created payment: {payment_data['amount']} for {payment_data['player_id']}")
-        
         logger.info("🎉 E2E test data setup completed successfully!")
         logger.info("📊 Summary:")
         logger.info(f"  - Team: {TEAM_NAME}")
         logger.info(f"  - Players: {len(TEST_PLAYERS)}")
         logger.info(f"  - Leadership members: {len(LEADERSHIP_MEMBERS)}")
-        logger.info(f"  - Matches: {len(create_test_matches())}")
-        logger.info(f"  - Payments: {len(create_test_payments())}")
         logger.info("🎯 Ready for end-to-end testing!")
         
     except Exception as e:

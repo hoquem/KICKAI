@@ -6,13 +6,13 @@ KICKAI is a sophisticated, AI-powered football team management system designed f
 
 The core of KICKAI is its multi-agent system, where each agent has a specialized role:
 
-*   **MESSAGE_PROCESSOR**: The primary interface for user interactions, now with native LLM routing intelligence.
+*   **MESSAGE_PROCESSOR**: The primary interface for user interactions, with native LLM routing intelligence.
 *   **HELP_ASSISTANT**: Provides help and guidance to users.
 *   **PLAYER_COORDINATOR**: Manages player registration and status.
 *   **TEAM_ADMINISTRATOR**: Handles team member management and administration.
 *   **SQUAD_SELECTOR**: Manages matches, player availability, and squad selection.
 
-Command routing is now handled via pure CrewAI agent collaboration, with the `MESSAGE_PROCESSOR` agent taking the lead in understanding user intent.
+Command routing is handled via pure CrewAI agent collaboration, with the `MESSAGE_PROCESSOR` agent taking the lead in understanding user intent.
 
 ## Building and Running
 
@@ -77,7 +77,7 @@ The project uses a `Makefile` for common development tasks.
 
 ### Clean Architecture
 
-KICKAI follows the principles of Clean Architecture, separating the code into distinct layers:
+KICKAI follows the principles of Clean Architecture, separating the code into distinct layers within each feature:
 
 *   **Domain**: Pure business logic, with no framework dependencies. Located in `kickai/features/*/domain`.
 *   **Application**: CrewAI tools that delegate to the domain layer. Located in `kickai/features/*/application`.

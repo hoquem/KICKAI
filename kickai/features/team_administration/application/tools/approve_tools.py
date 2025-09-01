@@ -19,7 +19,6 @@ from kickai.database.firebase_client import FirebaseClient
 from kickai.features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
 from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
 from kickai.utils.tool_validation import create_tool_response
-from kickai.utils.tool_validation import create_tool_response
 
 # Get services from container
 container = get_container()
@@ -106,33 +105,29 @@ async def _check_admin_permissions(telegram_id: int, team_id: str) -> bool:
         return False
 
 
-@tool("approve_user", result_as_answer=True)
-async def approve_user(telegram_id: int, team_id: str, username: str, chat_type: str, user_id: str) -> str:
+@tool("approve_member")
+async def approve_member(telegram_id: int, team_id: str, username: str, chat_type: str, member_id: str) -> str:
     """
-    Approve a user (player or team member) by changing their status to active.
-    
-    This tool can approve both players and team members based on the user_id format:
-    - Player IDs: typically start with letters (e.g., "MH123", "01DN")
-    - Team Member IDs: start with "M" (e.g., "M01AB", "M01BH")
+    Approve a team member by changing their status to active.
     
     Args:
         telegram_id: Telegram ID of the requesting user (admin)
         team_id: Team ID (required)
         username: Username of the requesting user (for logging)
         chat_type: Chat type context
-        user_id: The user ID to approve (player_id or member_id)
+        member_id: The team member ID to approve
     
     Returns:
         JSON formatted approval result or error message
     """
     try:
-        logger.info(f"🔍 Approve request: {user_id} in team {team_id} by {username} ({telegram_id})")
+        logger.info(f"🔍 Approve member request: {member_id} in team {team_id} by {username} ({telegram_id})")
         
         # Input validation
-        if not _validate_user_id(user_id):
+        if not _validate_user_id(member_id):
             return create_tool_response(
                 False, 
-                f"Invalid user ID format: {user_id}. User ID must be at least 2 characters long and contain only alphanumeric characters."
+                f"Invalid member ID format: {member_id}. Member ID must be at least 2 characters long and contain only alphanumeric characters."
             )
         
         if not team_id or not isinstance(team_id, str):
@@ -146,16 +141,61 @@ async def approve_user(telegram_id: int, team_id: str, username: str, chat_type:
         if not has_permission:
             return create_tool_response(
                 False, 
-                "Access denied: You must have admin permissions to approve users"
+                "Access denied: You must have admin permissions to approve team members"
             )
         
-        # Determine if this is a player or team member based on ID format
-        is_team_member = _is_team_member_id(user_id)
+        # Approve team member
+        return await _approve_team_member(telegram_id, team_id, username, member_id)
+            
+    except Exception as e:
+        logger.error(f"❌ Error in approve_member: {e}")
+        return create_tool_response(
+            False, 
+            f"Failed to approve team member: {str(e)}"
+        )
+
+
+@tool("approve_player")
+async def approve_player(telegram_id: int, team_id: str, username: str, chat_type: str, player_id: str) -> str:
+    """
+    Approve a player by changing their status to active.
+    
+    Args:
+        telegram_id: Telegram ID of the requesting user (admin)
+        team_id: Team ID (required)
+        username: Username of the requesting user (for logging)
+        chat_type: Chat type context
+        player_id: The player ID to approve
+    
+    Returns:
+        JSON formatted approval result or error message
+    """
+    try:
+        logger.info(f"🔍 Approve player request: {player_id} in team {team_id} by {username} ({telegram_id})")
         
-        if is_team_member:
-            return await _approve_team_member(telegram_id, team_id, username, user_id)
-        else:
-            return await _approve_player(telegram_id, team_id, username, user_id)
+        # Input validation
+        if not _validate_user_id(player_id):
+            return create_tool_response(
+                False, 
+                f"Invalid player ID format: {player_id}. Player ID must be at least 2 characters long and contain only alphanumeric characters."
+            )
+        
+        if not team_id or not isinstance(team_id, str):
+            return create_tool_response(
+                False, 
+                "Invalid team ID provided"
+            )
+        
+        # Permission check
+        has_permission = await _check_admin_permissions(telegram_id, team_id)
+        if not has_permission:
+            return create_tool_response(
+                False, 
+                "Access denied: You must have admin permissions to approve players"
+            )
+        
+        # Approve player
+        return await _approve_player(telegram_id, team_id, username, player_id)
             
     except Exception as e:
         logger.error(f"❌ Error in approve_user: {e}")
@@ -300,10 +340,10 @@ async def _approve_player(telegram_id: int, team_id: str, username: str, player_
         )
 
 
-@tool("get_pending_users", result_as_answer=True)
-async def get_pending_users(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
+@tool("list_pending_approvals")
+async def list_pending_approvals(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
-    Get all pending users (players and team members) that need approval.
+    Get all pending approvals (players and team members) that need approval.
     
     Args:
         telegram_id: Telegram ID of the requesting user
@@ -312,7 +352,7 @@ async def get_pending_users(telegram_id: int, team_id: str, username: str, chat_
         chat_type: Chat type context
     
     Returns:
-        JSON formatted list of pending users or error message
+        JSON formatted list of pending approvals or error message
     """
     try:
         logger.info(f"🔍 Getting pending users for team {team_id} by {username}")

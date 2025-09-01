@@ -28,21 +28,19 @@ class ConfigurableAgent:
     - Clean initialization and execution
     - Proper context handling
     - Error resilience
-    - Inter-agent delegation support
+    - Sequential process execution
     """
 
-    def __init__(self, agent_role: AgentRole, team_id: str, other_agents: List['ConfigurableAgent'] = None):
+    def __init__(self, agent_role: AgentRole, team_id: str):
         """
         Initialize agent with role and team ID.
 
         Args:
             agent_role: The role this agent should perform
             team_id: The team this agent belongs to
-            other_agents: List of other agents for delegation capabilities
         """
         self.agent_role = agent_role
         self.team_id = team_id
-        self.other_agents = other_agents or []
 
         # Initialize components in clean order
         self._initialize_components()
@@ -82,15 +80,11 @@ class ConfigurableAgent:
             raise AgentInitializationError("ConfigurableAgent", f"Agent initialization failed: {e}")
 
     def _create_crew_agent(self) -> Agent:
-        """Create the underlying CrewAI agent with proper configuration and delegation tools."""
+        """Create the underlying CrewAI agent with proper configuration for sequential process."""
         # Get tools for this agent role using direct assignment (CrewAI best practice)
         tools = self._get_tools_for_agent()
 
-        # Add delegation tools for inter-agent communication
-        delegation_tools = self._get_delegation_tools()
-        if delegation_tools:
-            tools.extend(delegation_tools)
-            logger.info(f"🔗 Added {len(delegation_tools)} delegation tools to {self.agent_role.value}")
+        # No delegation tools needed for sequential process - agents work independently
 
         # Get memory system for this agent
         from kickai.core.memory_manager import get_memory_manager
@@ -110,11 +104,11 @@ class ConfigurableAgent:
             verbose=True,
             max_iter=self.config.max_iterations,
             memory=agent_memory,  # Enable entity-specific memory
-            allow_delegation=(self.agent_role == AgentRole.MESSAGE_PROCESSOR),  # Only manager agent allows delegation
+            allow_delegation=False,  # Sequential process - no delegation needed
         )
 
         logger.debug(
-            f"🔧 Created CrewAI agent for {self.agent_role.value} with {len(tools)} tools"
+            f"🔧 Created CrewAI agent for {self.agent_role.value} with {len(tools)} tools (sequential process)"
         )
         return agent
 
@@ -191,37 +185,7 @@ class ConfigurableAgent:
             # Return original tools if context injection fails
             return tools
 
-    def _get_delegation_tools(self) -> List[Any]:
-        """Get delegation tools for inter-agent communication."""
-        if not self.other_agents:
-            return []
-
-        try:
-            # Convert other agents to CrewAI agents for delegation
-            crew_agents = []
-            for other_agent in self.other_agents:
-                if hasattr(other_agent, 'crew_agent') and other_agent.crew_agent:
-                    crew_agents.append(other_agent.crew_agent)
-
-            if crew_agents:
-                # Get delegation tools from CrewAI
-                delegation_tools = self.crew_agent.get_delegation_tools(crew_agents)
-                logger.debug(f"🔗 Created {len(delegation_tools)} delegation tools for {self.agent_role.value}")
-                return delegation_tools
-            else:
-                logger.warning(f"⚠️ No valid CrewAI agents found for delegation in {self.agent_role.value}")
-                return []
-
-        except Exception as e:
-            logger.error(f"❌ Error creating delegation tools for {self.agent_role.value}: {e}")
-            return []
-
-    def set_other_agents(self, other_agents: List['ConfigurableAgent']):
-        """Set other agents for delegation capabilities."""
-        self.other_agents = other_agents
-        # Recreate agent with new delegation tools
-        if hasattr(self, 'crew_agent'):
-            self.crew_agent = self._create_crew_agent()
+    # Delegation methods removed - not needed for sequential process
 
     def get_tools(self) -> list:
         """Get the tools available for this agent."""
@@ -407,13 +371,8 @@ class AgentFactory:
                     logger.error(f"❌ Failed to create agent {role.value}: {e}")
                     # Continue creating other agents even if one fails
 
-            # Second pass: set up delegation between agents
-            for role, agent in agents.items():
-                other_agents = [other_agent for other_role, other_agent in agents.items() if other_role != role]
-                agent.set_other_agents(other_agents)
-                logger.debug(f"🔗 Set up delegation for {role.value} with {len(other_agents)} other agents")
-
-            logger.info(f"🎉 AgentFactory created {len(agents)} agents with delegation support for team {self.team_id}")
+            # All agents are independent - no delegation setup needed for sequential process
+            logger.info(f"🎉 AgentFactory created {len(agents)} independent agents for team {self.team_id}")
             return agents
 
         except Exception as e:

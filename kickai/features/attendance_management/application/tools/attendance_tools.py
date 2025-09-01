@@ -17,8 +17,8 @@ from kickai.features.attendance_management.domain.entities.attendance import Att
 from kickai.utils.tool_validation import create_tool_response
 
 
-@tool("mark_availability", result_as_answer=True)
-async def mark_availability(
+@tool("mark_availability_match")
+async def mark_availability_match(
     telegram_id: int, 
     team_id: str, 
     username: str, 
@@ -111,8 +111,8 @@ async def mark_availability(
         return create_tool_response(False, f"Failed to mark availability: {e}")
 
 
-@tool("get_availability", result_as_answer=True)
-async def get_availability(telegram_id: int, team_id: str, username: str, chat_type: str, match_id: str) -> str:
+@tool("get_availability_all")
+async def get_availability_all(telegram_id: int, team_id: str, username: str, chat_type: str, match_id: str) -> str:
     """
     Get player availability for a match.
 
@@ -188,7 +188,7 @@ async def get_availability(telegram_id: int, team_id: str, username: str, chat_t
         return create_tool_response(False, f"Failed to get availability: {e}")
 
 
-@tool("get_player_availability_history", result_as_answer=True)
+@tool("get_player_availability_history")
 async def get_player_availability_history(telegram_id: int, team_id: str, username: str, chat_type: str, player_id: Optional[str] = None) -> str:
     """
     Get player availability history.
@@ -261,8 +261,8 @@ async def get_player_availability_history(telegram_id: int, team_id: str, userna
         return create_tool_response(False, f"Failed to get availability history: {e}")
 
 
-@tool("record_attendance", result_as_answer=True)
-async def record_attendance(
+@tool("record_attendance_match")
+async def record_attendance_match(
     telegram_id: int, 
     team_id: str, 
     username: str, 
@@ -353,7 +353,7 @@ async def record_attendance(
         return create_tool_response(False, f"Failed to record attendance: {e}")
 
 
-@tool("get_match_attendance", result_as_answer=True)
+@tool("get_match_attendance")
 async def get_match_attendance(telegram_id: int, team_id: str, username: str, chat_type: str, match_id: str) -> str:
     """
     Get complete match attendance information.
@@ -443,7 +443,7 @@ async def get_match_attendance(telegram_id: int, team_id: str, username: str, ch
         return create_tool_response(False, f"Failed to get match attendance: {e}")
 
 
-@tool("get_player_attendance_history", result_as_answer=True) 
+@tool("get_player_attendance_history") 
 async def get_player_attendance_history(telegram_id: int, team_id: str, username: str, chat_type: str, player_id: Optional[str] = None) -> str:
     """
     Get comprehensive player attendance history.

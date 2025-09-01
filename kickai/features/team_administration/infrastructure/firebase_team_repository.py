@@ -221,10 +221,17 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             )
 
             if docs:
-                return self._doc_to_team_member(docs[0])
-            return None
+                logger.info(f"✅ [REPO] Found {len(docs)} team member(s) for telegram_id {telegram_id}")
+                logger.debug(f"   Raw data: {docs[0]}")
+                team_member = self._doc_to_team_member(docs[0])
+                logger.info(f"   Converted to: {team_member.name} ({team_member.role}) - Admin: {team_member.is_admin}")
+                return team_member
+            else:
+                logger.warning(f"⚠️ [REPO] No team members found for telegram_id {telegram_id} in team {team_id}")
+                return None
         except Exception as e:
-            logger.error(f"❌ [REPO] Error getting team member by telegram_id: {e}")
+            logger.error(f"❌ [REPO] Error getting team member by telegram_id {telegram_id}: {e}")
+            logger.error(f"   Team ID: {team_id}, Collection: {get_team_members_collection(team_id)}")
             return None
 
     async def get_team_member_by_phone(
@@ -384,6 +391,10 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
         telegram_id = doc.get("telegram_id")
 
+        # Determine if user is admin based on roles array or is_admin field
+        roles = doc.get("roles", [])
+        is_admin = doc.get("is_admin", False) or "admin" in roles
+        
         return TeamMember(
             team_id=doc.get("team_id", ""),
             telegram_id=telegram_id,
@@ -391,9 +402,9 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             name=doc.get("name"),
             username=doc.get("username"),
             role=doc.get("role", "Team Member"),
-            is_admin=doc.get("is_admin", False),
+            is_admin=is_admin,
             status=doc.get("status", "active"),
-            phone_number=doc.get("phone_number"),
+            phone_number=doc.get("phone_number") or doc.get("phone"),  # Handle both field names
             email=doc.get("email"),
             emergency_contact_name=doc.get("emergency_contact_name"),
             emergency_contact_phone=doc.get("emergency_contact_phone"),

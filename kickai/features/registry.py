@@ -400,6 +400,9 @@ class ServiceFactory:
         from kickai.features.match_management.domain.interfaces.availability_service_interface import (
             IAvailabilityService,
         )
+        from kickai.features.match_management.domain.interfaces.match_service_interface import (
+            IMatchService,
+        )
         from kickai.features.match_management.infrastructure.firebase_attendance_repository import (
             FirebaseAttendanceRepository,
         )
@@ -425,6 +428,7 @@ class ServiceFactory:
         self.container.register_service(AvailabilityRepositoryInterface, availability_repo)
         self.container.register_service(AttendanceRepositoryInterface, attendance_repo)
         self.container.register_service(MatchService, match_service)
+        self.container.register_service(IMatchService, match_service)
         self.container.register_service(AvailabilityService, availability_service)
         self.container.register_service(IAvailabilityService, availability_service)
         self.container.register_service(AttendanceService, attendance_service)

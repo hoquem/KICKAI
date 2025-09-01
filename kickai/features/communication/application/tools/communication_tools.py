@@ -15,8 +15,8 @@ from kickai.features.communication.domain.services.communication_service import 
 from kickai.utils.tool_validation import create_tool_response
 
 
-@tool("send_message", result_as_answer=True)
-async def send_message(
+@tool("send_message_team")
+async def send_message_team(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -77,8 +77,8 @@ async def send_message(
         return create_tool_response(False, f"Failed to send message: {e}")
 
 
-@tool("send_announcement", result_as_answer=True)
-async def send_announcement(
+@tool("send_announcement_all")
+async def send_announcement_all(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -137,8 +137,8 @@ async def send_announcement(
         return create_tool_response(False, f"Failed to send announcement: {e}")
 
 
-@tool("send_poll", result_as_answer=True)
-async def send_poll(
+@tool("send_poll_team")
+async def send_poll_team(
     telegram_id: int,
     team_id: str,
     username: str,

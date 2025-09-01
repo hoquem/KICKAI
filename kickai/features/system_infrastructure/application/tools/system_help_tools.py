@@ -16,8 +16,8 @@ from kickai.utils.tool_validation import create_tool_response, validate_required
 from kickai.utils.constants import MAX_TEAM_ID_LENGTH, MAX_USER_ID_LENGTH
 
 
-@tool("get_version_info", result_as_answer=True)
-async def get_version_info(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
+@tool("get_version_info")
+async def get_version_info(telegram_id: str, team_id: str, username: str, chat_type: str) -> str:
     """
     Get bot version and system information.
 
@@ -120,8 +120,8 @@ async def get_version_info(telegram_id: int, team_id: str, username: str, chat_t
         return create_tool_response(False, f"Error retrieving version information: {e!s}")
 
 
-@tool("get_system_available_commands", result_as_answer=True)
-async def get_system_available_commands(
+@tool("get_system_commands")
+async def get_system_commands(
     telegram_id: int,
     team_id: str,
     username: str,

@@ -7,27 +7,36 @@ These tools serve as the application boundary and delegate to pure domain servic
 # Import all application layer tools
 from .player_tools import (
     approve_player,
-    get_all_players,
-    get_active_players,
-    get_player_match
+    list_players_all,
+    list_players_active
+)
+from .player_info_tools import (
+    get_player_info,
+    get_player_current_info,
+    get_player_current_match,
+    list_team_combined,
+    get_availability_player_history
 )
 from .player_update_tools import (
     update_player_field,
-    update_player_multiple_fields,
-    get_player_update_help,
-    get_player_current_info
+    update_player_multiple,
+    get_player_update_help
 )
 
 # Export all tools for agent registration
-_all_ = [
+__all__ = [
     # Player management tools
     "approve_player",
-    "get_all_players", 
-    "get_active_players",
-    "get_player_match",
+    "list_players_all", 
+    "list_players_active",
+    # Player info tools
+    "get_player_info",
+    "get_player_current_info", 
+    "get_player_current_match",
+    "list_team_combined",
+    "get_availability_player_history",
     # Player update tools
     "update_player_field",
-    "update_player_multiple_fields",
-    "get_player_update_help",
-    "get_player_current_info"
+    "update_player_multiple",
+    "get_player_update_help"
 ]

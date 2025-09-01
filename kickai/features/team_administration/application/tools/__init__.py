@@ -6,44 +6,60 @@ These tools serve as the application boundary and delegate to pure domain servic
 
 # Import all application layer tools
 from .team_member_tools import (
-    add_team_member_simplified,
-    get_my_team_member_status,
-    get_team_members,
-    activate_team_member
+    create_member,
+    list_members_all,
+    activate_member
 )
-from .player_management_tools import add_player
+from .player_management_tools import create_player
 from .team_management_tools import list_team_members_and_players
 from .team_administration_tools import (
-    add_team_member_role,
-    remove_team_member_role,
-    promote_team_member_to_admin,
+    create_member_role,
+    remove_member_role,
+    promote_member_admin,
     create_team,
-    update_team_member_field,
-    update_team_member_multiple_fields,
-    get_team_member_update_help,
-    get_team_member_current_info,
-    update_other_team_member
+    update_member_field,
+    update_member_multiple,
+    get_member_update_help,
+    update_member_info
 )
 
-# Export all tools for agent registration
-_all_ = [
+# Import approve tools
+from .approve_tools import approve_player, approve_member, list_pending_approvals
+
+# Import member management tools (clean naming convention)
+from .member_management_tools import (
+    get_member_info,
+    get_member_current,
+    list_members_and_players,
+    update_member_other
+)
+
+# Export all tools for agent registration  
+__all__ = [
     # Team member management
-    "add_team_member_simplified",
-    "get_my_team_member_status",
-    "get_team_members",
-    "activate_team_member",
+    "create_member",
+    "list_members_all", 
+    "activate_member",
     # Player management
-    "add_player",
+    "create_player",
     # Team management
     "list_team_members_and_players",
     # Team administration
-    "add_team_member_role",
-    "remove_team_member_role",
-    "promote_team_member_to_admin",
+    "create_member_role",
+    "remove_member_role", 
+    "promote_member_admin",
     "create_team",
-    "update_team_member_field",
-    "update_team_member_multiple_fields",
-    "get_team_member_update_help",
-    "get_team_member_current_info",
-    "update_other_team_member"
+    "update_member_field",
+    "update_member_multiple",
+    "get_member_update_help",
+    "update_member_info",
+    # Approve tools
+    "approve_player",
+    "approve_member",
+    "list_pending_approvals",
+    # Member management tools (clean naming convention)
+    "get_member_info",
+    "get_member_current", 
+    "list_members_and_players",
+    "update_member_other"
 ]

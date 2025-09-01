@@ -35,8 +35,8 @@ class ExistingServicesUserRepository:
         return await self.team_service.get_team_member_by_telegram_id(team_id, telegram_id)
 
 
-@tool("get_user_status", result_as_answer=True)
-async def get_user_status(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
+@tool("get_status_user")
+async def get_status_user(telegram_id: str, team_id: str, username: str, chat_type: str) -> str:
     """
     Get user status and information by Telegram ID lookup.
 
@@ -106,5 +106,5 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
         return create_tool_response(True, f"User status for {telegram_id}", response_data)
 
     except Exception as e:
-        logger.error(f"❌ Error in get_user_status tool: {e}")
+        logger.error(f"❌ Error in get_status_user tool: {e}")
         return create_tool_response(False, "Failed to get user status")
