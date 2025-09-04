@@ -17,6 +17,7 @@ from kickai.features.player_registration.domain.interfaces.player_service_interf
 from kickai.features.team_administration.domain.interfaces.team_member_service_interface import (
     ITeamMemberService,
 )
+from kickai.utils.native_crewai_helpers import validate_required_strings
 
 
 @tool("get_player_status_self")

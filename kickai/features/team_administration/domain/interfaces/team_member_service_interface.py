@@ -148,3 +148,17 @@ class ITeamMemberService(ABC):
             List of matching team member entities
         """
         pass
+
+    @abstractmethod
+    async def find_team_member_by_identifier(self, identifier: str, team_id: str) -> TeamMember | None:
+        """
+        Find a team member by various identifiers (ID, name, phone, username).
+
+        Args:
+            identifier: Member identifier (ID, name, phone, or username)
+            team_id: Team identifier
+
+        Returns:
+            Team member entity if found, None otherwise
+        """
+        pass
