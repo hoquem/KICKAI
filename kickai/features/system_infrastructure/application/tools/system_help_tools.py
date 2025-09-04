@@ -7,76 +7,52 @@ These tools serve as the application boundary and delegate to pure domain servic
 All framework dependencies (@tool decorators, container access) are confined to this layer.
 """
 
-from typing import Optional
 from crewai.tools import tool
 from loguru import logger
 
-from kickai.features.system_infrastructure.domain.services.bot_status_service import BotStatusService
-from kickai.utils.tool_validation import create_tool_response, validate_required_input, sanitize_input
-from kickai.utils.constants import MAX_TEAM_ID_LENGTH, MAX_USER_ID_LENGTH
+from kickai.core.dependency_container import get_container
+from kickai.features.system_infrastructure.domain.services.bot_status_service import (
+    BotStatusService,
+)
 
 
 @tool("get_version_info")
-async def get_version_info(telegram_id: str, team_id: str, username: str, chat_type: str) -> str:
+async def get_version_info(
+    telegram_id: str, team_id: str, telegram_username: str, chat_type: str
+) -> str:
     """
-    Get bot version and system information.
+    Retrieve bot version and system information.
 
-    This tool serves as the application boundary for version info functionality.
-    It handles framework concerns and delegates business logic to the domain service.
+    Provides comprehensive information about bot capabilities, technical
+    stack, and current operational status for system awareness.
 
-    Args:
-        telegram_id: User's Telegram ID or dictionary with all parameters
-        team_id: Team ID for context
-        username: Username for logging
-        chat_type: Chat type context
+    Use when: System information inquiry is needed
+    Required: Basic system access
+    Context: System information workflow
 
-    Returns:
-        JSON formatted version information including bot details, system status, 
-        capabilities, and technical stack information
+    Returns: Bot version and system status details
     """
     try:
-        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
-        if isinstance(telegram_id, dict):
-            params = telegram_id
-            telegram_id = params.get('telegram_id', 0)
-            team_id = params.get('team_id', '')
-            username = params.get('username', '')
-            chat_type = params.get('chat_type', '')
-            
-            # Type conversion with robust error handling
-            if isinstance(telegram_id, str):
-                try:
-                    telegram_id = int(telegram_id)
-                except (ValueError, TypeError):
-                    return create_tool_response(False, "Invalid telegram_id format"
-                    )
-        
-        # Comprehensive parameter validation (CrewAI best practice)
-        if not telegram_id or telegram_id <= 0:
-            return create_tool_response(False, "Valid telegram_id is required"
-            )
-        
-        if not team_id or not isinstance(team_id, str):
-            return create_tool_response(False, "Valid team_id is required"
-            )
-            
-        if not username or not isinstance(username, str):
-            return create_tool_response(False, "Valid username is required"
-            )
-            
-        if not chat_type or not isinstance(chat_type, str):
-            return create_tool_response(False, "Valid chat_type is required"
-            )
-        
-        logger.info(f"📱 Version info request from user {username} ({telegram_id}) in team {team_id}")
+        # Convert telegram_id to int for service calls
+        try:
+            telegram_id_int = int(telegram_id)
+        except (ValueError, TypeError):
+            return "❌ Invalid telegram_id format"
 
-        # Get domain service (pure business logic)
-        bot_status_service = BotStatusService()
+        logger.info(
+            f"📱 Version info request from user {telegram_username} ({telegram_id_int}) in team {team_id}"
+        )
+
+        # Get domain service via dependency injection
+        container = get_container()
+        bot_status_service = container.get_service(BotStatusService)
+        if not bot_status_service:
+            return "❌ Bot status service is not available"
+
         version_info = bot_status_service.get_version_info()
 
         if version_info.get("status") == "error":
-            return create_tool_response(False, f"Error retrieving version information: {version_info.get('error', 'Unknown error')}"
-            )
+            return f"❌ Error retrieving version information: {version_info.get('error', 'Unknown error')}"
 
         # Format the response at application boundary
         response = f"""📱 KICKAI Bot Version Information
@@ -91,7 +67,7 @@ async def get_version_info(telegram_id: str, team_id: str, username: str, chat_t
 • Status: ✅ Active and Running
 
 💡 Features:
-• 6-Agent CrewAI System
+• 5-Agent CrewAI System
 • Intelligent Message Processing
 • Context-Aware Responses
 • Multi-Chat Support
@@ -112,115 +88,60 @@ async def get_version_info(telegram_id: str, team_id: str, username: str, chat_t
 
 💪 Ready to help with all your football team management needs!"""
 
-        logger.info(f"✅ Version info retrieved successfully for {username}")
-        return create_tool_response(True, "Operation completed successfully", data=response)
+        logger.info(f"✅ Version info retrieved successfully for {telegram_username}")
+        return response
 
     except Exception as e:
         logger.error(f"❌ Error getting version info: {e}")
-        return create_tool_response(False, f"Error retrieving version information: {e!s}")
+        return f"❌ Error retrieving version information: {e!s}"
 
 
 @tool("get_system_commands")
 async def get_system_commands(
-    telegram_id: int,
+    telegram_id: str,
     team_id: str,
-    username: str,
+    telegram_username: str,
     chat_type: str,
     is_registered: bool = False,
     is_player: bool = False,
     is_team_member: bool = False,
 ) -> str:
     """
-    Get list of available commands for a user in the given chat type.
+    Retrieve available commands for user permission level.
 
-    This tool serves as the application boundary for command listing functionality.
-    It handles framework concerns and delegates business logic to command registry services.
+    Provides comprehensive list of accessible system commands based on
+    user registration status, roles, and current chat context.
 
-    Args:
-        telegram_id: User's Telegram ID or dictionary with all parameters
-        team_id: Team ID for context
-        username: Username for logging
-        chat_type: Chat type ("main", "leadership", "private")
-        is_registered: Whether the user is registered in the system
-        is_player: Whether the user is a registered player
-        is_team_member: Whether the user is a team member
+    Use when: Command guidance for user capabilities is needed
+    Required: Basic system access
+    Context: User assistance workflow
 
-    Returns:
-        JSON formatted list of available commands grouped by permission level
+    Returns: Available commands grouped by permission level
     """
     try:
-        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
-        if isinstance(telegram_id, dict):
-            params = telegram_id
-            telegram_id = params.get('telegram_id', 0)
-            team_id = params.get('team_id', '')
-            username = params.get('username', '')
-            chat_type = params.get('chat_type', '')
-            is_registered = params.get('is_registered', False)
-            is_player = params.get('is_player', False)
-            is_team_member = params.get('is_team_member', False)
-            
-            # Type conversion with robust error handling
-            if isinstance(telegram_id, str):
-                try:
-                    telegram_id = int(telegram_id)
-                except (ValueError, TypeError):
-                    return create_tool_response(False, "Invalid telegram_id format"
-                    )
-                    
-            # Boolean conversion for optional parameters
-            if isinstance(is_registered, str):
-                is_registered = is_registered.lower() in ('true', '1', 'yes')
-            if isinstance(is_player, str):
-                is_player = is_player.lower() in ('true', '1', 'yes')
-            if isinstance(is_team_member, str):
-                is_team_member = is_team_member.lower() in ('true', '1', 'yes')
-        
-        # Comprehensive parameter validation (CrewAI best practice)
-        if not telegram_id or telegram_id <= 0:
-            return create_tool_response(False, "Valid telegram_id is required"
-            )
-        
-        if not team_id or not isinstance(team_id, str):
-            return create_tool_response(False, "Valid team_id is required"
-            )
-            
-        if not username or not isinstance(username, str):
-            return create_tool_response(False, "Valid username is required"
-            )
-            
-        if not chat_type or not isinstance(chat_type, str):
-            return create_tool_response(False, "Valid chat_type is required"
-            )
-        
+        # Convert telegram_id to int for service calls
+        try:
+            telegram_id_int = int(telegram_id)
+        except (ValueError, TypeError):
+            return "❌ Invalid telegram_id format"
+
         logger.info(
-            f"📋 Available commands request from {username} ({telegram_id}) in {chat_type} chat, "
+            f"📋 Available commands request from {telegram_username} ({telegram_id_int}) in {chat_type} chat, "
             f"registered={is_registered}, player={is_player}, member={is_team_member}"
         )
 
         # Import command registry (framework dependency at application boundary)
         from kickai.core.command_registry_initializer import get_initialized_command_registry
-        from kickai.core.enums import ChatType, PermissionLevel
+        from kickai.core.enums import PermissionLevel
 
         # Get the command registry
         registry = get_initialized_command_registry()
 
-        # Convert chat_type string to enum
-        chat_type_enum = None
-        if chat_type.lower() in ["main", "main_chat"]:
-            chat_type_enum = ChatType.MAIN
-        elif chat_type.lower() in ["leadership", "leadership_chat"]:
-            chat_type_enum = ChatType.LEADERSHIP
-        else:
-            return create_tool_response(False, f"Invalid chat type: {chat_type}. Must be 'main' or 'leadership'"
-            )
-
-        # Get commands for this chat type
+        # Get commands for this chat type (registry validates chat_type)
         commands = registry.get_commands_by_chat_type(chat_type)
 
         if not commands:
-            return create_tool_response(False, f"No commands found for chat type: {chat_type}"
-            )
+            return f"❌ No commands found for chat type: {chat_type}"
 
         # Filter commands based on user registration status (business logic at application boundary)
         available_commands = []
@@ -240,10 +161,18 @@ async def get_system_commands(
                 available_commands.append(cmd)
 
         # Group filtered commands by permission level
-        public_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.PUBLIC]
-        player_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.PLAYER]
-        leadership_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.LEADERSHIP]
-        admin_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.ADMIN]
+        public_commands = [
+            cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.PUBLIC
+        ]
+        player_commands = [
+            cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.PLAYER
+        ]
+        leadership_commands = [
+            cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.LEADERSHIP
+        ]
+        admin_commands = [
+            cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.ADMIN
+        ]
 
         # Build response (formatting at application boundary)
         response = f"📋 Available Commands for {chat_type.replace('_', ' ').title()}\n\n"
@@ -274,18 +203,20 @@ async def get_system_commands(
 
         # Add registration guidance for unregistered users
         if not is_registered:
-            if chat_type.lower() in ["main", "main_chat"]:
-                response += "📞 To access more commands, contact team leadership to be added as a player.\n\n"
-            elif chat_type.lower() in ["leadership", "leadership_chat"]:
-                response += "📝 To access more commands, ask team leadership to add you as a player.\n\n"
+            guidance = (
+                "📞 To access more commands, contact team leadership to be added as a player.\n\n"
+                if chat_type.lower() in ["main", "main_chat"]
+                else "📝 To access more commands, ask team leadership to add you as a player.\n\n"
+            )
+            response += guidance
 
         response += "💡 Tip: You can also ask me questions in natural language!"
 
         logger.info(
             f"✅ Retrieved {len(available_commands)} commands for {chat_type} (filtered from {len(commands)} total)"
         )
-        return create_tool_response(True, "Operation completed successfully", data=response)
+        return response
 
     except Exception as e:
         logger.error(f"❌ Error getting available commands: {e}")
-        return create_tool_response(False, f"Error retrieving available commands: {e!s}")
+        return f"❌ Error retrieving available commands: {e!s}"

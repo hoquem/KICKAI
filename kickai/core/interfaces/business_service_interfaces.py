@@ -8,15 +8,13 @@ clean separation between application and domain layers.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from kickai.core.value_objects import (
-    EntityContext,
     PhoneNumber,
     PlayerId,
     TeamId,
     UserId,
-    UserRegistration,
 )
 
 
@@ -30,8 +28,10 @@ class IPlayerService(ABC):
         phone: PhoneNumber,
         position: str,
         team_id: TeamId,
-        context: EntityContext
-    ) -> Dict[str, Any]:
+        telegram_id: str,
+        username: str,
+        chat_type: str,
+    ) -> dict[str, Any]:
         """
         Register a new player.
 
@@ -40,7 +40,9 @@ class IPlayerService(ABC):
             phone: Player phone number
             position: Player position
             team_id: Team identifier
-            context: Registration context
+            telegram_id: Requesting user's Telegram ID
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             Registration result with player data
@@ -49,18 +51,17 @@ class IPlayerService(ABC):
 
     @abstractmethod
     async def get_player_status(
-        self,
-        player_id: PlayerId,
-        team_id: TeamId,
-        requester_context: EntityContext
-    ) -> Dict[str, Any]:
+        self, player_id: PlayerId, team_id: TeamId, telegram_id: str, username: str, chat_type: str
+    ) -> dict[str, Any]:
         """
         Get player status information.
 
         Args:
             player_id: Player identifier
             team_id: Team identifier
-            requester_context: Context of the requester
+            telegram_id: Requesting user's Telegram ID
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             Player status information
@@ -69,16 +70,16 @@ class IPlayerService(ABC):
 
     @abstractmethod
     async def get_active_players(
-        self,
-        team_id: TeamId,
-        requester_context: EntityContext
-    ) -> List[Dict[str, Any]]:
+        self, team_id: TeamId, telegram_id: str, username: str, chat_type: str
+    ) -> list[dict[str, Any]]:
         """
         Get list of active players.
 
         Args:
             team_id: Team identifier
-            requester_context: Context of the requester
+            telegram_id: Requesting user's Telegram ID
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             List of active players
@@ -87,10 +88,7 @@ class IPlayerService(ABC):
 
     @abstractmethod
     async def approve_player(
-        self,
-        player_id: PlayerId,
-        team_id: TeamId,
-        approver_context: EntityContext
+        self, player_id: PlayerId, team_id: TeamId, telegram_id: str, username: str, chat_type: str
     ) -> bool:
         """
         Approve player registration.
@@ -98,7 +96,9 @@ class IPlayerService(ABC):
         Args:
             player_id: Player to approve
             team_id: Team identifier
-            approver_context: Context of the approver
+            telegram_id: Approver's Telegram ID
+            username: Approver's username
+            chat_type: Chat type context
 
         Returns:
             True if approved successfully
@@ -110,9 +110,11 @@ class IPlayerService(ABC):
         self,
         player_id: PlayerId,
         team_id: TeamId,
-        updates: Dict[str, Any],
-        updater_context: EntityContext
-    ) -> Dict[str, Any]:
+        updates: dict[str, Any],
+        telegram_id: str,
+        username: str,
+        chat_type: str,
+    ) -> dict[str, Any]:
         """
         Update player information.
 
@@ -120,7 +122,9 @@ class IPlayerService(ABC):
             player_id: Player identifier
             team_id: Team identifier
             updates: Fields to update
-            updater_context: Context of the updater
+            telegram_id: Updater's Telegram ID
+            username: Updater's username
+            chat_type: Chat type context
 
         Returns:
             Updated player information
@@ -138,8 +142,10 @@ class ITeamService(ABC):
         phone: PhoneNumber,
         role: str,
         team_id: TeamId,
-        context: EntityContext
-    ) -> Dict[str, Any]:
+        telegram_id: str,
+        username: str,
+        chat_type: str,
+    ) -> dict[str, Any]:
         """
         Add new team member.
 
@@ -148,7 +154,9 @@ class ITeamService(ABC):
             phone: Member phone number
             role: Member role
             team_id: Team identifier
-            context: Addition context
+            telegram_id: Requesting user's Telegram ID
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             Addition result with member data
@@ -157,16 +165,16 @@ class ITeamService(ABC):
 
     @abstractmethod
     async def get_team_members(
-        self,
-        team_id: TeamId,
-        requester_context: EntityContext
-    ) -> List[Dict[str, Any]]:
+        self, team_id: TeamId, telegram_id: str, username: str, chat_type: str
+    ) -> list[dict[str, Any]]:
         """
         Get list of team members.
 
         Args:
             team_id: Team identifier
-            requester_context: Context of the requester
+            telegram_id: Requesting user's Telegram ID
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             List of team members
@@ -178,9 +186,11 @@ class ITeamService(ABC):
         self,
         user_id: UserId,
         team_id: TeamId,
-        updates: Dict[str, Any],
-        updater_context: EntityContext
-    ) -> Dict[str, Any]:
+        updates: dict[str, Any],
+        telegram_id: str,
+        username: str,
+        chat_type: str,
+    ) -> dict[str, Any]:
         """
         Update team member information.
 
@@ -188,7 +198,9 @@ class ITeamService(ABC):
             user_id: Member identifier
             team_id: Team identifier
             updates: Fields to update
-            updater_context: Context of the updater
+            telegram_id: Updater's Telegram ID
+            username: Updater's username
+            chat_type: Chat type context
 
         Returns:
             Updated member information
@@ -197,16 +209,16 @@ class ITeamService(ABC):
 
     @abstractmethod
     async def get_team_configuration(
-        self,
-        team_id: TeamId,
-        requester_context: EntityContext
-    ) -> Dict[str, Any]:
+        self, team_id: TeamId, telegram_id: str, username: str, chat_type: str
+    ) -> dict[str, Any]:
         """
         Get team configuration.
 
         Args:
             team_id: Team identifier
-            requester_context: Context of the requester
+            telegram_id: Requesting user's Telegram ID
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             Team configuration
@@ -218,11 +230,7 @@ class IUserService(ABC):
     """Service interface for user business operations."""
 
     @abstractmethod
-    async def get_user_registration(
-        self,
-        user_id: UserId,
-        team_id: TeamId
-    ) -> UserRegistration:
+    async def get_user_registration(self, user_id: UserId, team_id: TeamId) -> dict[str, Any]:
         """
         Get user registration status.
 
@@ -236,36 +244,14 @@ class IUserService(ABC):
         pass
 
     @abstractmethod
-    async def create_entity_context(
-        self,
-        user_id: str,
-        team_id: str,
-        chat_id: str,
-        chat_type: str,
-        username: Optional[str] = None
-    ) -> EntityContext:
-        """
-        Create entity context for a user.
-
-        Args:
-            user_id: User identifier
-            team_id: Team identifier
-            chat_id: Chat identifier
-            chat_type: Chat type
-            username: Optional username
-
-        Returns:
-            Complete entity context
-        """
-        pass
-
-    @abstractmethod
     async def update_user_permissions(
         self,
         user_id: UserId,
         team_id: TeamId,
-        permissions: List[str],
-        updater_context: EntityContext
+        permissions: list[str],
+        telegram_id: str,
+        username: str,
+        chat_type: str,
     ) -> bool:
         """
         Update user permissions.
@@ -274,7 +260,9 @@ class IUserService(ABC):
             user_id: User identifier
             team_id: Team identifier
             permissions: New permissions
-            updater_context: Context of the updater
+            telegram_id: Updater's Telegram ID
+            username: Updater's username
+            chat_type: Chat type context
 
         Returns:
             True if updated successfully
@@ -327,14 +315,20 @@ class IValidationService(ABC):
     @abstractmethod
     def validate_user_permissions(
         self,
-        user_context: EntityContext,
-        required_permissions: List[str]
+        telegram_id: str,
+        team_id: str,
+        username: str,
+        chat_type: str,
+        required_permissions: list[str],
     ) -> bool:
         """
         Validate user has required permissions.
 
         Args:
-            user_context: User context to check
+            telegram_id: User's Telegram ID
+            team_id: Team identifier
+            username: User's username
+            chat_type: Chat type context
             required_permissions: Required permissions
 
         Returns:
@@ -344,10 +338,8 @@ class IValidationService(ABC):
 
     @abstractmethod
     def get_validation_errors(
-        self,
-        data: Dict[str, Any],
-        validation_rules: Dict[str, Any]
-    ) -> List[str]:
+        self, data: dict[str, Any], validation_rules: dict[str, Any]
+    ) -> list[str]:
         """
         Get validation errors for data.
 
@@ -366,10 +358,7 @@ class INotificationService(ABC):
 
     @abstractmethod
     async def send_welcome_message(
-        self,
-        user_id: UserId,
-        team_id: TeamId,
-        message_type: str
+        self, user_id: UserId, team_id: TeamId, message_type: str
     ) -> bool:
         """
         Send welcome message to user.
@@ -386,10 +375,7 @@ class INotificationService(ABC):
 
     @abstractmethod
     async def send_approval_notification(
-        self,
-        player_id: PlayerId,
-        team_id: TeamId,
-        approved_by: UserId
+        self, player_id: PlayerId, team_id: TeamId, approved_by: UserId
     ) -> bool:
         """
         Send approval notification.
@@ -406,10 +392,7 @@ class INotificationService(ABC):
 
     @abstractmethod
     async def send_registration_notification(
-        self,
-        new_member_id: UserId,
-        team_id: TeamId,
-        registration_type: str
+        self, new_member_id: UserId, team_id: TeamId, registration_type: str
     ) -> bool:
         """
         Send registration notification to leadership.
@@ -426,10 +409,7 @@ class INotificationService(ABC):
 
     @abstractmethod
     async def send_error_notification(
-        self,
-        user_id: UserId,
-        error_message: str,
-        context: EntityContext
+        self, user_id: UserId, error_message: str, telegram_id: str, username: str, chat_type: str
     ) -> bool:
         """
         Send error notification to user.
@@ -437,7 +417,9 @@ class INotificationService(ABC):
         Args:
             user_id: User identifier
             error_message: Error message
-            context: Error context
+            telegram_id: User's Telegram ID
+            username: User's username
+            chat_type: Chat type context
 
         Returns:
             True if sent successfully
@@ -453,8 +435,10 @@ class IAnalyticsService(ABC):
         self,
         user_id: UserId,
         action: str,
-        context: EntityContext,
-        metadata: Optional[Dict[str, Any]] = None
+        telegram_id: str,
+        username: str,
+        chat_type: str,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Track user action for analytics.
@@ -462,17 +446,17 @@ class IAnalyticsService(ABC):
         Args:
             user_id: User identifier
             action: Action performed
-            context: Action context
+            telegram_id: User's Telegram ID
+            username: User's username
+            chat_type: Chat type context
             metadata: Optional metadata
         """
         pass
 
     @abstractmethod
     async def get_team_analytics(
-        self,
-        team_id: TeamId,
-        date_range: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, team_id: TeamId, date_range: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Get team analytics data.
 
@@ -487,10 +471,8 @@ class IAnalyticsService(ABC):
 
     @abstractmethod
     async def get_user_engagement_metrics(
-        self,
-        team_id: TeamId,
-        period: str = "week"
-    ) -> Dict[str, Any]:
+        self, team_id: TeamId, period: str = "week"
+    ) -> dict[str, Any]:
         """
         Get user engagement metrics.
 

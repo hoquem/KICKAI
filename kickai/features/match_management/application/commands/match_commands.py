@@ -15,7 +15,6 @@ from kickai.core.enums import ChatType
 from kickai.features.match_management.domain.entities.attendance import AttendanceStatus
 from kickai.features.match_management.domain.entities.availability import AvailabilityStatus
 from kickai.features.match_management.domain.services.attendance_service import AttendanceService
-from typing import List, Optional
 from kickai.features.match_management.domain.services.availability_service import (
     AvailabilityService,
 )
@@ -403,16 +402,18 @@ async def handle_markattendance_command(update, context, **kwargs):
         if reason:
             result.append(f"Reason: {reason}")
 
-        result.extend([
-            "",
-            "📊 Team Availability",
-            f"• Available: {summary['available']} players",
-            f"• Unavailable: {summary['unavailable']} players",
-            f"• Maybe: {summary['maybe']} players",
-            f"• Pending: {summary['pending']} players",
-            "",
-            "💡 Tip: You can update your availability anytime before squad selection",
-        ])
+        result.extend(
+            [
+                "",
+                "📊 Team Availability",
+                f"• Available: {summary['available']} players",
+                f"• Unavailable: {summary['unavailable']} players",
+                f"• Maybe: {summary['maybe']} players",
+                f"• Pending: {summary['pending']} players",
+                "",
+                "💡 Tip: You can update your availability anytime before squad selection",
+            ]
+        )
 
         return "\n".join(result)
 
@@ -603,14 +604,16 @@ async def handle_attendancehistory_command(update, context, **kwargs):
 
         availability_rate = (available_count / total_matches) * 100 if total_matches > 0 else 0
 
-        result.extend([
-            "",
-            "📊 Statistics",
-            f"• Availability Rate: {availability_rate:.1f}% ({available_count}/{total_matches} matches)",
-            f"• Available: {available_count} matches",
-            f"• Unavailable: {unavailable_count} matches",
-            f"• Maybe: {maybe_count} matches",
-        ])
+        result.extend(
+            [
+                "",
+                "📊 Statistics",
+                f"• Availability Rate: {availability_rate:.1f}% ({available_count}/{total_matches} matches)",
+                f"• Available: {available_count} matches",
+                f"• Unavailable: {unavailable_count} matches",
+                f"• Maybe: {maybe_count} matches",
+            ]
+        )
 
         # Reliability rating
         if availability_rate >= 90:
@@ -820,16 +823,18 @@ async def handle_markmatchattendance_command(update, context, **kwargs):
         if reason:
             result.append(f"Reason: {reason}")
 
-        result.extend([
-            f"Recorded by: {recorded_by or 'System'}",
-            f"Time: {attendance.recorded_at.strftime('%H:%M')}",
-            "",
-            "📊 Match Summary",
-            f"• Attended: {summary['attended']} players",
-            f"• Absent: {summary['absent']} players",
-            f"• Late: {summary['late']} players",
-            f"• Pending: {summary['not_recorded']} players",
-        ])
+        result.extend(
+            [
+                f"Recorded by: {recorded_by or 'System'}",
+                f"Time: {attendance.recorded_at.strftime('%H:%M')}",
+                "",
+                "📊 Match Summary",
+                f"• Attended: {summary['attended']} players",
+                f"• Absent: {summary['absent']} players",
+                f"• Late: {summary['late']} players",
+                f"• Pending: {summary['not_recorded']} players",
+            ]
+        )
 
         return "\n".join(result)
 

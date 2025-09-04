@@ -67,14 +67,14 @@ class TimeoutConstants:
     SYSTEM_HEALTH_TIMEOUT: int = 30
 
     # Session Timeouts (seconds)
-    USER_SESSION_TIMEOUT: int = 3600        # 1 hour
-    ADMIN_SESSION_TIMEOUT: int = 7200       # 2 hours
-    API_SESSION_TIMEOUT: int = 1800         # 30 minutes
+    USER_SESSION_TIMEOUT: int = 3600  # 1 hour
+    ADMIN_SESSION_TIMEOUT: int = 7200  # 2 hours
+    API_SESSION_TIMEOUT: int = 1800  # 30 minutes
 
     # Background Task Timeouts (seconds)
-    BACKGROUND_TASK_TIMEOUT: int = 300      # 5 minutes
-    SCHEDULED_TASK_TIMEOUT: int = 600       # 10 minutes
-    CLEANUP_TASK_TIMEOUT: int = 1800        # 30 minutes
+    BACKGROUND_TASK_TIMEOUT: int = 300  # 5 minutes
+    SCHEDULED_TASK_TIMEOUT: int = 600  # 10 minutes
+    CLEANUP_TASK_TIMEOUT: int = 1800  # 30 minutes
 
     # Performance Limits
     MAX_CONCURRENT_OPERATIONS: int = 10
@@ -98,34 +98,28 @@ class TimeoutConstants:
             "database_query": cls.DATABASE_QUERY_TIMEOUT,
             "database_transaction": cls.DATABASE_TRANSACTION_TIMEOUT,
             "database_bulk": cls.DATABASE_BULK_OPERATION_TIMEOUT,
-
             # API operations
             "external_api": cls.EXTERNAL_API_TIMEOUT,
             "telegram_api": cls.TELEGRAM_API_TIMEOUT,
             "llm_api": cls.LLM_API_TIMEOUT,
             "webhook": cls.WEBHOOK_TIMEOUT,
-
             # Agent operations
             "agent_execution": cls.AGENT_EXECUTION_TIMEOUT,
             "tool_execution": cls.TOOL_EXECUTION_TIMEOUT,
             "crew_execution": cls.CREW_EXECUTION_TIMEOUT,
             "agent_init": cls.AGENT_INITIALIZATION_TIMEOUT,
-
             # File operations
             "file_upload": cls.FILE_UPLOAD_TIMEOUT,
             "file_download": cls.FILE_DOWNLOAD_TIMEOUT,
             "file_processing": cls.FILE_PROCESSING_TIMEOUT,
-
             # Network operations
             "http_connection": cls.HTTP_CONNECTION_TIMEOUT,
             "http_read": cls.HTTP_READ_TIMEOUT,
             "http_total": cls.HTTP_TOTAL_TIMEOUT,
-
             # Health checks
             "health_check": cls.HEALTH_CHECK_TIMEOUT,
             "component_health": cls.COMPONENT_HEALTH_TIMEOUT,
             "system_health": cls.SYSTEM_HEALTH_TIMEOUT,
-
             # Background tasks
             "background_task": cls.BACKGROUND_TASK_TIMEOUT,
             "scheduled_task": cls.SCHEDULED_TASK_TIMEOUT,
@@ -172,12 +166,15 @@ class TimeoutConstants:
             },
         }
 
-        return retry_configs.get(operation_type, {
-            "max_retries": cls.DEFAULT_MAX_RETRIES,
-            "delay": cls.DEFAULT_RETRY_DELAY,
-            "backoff_multiplier": cls.RETRY_BACKOFF_MULTIPLIER,
-            "max_delay": cls.MAX_RETRY_DELAY,
-        })
+        return retry_configs.get(
+            operation_type,
+            {
+                "max_retries": cls.DEFAULT_MAX_RETRIES,
+                "delay": cls.DEFAULT_RETRY_DELAY,
+                "backoff_multiplier": cls.RETRY_BACKOFF_MULTIPLIER,
+                "max_delay": cls.MAX_RETRY_DELAY,
+            },
+        )
 
     @classmethod
     def calculate_retry_delay(
@@ -185,7 +182,7 @@ class TimeoutConstants:
         attempt: int,
         base_delay: float = None,
         multiplier: float = None,
-        max_delay: float = None
+        max_delay: float = None,
     ) -> float:
         """
         Calculate retry delay with exponential backoff.
@@ -203,7 +200,7 @@ class TimeoutConstants:
         multiplier = multiplier or cls.RETRY_BACKOFF_MULTIPLIER
         max_delay = max_delay or cls.MAX_RETRY_DELAY
 
-        delay = base_delay * (multiplier ** attempt)
+        delay = base_delay * (multiplier**attempt)
         return min(delay, max_delay)
 
     @classmethod

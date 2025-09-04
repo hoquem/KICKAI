@@ -14,17 +14,17 @@ from kickai.core.command_registry import CommandType, PermissionLevel, command
     description="Update team member information (Admin operations)",
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.LEADERSHIP,
-    feature="team_administration", 
+    feature="team_administration",
     examples=[
         "/updateteam member M01JS phone +447123456789",
         "/updateteam role M01JS Assistant Coach",
-        "/updateteam status M01JS inactive"
+        "/updateteam status M01JS inactive",
     ],
     parameters={
         "operation": "Operation type (member, role, status, etc.)",
         "target": "Target member ID or identifier",
         "field": "Field to update",
-        "value": "New value"
+        "value": "New value",
     },
     help_text="""
 🔧 Team Administration Updates (Leadership Only)
@@ -128,7 +128,7 @@ async def handle_listmembers_command(update, context, **kwargs):
 
 
 @command(
-    name="/approvemember", 
+    name="/approvemember",
     description="Approve pending team member (Admin only)",
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.ADMIN,
@@ -136,7 +136,7 @@ async def handle_listmembers_command(update, context, **kwargs):
     examples=["/approvemember M01JS", "/approvemember M01JS Assistant Coach"],
     parameters={
         "member_id": "Member ID to approve",
-        "role": "Optional role to assign (default: Team Member)"
+        "role": "Optional role to assign (default: Team Member)",
     },
     help_text="""
 ✅ Approve Team Member (Admin Only)
@@ -184,15 +184,12 @@ async def handle_approvemember_command(update, context, **kwargs):
 
 @command(
     name="/rejectmember",
-    description="Reject pending team member with reason (Admin only)", 
+    description="Reject pending team member with reason (Admin only)",
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.ADMIN,
     feature="team_administration",
     examples=["/rejectmember M01JS Insufficient qualifications"],
-    parameters={
-        "member_id": "Member ID to reject",
-        "reason": "Reason for rejection (optional)"
-    },
+    parameters={"member_id": "Member ID to reject", "reason": "Reason for rejection (optional)"},
     help_text="""
 ❌ Reject Team Member (Admin Only)
 

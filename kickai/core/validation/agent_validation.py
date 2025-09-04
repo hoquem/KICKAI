@@ -97,8 +97,6 @@ class AgentValidator:
         """Initialize the agent validator."""
         self.validation_results: list[ValidationResult] = []
 
-
-
     def validate_configurable_agent_methods(self) -> ValidationResult:
         """Validate ConfigurableAgent class methods and attributes."""
         errors = []
@@ -116,16 +114,20 @@ class AgentValidator:
             details.update(inheritance_result.details)
 
             # Validate required methods
-            method_result = self._validate_required_methods(configurable_agent, REQUIRED_AGENT_METHODS)
+            method_result = self._validate_required_methods(
+                configurable_agent, REQUIRED_AGENT_METHODS
+            )
             errors.extend(method_result.errors)
             details.update(method_result.details)
 
             details["crewai_native_tools"] = True
 
         except Exception as e:
-            errors.append(ERROR_MESSAGES["VALIDATION_ERROR"].format(
-                component=CONFIGURABLE_AGENT_CLASS, error=str(e)
-            ))
+            errors.append(
+                ERROR_MESSAGES["VALIDATION_ERROR"].format(
+                    component=CONFIGURABLE_AGENT_CLASS, error=str(e)
+                )
+            )
 
         return ValidationResult(
             passed=len(errors) == 0, errors=errors, warnings=warnings, details=details
@@ -149,9 +151,9 @@ class AgentValidator:
             details.update(execute_result.details)
 
         except Exception as e:
-            errors.append(ERROR_MESSAGES["VALIDATION_ERROR"].format(
-                component="method calls", error=str(e)
-            ))
+            errors.append(
+                ERROR_MESSAGES["VALIDATION_ERROR"].format(component="method calls", error=str(e))
+            )
 
         return ValidationResult(
             passed=len(errors) == 0, errors=errors, warnings=warnings, details=details
@@ -172,16 +174,20 @@ class AgentValidator:
             missing_methods = REQUIRED_FACTORY_METHODS - factory_methods
 
             if missing_methods:
-                errors.append(ERROR_MESSAGES["MISSING_METHODS"].format(
-                    class_name=AGENT_FACTORY_CLASS, methods=missing_methods
-                ))
+                errors.append(
+                    ERROR_MESSAGES["MISSING_METHODS"].format(
+                        class_name=AGENT_FACTORY_CLASS, methods=missing_methods
+                    )
+                )
 
             details["factory_methods"] = list(factory_methods)
 
         except Exception as e:
-            errors.append(ERROR_MESSAGES["VALIDATION_ERROR"].format(
-                component=AGENT_FACTORY_CLASS, error=str(e)
-            ))
+            errors.append(
+                ERROR_MESSAGES["VALIDATION_ERROR"].format(
+                    component=AGENT_FACTORY_CLASS, error=str(e)
+                )
+            )
 
         return ValidationResult(
             passed=len(errors) == 0, errors=errors, warnings=warnings, details=details
@@ -228,9 +234,11 @@ class AgentValidator:
             module = __import__(CONFIGURABLE_AGENT_MODULE, fromlist=[CONFIGURABLE_AGENT_CLASS])
             return getattr(module, CONFIGURABLE_AGENT_CLASS)
         except ImportError as e:
-            logger.error(ERROR_MESSAGES["IMPORT_ERROR"].format(
-                module=CONFIGURABLE_AGENT_MODULE, error=str(e)
-            ))
+            logger.error(
+                ERROR_MESSAGES["IMPORT_ERROR"].format(
+                    module=CONFIGURABLE_AGENT_MODULE, error=str(e)
+                )
+            )
             return None
 
     def _import_agent_factory(self) -> Any | None:
@@ -239,12 +247,10 @@ class AgentValidator:
             module = __import__(CONFIGURABLE_AGENT_MODULE, fromlist=[AGENT_FACTORY_CLASS])
             return getattr(module, AGENT_FACTORY_CLASS)
         except ImportError as e:
-            logger.error(ERROR_MESSAGES["IMPORT_ERROR"].format(
-                module=AGENT_FACTORY_CLASS, error=str(e)
-            ))
+            logger.error(
+                ERROR_MESSAGES["IMPORT_ERROR"].format(module=AGENT_FACTORY_CLASS, error=str(e))
+            )
             return None
-
-
 
     def _validate_inheritance_chain(self, agent_class: Any) -> ValidationResult:
         """Validate inheritance chain of agent class."""
@@ -257,9 +263,13 @@ class AgentValidator:
             inheritance_chain = [str(base) for base in agent_class.__mro__]
             details["inheritance_chain"] = inheritance_chain
 
-        return ValidationResult(passed=len(errors) == 0, errors=errors, warnings=[], details=details)
+        return ValidationResult(
+            passed=len(errors) == 0, errors=errors, warnings=[], details=details
+        )
 
-    def _validate_required_methods(self, class_obj: Any, required_methods: set[str]) -> ValidationResult:
+    def _validate_required_methods(
+        self, class_obj: Any, required_methods: set[str]
+    ) -> ValidationResult:
         """Validate that class has required methods."""
         errors = []
         details = {}
@@ -268,14 +278,16 @@ class AgentValidator:
         missing_methods = required_methods - class_methods
 
         if missing_methods:
-            errors.append(ERROR_MESSAGES["MISSING_METHODS"].format(
-                class_name=class_obj.__name__, methods=missing_methods
-            ))
+            errors.append(
+                ERROR_MESSAGES["MISSING_METHODS"].format(
+                    class_name=class_obj.__name__, methods=missing_methods
+                )
+            )
 
         details["class_methods"] = list(class_methods)
-        return ValidationResult(passed=len(errors) == 0, errors=errors, warnings=[], details=details)
-
-
+        return ValidationResult(
+            passed=len(errors) == 0, errors=errors, warnings=[], details=details
+        )
 
     def _validate_crewai_agent_methods(self) -> ValidationResult:
         """Validate CrewAI agent methods."""
@@ -315,9 +327,11 @@ class AgentValidator:
                 try:
                     source = inspect.getsource(execute_method)
                     if PROBLEMATIC_EXECUTE_PATTERN in source:
-                        errors.append(ERROR_MESSAGES["PROBLEMATIC_EXECUTE"].format(
-                            class_name=CONFIGURABLE_AGENT_CLASS
-                        ))
+                        errors.append(
+                            ERROR_MESSAGES["PROBLEMATIC_EXECUTE"].format(
+                                class_name=CONFIGURABLE_AGENT_CLASS
+                            )
+                        )
                     elif CORRECT_CREW_PATTERN in source:
                         details["correct_crew_usage"] = True
                 except (OSError, TypeError):
@@ -325,11 +339,13 @@ class AgentValidator:
                     pass
 
         except Exception as e:
-            errors.append(ERROR_MESSAGES["VALIDATION_ERROR"].format(
-                component="execute method", error=str(e)
-            ))
+            errors.append(
+                ERROR_MESSAGES["VALIDATION_ERROR"].format(component="execute method", error=str(e))
+            )
 
-        return ValidationResult(passed=len(errors) == 0, errors=errors, warnings=[], details=details)
+        return ValidationResult(
+            passed=len(errors) == 0, errors=errors, warnings=[], details=details
+        )
 
     def _create_import_error_result(self, class_name: str) -> ValidationResult:
         """Create validation result for import errors."""
@@ -338,7 +354,11 @@ class AgentValidator:
 
     def _log_validation_result(self, name: str, result: ValidationResult) -> None:
         """Log individual validation result."""
-        status = LOG_MESSAGES["VALIDATION_PASSED"] if result.passed else LOG_MESSAGES["VALIDATION_FAILED"]
+        status = (
+            LOG_MESSAGES["VALIDATION_PASSED"]
+            if result.passed
+            else LOG_MESSAGES["VALIDATION_FAILED"]
+        )
         logger.info(status.format(name=name))
 
         if result.errors:

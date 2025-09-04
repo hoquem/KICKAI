@@ -39,10 +39,7 @@ class AdminNotificationService:
         logger.info("Admin notification service stopped")
 
     async def send_critical_error_notification(
-        self,
-        error_type: str,
-        error_message: str,
-        context: dict[str, Any] = None
+        self, error_type: str, error_message: str, context: dict[str, Any] = None
     ):
         """Send a critical error notification to administrators."""
         try:
@@ -52,7 +49,7 @@ class AdminNotificationService:
                 "error_message": error_message,
                 "context": context or {},
                 "timestamp": datetime.now().isoformat(),
-                "team_id": self.team_id
+                "team_id": self.team_id,
             }
 
             await self.notification_queue.put(notification)
@@ -62,11 +59,7 @@ class AdminNotificationService:
             logger.error(f"❌ Error queuing critical error notification: {e}")
 
     async def send_system_alert(
-        self,
-        alert_type: str,
-        message: str,
-        severity: str = "info",
-        context: dict[str, Any] = None
+        self, alert_type: str, message: str, severity: str = "info", context: dict[str, Any] = None
     ):
         """Send a system alert to administrators."""
         try:
@@ -77,7 +70,7 @@ class AdminNotificationService:
                 "severity": severity,
                 "context": context or {},
                 "timestamp": datetime.now().isoformat(),
-                "team_id": self.team_id
+                "team_id": self.team_id,
             }
 
             await self.notification_queue.put(notification)
@@ -93,8 +86,7 @@ class AdminNotificationService:
                 # Wait for notification with timeout
                 try:
                     notification = await asyncio.wait_for(
-                        self.notification_queue.get(),
-                        timeout=1.0
+                        self.notification_queue.get(), timeout=1.0
                     )
                 except TimeoutError:
                     continue
@@ -150,11 +142,11 @@ class AdminNotificationService:
 This is an automated alert from the KICKAI system."""
 
             # Send to leadership chat if available
-            if hasattr(self.bot_service, 'leadership_chat_id') and self.bot_service.leadership_chat_id:
-                await self.bot_service.send_message(
-                    self.bot_service.leadership_chat_id,
-                    message
-                )
+            if (
+                hasattr(self.bot_service, "leadership_chat_id")
+                and self.bot_service.leadership_chat_id
+            ):
+                await self.bot_service.send_message(self.bot_service.leadership_chat_id, message)
                 logger.info(f"Critical error notification sent to leadership chat: {error_type}")
             else:
                 logger.warning("No leadership chat ID configured for critical error notifications")
@@ -172,12 +164,9 @@ This is an automated alert from the KICKAI system."""
             timestamp = notification["timestamp"]
 
             # Determine emoji based on severity
-            severity_emoji = {
-                "info": "ℹ️",
-                "warning": "⚠️",
-                "error": "❌",
-                "critical": "🚨"
-            }.get(severity, "ℹ️")
+            severity_emoji = {"info": "ℹ️", "warning": "⚠️", "error": "❌", "critical": "🚨"}.get(
+                severity, "ℹ️"
+            )
 
             # Format the alert message
             message = f"""{severity_emoji} SYSTEM ALERT
@@ -199,11 +188,11 @@ This is an automated alert from the KICKAI system."""
 This is an automated alert from the KICKAI system."""
 
             # Send to leadership chat if available
-            if hasattr(self.bot_service, 'leadership_chat_id') and self.bot_service.leadership_chat_id:
-                await self.bot_service.send_message(
-                    self.bot_service.leadership_chat_id,
-                    message
-                )
+            if (
+                hasattr(self.bot_service, "leadership_chat_id")
+                and self.bot_service.leadership_chat_id
+            ):
+                await self.bot_service.send_message(self.bot_service.leadership_chat_id, message)
                 logger.info(f"System alert sent to leadership chat: {alert_type}")
             else:
                 logger.warning("No leadership chat ID configured for system alerts")
@@ -217,8 +206,7 @@ _admin_notification_service = None
 
 
 def get_admin_notification_service(
-    bot_service: TelegramBotServiceInterface,
-    team_id: str
+    bot_service: TelegramBotServiceInterface, team_id: str
 ) -> AdminNotificationService:
     """Get the global admin notification service instance."""
     global _admin_notification_service
@@ -232,7 +220,7 @@ async def send_critical_error_notification(
     team_id: str,
     error_type: str,
     error_message: str,
-    context: dict[str, Any] = None
+    context: dict[str, Any] = None,
 ):
     """Send a critical error notification using the global service."""
     service = get_admin_notification_service(bot_service, team_id)
@@ -245,7 +233,7 @@ async def send_system_alert(
     alert_type: str,
     message: str,
     severity: str = "info",
-    context: dict[str, Any] = None
+    context: dict[str, Any] = None,
 ):
     """Send a system alert using the global service."""
     service = get_admin_notification_service(bot_service, team_id)

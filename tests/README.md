@@ -1,8 +1,8 @@
-# KICKAI Test Suite
+# KICKAI Test Suite - CrewAI Semantic Tool Testing
 
 ## 📁 **Test Directory Structure**
 
-The KICKAI test suite is organized into a clean, hierarchical structure for better maintainability and clarity:
+The KICKAI test suite is organized for testing CrewAI semantic tools and intelligent agent selection:
 
 ```
 tests/
@@ -143,14 +143,14 @@ python scripts/run_comprehensive_e2e_tests.py
 
 ## 🎯 **Test Categories**
 
-### **Agent Tests**
+### **Agent Tests - CrewAI Semantic Tool Selection**
 - **Location**: `tests/unit/agents/`, `tests/integration/agents/`
-- **Focus**: AI agent capabilities, collaboration, task decomposition
+- **Focus**: CrewAI semantic tool selection, intelligent routing, agent collaboration
 - **Key Tests**:
-  - Agent capability matrix
-  - Intelligent routing
-  - Dynamic task decomposition
-  - Advanced memory systems
+  - Semantic tool selection (`_self` vs `_by_identifier`)
+  - Parameter clarity (`telegram_username` vs `username`)
+  - Intent-based tool routing
+  - Agent semantic understanding validation
 
 ### **Service Tests**
 - **Location**: `tests/unit/services/`, `tests/integration/services/`
@@ -221,26 +221,26 @@ python scripts/run_comprehensive_e2e_tests.py
 - **Integration Tests**: 80%+ coverage
 - **E2E Tests**: 70%+ coverage
 
-## 🚨 **Test Best Practices**
+## 🚨 **Test Best Practices - CrewAI Semantic Tools**
 
-### **Writing Tests**
-1. **Follow AAA Pattern**: Arrange, Act, Assert
-2. **Use Descriptive Names**: Test names should explain what is being tested
-3. **Test One Thing**: Each test should verify one specific behavior
-4. **Use Fixtures**: Reuse test data and setup
-5. **Mock External Dependencies**: Keep tests fast and reliable
+### **Writing Semantic Tool Tests**
+1. **Test Tool Selection**: Verify CrewAI selects correct semantic tools
+2. **Parameter Clarity**: Test explicit parameter naming (`telegram_username`)
+3. **Intent Validation**: Test `_self` vs `_by_identifier` patterns
+4. **Use Descriptive Names**: Test names should explain semantic intent
+5. **Test One Semantic Pattern**: Each test should verify one semantic behavior
 
-### **Test Data**
-1. **Use Factories**: Create test data with factories
-2. **Clean Up**: Always clean up test data
-3. **Isolation**: Tests should not depend on each other
-4. **Realistic Data**: Use realistic but safe test data
+### **Test Data for Semantic Tools**
+1. **Use Explicit Parameters**: Test with `telegram_username` not `username`
+2. **Test Both Patterns**: Cover `_self` and `_by_identifier` cases
+3. **Mock CrewAI Selection**: Test tool selection logic
+4. **Clean State**: Ensure semantic tests don't interfere
 
-### **E2E Testing**
-1. **Use Test Environment**: Never test against production
-2. **Clean State**: Start with clean database state
-3. **Real APIs**: Use real Telegram API and Firestore
-4. **User Scenarios**: Test complete user workflows
+### **E2E Testing with Semantic Tools**
+1. **Test Intent Recognition**: Verify natural language maps to correct semantic tools
+2. **Test Parameter Passing**: Ensure explicit parameters work end-to-end
+3. **Validate Tool Selection**: Confirm CrewAI semantic understanding
+4. **User Scenarios**: Test complete semantic tool workflows
 
 ## 🔄 **Continuous Integration**
 

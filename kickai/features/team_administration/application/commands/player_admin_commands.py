@@ -22,9 +22,9 @@ from kickai.core.enums import ChatType
     feature="team_administration",
     chat_type=ChatType.LEADERSHIP,
     examples=[
-        "/addplayer \"John Smith\" \"+447123456789\"",  # Quoted name (recommended)
-        "/addplayer John +447123456789",                # Single name (works too)
-        "/addplayer John Smith 07123456789"              # Unquoted multi-word name (smart parsing)
+        '/addplayer "John Smith" "+447123456789"',  # Quoted name (recommended)
+        "/addplayer John +447123456789",  # Single name (works too)
+        "/addplayer John Smith 07123456789",  # Unquoted multi-word name (smart parsing)
     ],
     parameters={
         "player_name": "Player's full name (use quotes if contains spaces)",
@@ -74,7 +74,6 @@ async def handle_addplayer_command(update, context, **kwargs):
         Response message with player details and invite link
     """
     try:
-
         from kickai.core.enums import ChatType
         from kickai.core.types import TelegramMessage
         from kickai.utils.validation_utils import sanitize_input
@@ -114,7 +113,8 @@ Examples:
         player_name, phone_number = parse_addplayer_args(args_text)
 
         if not player_name or not phone_number:
-            return """❌ Invalid Format
+            return (
+                """❌ Invalid Format
 
 I need both a player name and phone number.
 
@@ -123,8 +123,11 @@ I need both a player name and phone number.
 • /addplayer "John Smith" +447123456789
 • /addplayer John +447123456789
 
-📝 What you provided: """ + args_text + """
+📝 What you provided: """
+                + args_text
+                + """
 🎯 What I need: Player name + phone number (phone number should be last)"""
+            )
 
         player_name = sanitize_input(player_name, 100)
         phone_number = sanitize_input(phone_number, 20)
@@ -140,15 +143,20 @@ I need both a player name and phone number.
 
         # Validate name length
         if len(player_name.strip()) < PLAYER_MIN_NAME_LENGTH:
-            return ERROR_MESSAGES["NAME_TOO_SHORT"].format(min_length=PLAYER_MIN_NAME_LENGTH) + f"\n\n📝 What you provided: {args_text}"
+            return (
+                ERROR_MESSAGES["NAME_TOO_SHORT"].format(min_length=PLAYER_MIN_NAME_LENGTH)
+                + f"\n\n📝 What you provided: {args_text}"
+            )
 
         # Validate phone number format using standard phone utils
         from kickai.utils.phone_utils import is_valid_phone
+
         if not is_valid_phone(phone_number):
             return ERROR_MESSAGES["INVALID_PHONE_FORMAT"].format(phone=phone_number)
 
         # Route to CrewAI agent via AgenticMessageRouter
         from kickai.agents.agentic_message_router import AgenticMessageRouter
+
         router = AgenticMessageRouter(team_id)
 
         # Create structured message for the agent
@@ -161,7 +169,7 @@ I need both a player name and phone number.
             chat_type=ChatType.LEADERSHIP,
             team_id=team_id,
             username=username,
-            raw_update=update
+            raw_update=update,
         )
 
         # Route to CrewAI system
@@ -175,6 +183,7 @@ I need both a player name and phone number.
 
     except Exception as e:
         from loguru import logger
+
         logger.error(f"❌ Error in handle_addplayer_command: {e}")
         return ERROR_MESSAGES["ADDPLAYER_SYSTEM_ERROR"].format(error=str(e))
 
@@ -222,7 +231,7 @@ def parse_addplayer_args(args_text: str) -> tuple[str, str]:
 
     # Import standard phone validation
     from kickai.utils.phone_utils import is_valid_phone
-    
+
     for part in parts:
         if is_valid_phone(part):
             phone_number = part
@@ -234,5 +243,3 @@ def parse_addplayer_args(args_text: str) -> tuple[str, str]:
 
     player_name = " ".join(name_parts)
     return player_name, phone_number
-
-

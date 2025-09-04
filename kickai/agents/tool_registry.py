@@ -548,28 +548,20 @@ class ToolRegistry:
 
     def _register_essential_tools(self):
         """Register essential tools manually when auto-discovery fails."""
-        logger.info("🔧 Registering essential tools manually - using APPLICATION layer (Clean Architecture)")
+        logger.info(
+            "🔧 Registering essential tools manually - using APPLICATION layer (Clean Architecture)"
+        )
 
         # Import and register essential tools from APPLICATION layer (post-Clean Architecture migration)
         try:
             # System tools - APPLICATION LAYER
-            from kickai.features.shared.application.tools.system_tools import (
-                check_system_ping,
-                check_system_version,
-            )
-            from kickai.features.shared.application.tools.help_tools import (
-                show_help_commands,
-                show_help_final,
-            )
-            from kickai.features.shared.application.tools.user_tools import get_user_status
-            
             # Communication tools - APPLICATION LAYER
             from kickai.features.communication.application.tools.communication_tools import (
                 send_announcement,
                 send_message,
                 send_poll,
             )
-            
+
             # Player tools - APPLICATION LAYER
             from kickai.features.player_registration.application.tools.player_tools import (
                 approve_player,
@@ -579,7 +571,15 @@ class ToolRegistry:
                 get_player_status,
                 list_team_members_and_players,
             )
-            
+            from kickai.features.shared.application.tools.help_tools import (
+                show_help_commands,
+                show_help_final,
+            )
+            from kickai.features.shared.application.tools.system_tools import (
+                check_system_ping,
+                check_system_version,
+            )
+
             # Team administration tools - APPLICATION LAYER
             from kickai.features.team_administration.application.tools.player_management_tools import (
                 add_player,
@@ -620,7 +620,7 @@ class ToolRegistry:
             )
 
             self.register_tool(
-                tool_id="show_help_final", 
+                tool_id="show_help_final",
                 tool_type=ToolType.HELP,
                 category=ToolCategory.CORE,
                 name="show_help_final",
@@ -662,11 +662,11 @@ class ToolRegistry:
 
             # Register additional help tools
             from kickai.features.shared.application.tools.help_tools import (
+                get_system_commands,
                 show_help_usage,
                 show_help_welcome,
-                get_system_commands
             )
-            
+
             self.register_tool(
                 tool_id="show_help_usage",
                 tool_type=ToolType.HELP,
@@ -691,7 +691,7 @@ class ToolRegistry:
                 tool_id="get_system_commands",
                 tool_type=ToolType.HELP,
                 category=ToolCategory.CORE,
-                name="get_system_commands", 
+                name="get_system_commands",
                 description="Get available system commands based on user context",
                 tool_function=get_system_commands,
                 feature_module="shared",
@@ -821,20 +821,12 @@ class ToolRegistry:
                 feature_module="match_management",
             )
 
-            # Register user tools
-            self.register_tool(
-                tool_id="get_user_status",
-                tool_type=ToolType.SYSTEM,
-                category=ToolCategory.CORE,
-                name="get_user_status",
-                description="Get user status and information",
-                tool_function=get_user_status,
-                feature_module="shared",
+            # Register approve tools
+            from kickai.features.team_administration.application.tools.approve_tools import (
+                approve_user,
+                get_pending_users,
             )
 
-            # Register approve tools
-            from kickai.features.team_administration.application.tools.approve_tools import approve_user, get_pending_users
-            
             self.register_tool(
                 tool_id="approve_user",
                 tool_type=ToolType.TEAM_MANAGEMENT,

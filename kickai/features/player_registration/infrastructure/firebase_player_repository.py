@@ -73,17 +73,17 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
     def _generate_document_id(self, player: Player) -> str:
         """
         Generate consistent document ID for player.
-        
+
         Priority order:
         1. player_id (preferred - always use when available)
         2. phone_number (fallback only)
-        
+
         This ensures consistent document IDs across all operations.
         """
         # Always prefer player_id when available
         if player.player_id and player.player_id.strip():
             return player.player_id.strip()
-        
+
         raise ValueError(ERROR_MESSAGES["PLAYER_MISSING_ID"])
 
     def _prepare_player_data(self, player: Player) -> dict:
@@ -93,7 +93,7 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             "telegram_id": player.telegram_id,
             "player_id": player.player_id,
             "name": player.name,
-            "username": player.username,
+            "telegram_username": player.telegram_username,
             "position": player.position,
             "phone_number": player.phone_number,
             "email": player.email,
@@ -169,10 +169,22 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
                 filters=[{"field": "team_id", "operator": "==", "value": team_id}],
             )
 
-            return [self._doc_to_player(doc) for doc in docs]
+            # Convert docs to players with individual error handling
+            players = []
+            for doc in docs:
+                try:
+                    player = self._doc_to_player(doc)
+                    players.append(player)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to convert document to Player: {doc.get('name', 'Unknown')} ({doc.get('player_id', 'Unknown ID')}) - Error: {e}"
+                    )
+                    # Continue processing other players instead of failing entirely
+            return players
 
         except Exception as e:
             logger.error(ERROR_MESSAGES["GET_ALL_PLAYERS_FAILED"].format(team_id, e))
+            # Still return empty list if there's a database-level error
             return []
 
     async def update_player(self, player: Player) -> Player:
@@ -261,7 +273,9 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             return None
 
         except Exception as e:
-            logger.error(f"Failed to get player by telegram_id {telegram_id} for team {team_id}: {e}")
+            logger.error(
+                f"Failed to get player by telegram_id {telegram_id} for team {team_id}: {e}"
+            )
             return None
 
     async def get_active_players(self, team_id: str) -> list[Player]:
@@ -282,7 +296,9 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             logger.error(f"Failed to approve player {player_id} in team {team_id}: {e}")
             raise
 
-    async def update_player_field(self, telegram_id: int, team_id: str, field: str, value: str) -> bool:
+    async def update_player_field(
+        self, telegram_id: int, team_id: str, field: str, value: str
+    ) -> bool:
         """Update a single field for a player."""
         try:
             player = await self.get_player_by_telegram_id(telegram_id, team_id)
@@ -295,10 +311,14 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             return True
 
         except Exception as e:
-            logger.error(f"Failed to update player field {field} for telegram_id {telegram_id}: {e}")
+            logger.error(
+                f"Failed to update player field {field} for telegram_id {telegram_id}: {e}"
+            )
             return False
 
-    async def update_player_multiple_fields(self, telegram_id: int, team_id: str, updates: dict[str, str]) -> bool:
+    async def update_player_multiple_fields(
+        self, telegram_id: int, team_id: str, updates: dict[str, str]
+    ) -> bool:
         """Update multiple fields for a player."""
         try:
             player = await self.get_player_by_telegram_id(telegram_id, team_id)

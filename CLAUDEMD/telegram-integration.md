@@ -1,33 +1,51 @@
-# Telegram Integration - Bot API & Commands
+# Telegram Integration - Bot API & Context-Aware Commands
 
-## Command Processing Flow
+## Context-Aware Command Processing Flow
 ```
-User Input → AgenticMessageRouter → NLP Analysis → Agent → Tool → Response
+User Input → Manager LLM → Chat Context Analysis → Specialist Agent → Tool → Response
 ```
 
-**Entry Point:** `kickai/agents/agentic_message_router.py`
+**Entry Point:** `kickai/agents/crew_agents.py` (TeamManagementSystem)
 
-## Message Types & Routing
-- **Slash Commands:** `/help`, `/ping`, `/addplayer` → Direct agent routing
-- **Natural Language:** "update my status" → NLP_PROCESSOR → Intent analysis → Specialist agent  
-- **Interactive:** Invite links, status updates
+## Revolutionary Context-Aware Routing
+**Problem Solved:** `/myinfo` in main chat was incorrectly using member tools instead of player tools
 
-## Chat Types & Permissions
+**Solution:** Chat context determines user treatment and tool selection
+
+### Context-Aware Message Routing
+- **Slash Commands:** `/help`, `/ping`, `/myinfo` → Manager LLM analyzes context → Routes to appropriate agent
+- **Natural Language:** "show my status" → Manager LLM → Context analysis → Specialist agent  
+- **Context-Aware Tools:** Different tools used based on chat type
+
+## Chat Context & User Treatment
 ```python
 chat_type: str  # "main", "leadership", "private"
 ```
-- **Main Chat:** General commands, player operations
-- **Leadership Chat:** Admin operations (`/addplayer`, `/addmember`)
-- **Private Chat:** Personal commands (`/myinfo`, `/update`)
 
-## Command Examples
-**Leadership Commands (requires leadership chat):**
-- `/addplayer "John Smith" "+447123456789"` → TEAM_ADMINISTRATOR
-- `/addmember "Staff Member" "+447123456789"` → TEAM_ADMINISTRATOR
+### Chat Context Rules
+- **Main Chat** → Users are **PLAYERS** → `player_coordinator` + player tools
+- **Leadership Chat** → Users are **MEMBERS** → `team_administrator` + member tools  
+- **Private Chat** → Users are **PLAYERS** → `player_coordinator` + player tools
 
-**Player Commands (any chat):**
-- `/update position goalkeeper` → PLAYER_COORDINATOR
-- `/myinfo` → PLAYER_COORDINATOR  
+## Context-Aware Command Examples
+
+### `/myinfo` Command - Context Determines Routing
+**Main Chat:**
+- `/myinfo` → `player_coordinator` → `get_player_status_current` → Player game data
+
+**Leadership Chat:**
+- `/myinfo` → `team_administrator` → `get_member_status_current` → Admin/member data
+
+**Private Chat:**
+- `/myinfo` → `player_coordinator` → `get_player_status_current` → Player game data
+
+### Leadership Commands (requires leadership chat):
+- `/addplayer "John Smith" "+447123456789"` → TEAM_ADMINISTRATOR → `create_player`
+- `/addmember "Staff Member" "+447123456789"` → TEAM_ADMINISTRATOR → `create_member`
+
+### Player Commands (main/private chat):
+- `/update position goalkeeper` → PLAYER_COORDINATOR → `update_player_field`
+- `/list` → PLAYER_COORDINATOR → `list_players_active`  
 - `/help` → HELP_ASSISTANT
 
 ## Response Format

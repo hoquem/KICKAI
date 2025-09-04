@@ -5,24 +5,24 @@ Command analysis utilities.
 Provides intelligent command classification and analysis for the KICKAI system.
 """
 
-from typing import Optional
+
 from loguru import logger
 
 from kickai.agents.config.message_router_config import (
-    CLEAR_COMMAND_NAMES,
-    FOLLOWUP_INDICATORS,
     AMBIGUOUS_REFS,
-    SLASH_COMMAND_PREFIX,
+    CLEAR_COMMAND_NAMES,
     ERROR_MESSAGES,
-    WARNING_MESSAGES,
+    FOLLOWUP_INDICATORS,
     LOG_MESSAGES,
+    SLASH_COMMAND_PREFIX,
+    WARNING_MESSAGES,
 )
 
 
 class CommandAnalyzer:
     """
     Intelligent command analysis and classification.
-    
+
     Determines if messages require NLP processing or can be handled directly.
     """
 
@@ -114,7 +114,7 @@ class CommandAnalyzer:
             return False
 
     @staticmethod
-    def extract_command_from_text(text: str) -> Optional[str]:
+    def extract_command_from_text(text: str) -> str | None:
         """
         Extract the command portion from user text.
 
@@ -224,11 +224,11 @@ class CommandAnalyzer:
     def is_self_referential_command(command_metadata, original_text: str) -> bool:
         """
         Check if command is self-referential (e.g., /info without parameters).
-        
+
         Args:
             command_metadata: Command metadata from registry
             original_text: Original user input text
-            
+
         Returns:
             True if command is self-referential
         """
@@ -236,11 +236,14 @@ class CommandAnalyzer:
             # ALL business logic here
             text_parts = original_text.strip().split()
             if len(text_parts) == 1 and command_metadata.name.lower() in [
-                "info", "/info", "status", "/status",
+                "info",
+                "/info",
+                "status",
+                "/status",
             ]:
                 return True  # Single word info/status commands are clear (self-reference)
             return False
-            
+
         except Exception as e:
             logger.error(f"❌ Error in is_self_referential_command: {e}")
             return False
@@ -249,17 +252,17 @@ class CommandAnalyzer:
     def check_specific_clear_commands(command_name: str) -> bool:
         """
         Check if command is in the list of specifically clear commands.
-        
+
         Args:
             command_name: Command name to check
-            
+
         Returns:
             True if command is in clear commands list
         """
         try:
             # ALL business logic here
             return command_name.lower() in CLEAR_COMMAND_NAMES
-            
+
         except Exception as e:
             logger.error(f"❌ Error in check_specific_clear_commands: {e}")
             return False
@@ -319,7 +322,7 @@ class CommandAnalyzer:
             # ALL business logic here
             # Helper system is now proactive - no command-driven interactions
             return False
-            
+
         except Exception as e:
             logger.error(f"❌ Error in is_helper_command: {e}")
             return False

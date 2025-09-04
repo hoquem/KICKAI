@@ -1,6 +1,6 @@
 # CrewAI Guidelines for KICKAI Development
 
-**Version**: 3.2 | **CrewAI**: Native Intent-Based Routing | **Architecture**: 5-Agent Clean Tool Naming System
+**Version**: 3.3 | **CrewAI**: Native Intent-Based Routing | **Architecture**: 5-Agent Clean Tool Naming System
 
 This document provides comprehensive CrewAI-specific guidelines for working with KICKAI's native intent-based agent system with clean tool naming convention.
 
@@ -37,13 +37,13 @@ This document provides comprehensive CrewAI-specific guidelines for working with
 
 ### Agent Responsibilities
 
-| Agent | Primary Role | Key Tools (Clean Naming) | Chat Types |
-|-------|--------------|---------------------------|------------|
-| **MESSAGE_PROCESSOR** | Hierarchical manager & native routing | `check_system_ping`, `check_system_version`, `get_active_players` | All |
-| **PLAYER_COORDINATOR** | Player operations | `update_player_field`, `get_player_current_info`, `get_status_my` | All |
-| **TEAM_ADMINISTRATOR** | Team management | `add_team_member_simplified`, `update_team_member_information` | Leadership |
-| **SQUAD_SELECTOR** | Match management | `mark_player_availability`, `list_team_matches`, `select_match_squad` | All |
-| **HELP_ASSISTANT** | Help & documentation | `show_help_commands`, `show_help_final`, `show_help_usage` | All |
+| Agent | Primary Role | Key Tools (Clean Naming) | Parameter Patterns |
+|-------|--------------|---------------------------|-------------------|
+| **MESSAGE_PROCESSOR** | Hierarchical manager & native routing | `check_system_ping`, `check_system_version`, `get_active_players` | Minimal params only |
+| **PLAYER_COORDINATOR** | Player operations | `update_player_field`, `get_player_current_info`, `get_status_my` | User context when needed |
+| **TEAM_ADMINISTRATOR** | Team management | `add_team_member_simplified`, `update_team_member_information` | Team context + specific params |
+| **SQUAD_SELECTOR** | Match management | `mark_player_availability`, `list_team_matches`, `select_match_squad` | Match context + user when needed |
+| **HELP_ASSISTANT** | Help & documentation | `show_help_commands`, `show_help_final`, `show_help_usage` | Chat context for help targeting |
 
 ## 🔧 CrewAI Tool Development Patterns
 
@@ -57,13 +57,13 @@ from kickai.features.[feature].domain.services.[service_name] import [ServiceCla
 from kickai.core.dependency_container import get_container
 from kickai.utils.tool_validation import create_tool_response
 
-@tool("[action]_[entity]_[modifier]", result_as_answer=True)
+@tool("[action]_[entity]_[modifier]")
 async def [action]_[entity]_[modifier](
-    telegram_id: int, 
-    team_id: str, 
-    username: str, 
-    chat_type: str, 
-    **kwargs
+    telegram_id: str,  # Only include if tool needs user identity
+    team_id: str,      # Only include if tool needs team context
+    username: str,     # Only include if tool needs user display name
+    chat_type: str,    # Only include if tool behavior depends on chat context
+    specific_param: str # Tool-specific parameters as needed
 ) -> str:
     """
     [Clear tool description following clean naming convention]
@@ -71,97 +71,184 @@ async def [action]_[entity]_[modifier](
     Clean naming pattern: [action]_[entity]_[modifier]
     Example: update_player_field, get_status_my, show_help_commands
     
+    IMPORTANT: Only include parameters this tool actually uses!
+    
     Args:
-        telegram_id: User's Telegram ID
-        team_id: Team identifier  
-        username: User's Telegram username
-        chat_type: Type of chat (main, leadership, private)
-        **kwargs: Additional tool-specific parameters
+        telegram_id: User's Telegram ID (string) - only if tool needs user identity
+        team_id: Team identifier - only if tool needs team context
+        username: User's Telegram username - only if tool needs display name
+        chat_type: Type of chat context - only if behavior varies by chat
+        specific_param: Tool-specific parameters as required
         
     Returns:
-        JSON formatted response string
+        Plain text formatted response string (not JSON objects)
     """
     try:
+        # Validate only the parameters this tool actually uses
+        if not telegram_id:  # Only if tool needs this param
+            return "❌ User identification required"
+        if not team_id:  # Only if tool needs this param
+            return "❌ Team identifier required"
+        
+        # Convert telegram_id to int internally when needed for database
+        telegram_id_int = int(telegram_id) if telegram_id else 0
+        
+        # Delegate to domain service
         service = get_container().get_service([ServiceClass])
-        result = await service.[method_name](telegram_id, team_id, **kwargs)
-        return create_tool_response(True, data=result)
+        result = await service.[method_name](telegram_id_int, team_id, specific_param)
+        
+        # Return plain text response
+        return f"✅ Operation completed successfully: {result}"
+        
     except Exception as e:
-        return create_tool_response(False, f"Error in {[action]_[entity]_[modifier]}: {str(e)}")
+        logger.error(f"❌ Error in {[action]_[entity]_[modifier]}: {e}")
+        return f"❌ Failed to complete operation: {str(e)}"
 ```
 
-### 2. CrewAI Best Practice Parameter Handling
+### 2. Maintainable Docstring Strategy
 
-**CrewAI Dictionary Parameter Pattern (Standard 2025):**
+**Official KICKAI Pattern - Mandatory for All Tools**
+
+All CrewAI tools must follow this **official pattern** from CLAUDE.md:
+
 ```python
-@tool("update_player_field", result_as_answer=True)
-async def update_player_field(params) -> str:
-    """Handle CrewAI dictionary parameter passing following 2025 best practices."""
+@tool("tool_name")
+async def tool_name(...) -> str:
+    """
+    [SEMANTIC ACTION] - What business action does this perform?
+    
+    [BUSINESS CONTEXT] - Why this action matters and its business impact
+    
+    Use when: [BUSINESS INTENT TRIGGER - when this business need arises]
+    Required: [BUSINESS PERMISSIONS/CONDITIONS - what business rules apply]
+    
+    Returns: [SEMANTIC BUSINESS OUTCOME - what business result is delivered]
+    """
+```
+
+**Key Principles for Maintainable Docstrings:**
+1. **Focus on WHAT (semantics)** not HOW (implementation)
+2. **Business intent** over UI commands (/status vs "when status verification needed")
+3. **Timeless descriptions** that survive interface changes
+4. **Agent-friendly** for intelligent routing decisions
+
+**Examples of Maintainable vs Non-Maintainable:**
+
+```python
+# ❌ Non-maintainable - specific examples that become outdated
+"""
+Get player information for the current user.
+
+USE THIS FOR:
+- /myinfo command in player context
+- "my status", "my information" queries
+- When user asks "what's my info?"
+
+DO NOT USE FOR:
+- Looking up other players by name/ID
+- Use get_player_by_identifier for those cases
+"""
+
+# ✅ Maintainable - semantic intent that stays relevant
+"""
+Get requesting user's player information.
+
+This tool retrieves the current user's own player data including status,
+position, and team membership. Use when the user wants to see their
+own information, not when looking up other players.
+
+Use when: Player needs status verification
+Required: Active player registration
+Returns: Personal player status summary
+```
+
+### 3. CrewAI Direct Parameter Passing (Current Standard)
+
+**Direct Parameter Pattern - Tools Only Include What They Need:**
+```python
+# Example 1: Tool that NEEDS user context
+@tool("update_player_field")
+async def update_player_field(
+    telegram_id: str,  # NEEDED - identifies which player to update
+    team_id: str,      # NEEDED - scopes to correct team
+    field: str,        # NEEDED - what field to update
+    value: str         # NEEDED - new value
+    # Note: username and chat_type NOT included - tool doesn't need them
+) -> str:
+    """Update a player field - only includes parameters it actually uses."""
     try:
-        # CrewAI 2025: Detect dictionary parameter passing
-        if isinstance(params, dict):
-            # Extract from CrewAI parameter dictionary
-            telegram_id = params.get('telegram_id')
-            team_id = params.get('team_id') 
-            username = params.get('username')
-            chat_type = params.get('chat_type')
-            field = params.get('field')
-            value = params.get('value')
-        else:
-            # Fallback: Individual parameters
-            telegram_id = params  # First parameter
-            # Additional parameters would be handled via **kwargs
-        
-        # Robust type conversion
-        try:
-            telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
-        except (ValueError, TypeError):
-            return create_tool_response(False, "Invalid telegram_id format")
-        
-        # Parameter validation
+        # Validate required parameters
+        if not telegram_id:
+            return "❌ Player identification required"
         if not team_id:
-            return create_tool_response(False, "team_id is required")
-        if not username:
-            return create_tool_response(False, "username is required")
-            
-        # Clean service delegation
+            return "❌ Team identifier required"
+        if not field or not value:
+            return "❌ Field name and value are required"
+        
+        # Convert types internally when needed
+        telegram_id_int = int(telegram_id)
+        
+        # Delegate to service
         service = get_container().get_service(PlayerService)
-        result = await service.update_field(telegram_id, team_id, field, value)
-        return create_tool_response(True, data=result)
+        result = await service.update_field(telegram_id_int, team_id, field, value)
+        
+        return f"✅ Player {field} updated successfully to: {value}"
         
     except Exception as e:
-        return create_tool_response(False, f"Error in update_player_field: {str(e)}")
+        logger.error(f"❌ Error updating player field: {e}")
+        return f"❌ Failed to update player field: {str(e)}"
+
+# Example 2: Tool that DOESN'T need user context
+@tool("send_team_announcement")
+async def send_team_announcement(
+    team_id: str,    # NEEDED - which team to send to
+    message: str     # NEEDED - what to send
+    # Note: No telegram_id, username, chat_type - tool doesn't need user context
+) -> str:
+    """Send announcement to team - minimal parameters."""
+    try:
+        if not team_id or not message:
+            return "❌ Team ID and message are required"
+        
+        service = get_container().get_service(CommunicationService)
+        result = await service.send_announcement(team_id, message)
+        
+        return f"✅ Announcement sent to team {team_id}"
+        
+    except Exception as e:
+        return f"❌ Failed to send announcement: {str(e)}"
 ```
 
-### 3. Response Format Standards
+### 4. Response Format Standards
 
-**JSON Response Pattern:**
+**Plain Text Response Pattern (CrewAI Best Practice):**
 ```python
-from kickai.utils.json_response import create_json_response, ResponseStatus
+# Success response with formatting
+return f"""✅ **Player Updated Successfully**
 
-# Success response
-return create_json_response(
-    ResponseStatus.SUCCESS,
-    message="Operation completed successfully",
-    data={
-        "player_name": player.name,
-        "updated_field": field,
-        "new_value": value
-    }
-)
+👤 Player: {player.name}
+🔄 Field: {field}
+💾 New Value: {value}
+📅 Updated: {datetime.now().strftime('%H:%M')}"""
 
-# Error response
-return create_json_response(
-    ResponseStatus.ERROR,
-    message="Player not found",
-    error_code="PLAYER_NOT_FOUND"
-)
+# Error response - clear and actionable
+return "❌ Player not found. Please check the player ID and team."
 
-# Information response
-return create_json_response(
-    ResponseStatus.INFO,
-    message="Player status retrieved",
-    data=player_status
-)
+# Information response with structure
+return f"""📊 **Player Status: {player.name}**
+
+🆔 ID: {player.player_id}
+📊 Status: {player.status}
+⚽ Position: {player.position}
+📞 Phone: {player.phone_number}
+
+✅ Information retrieved successfully"""
+
+# List response with clear formatting
+players_text = "📋 **Active Players** (3 total)\n\n"
+for i, player in enumerate(players, 1):
+    players_text += f"{i}. ⚽ {player.name} ({player.position})\n"
+return players_text
 ```
 
 ## 🎯 Agent Collaboration Patterns
@@ -251,7 +338,7 @@ class TeamManagementSystem:
 ```python
 # Shared context structure for agent collaboration
 class AgentContext:
-    def __init__(self, telegram_id: int, team_id: str, username: str, chat_type: str):
+    def __init__(self, telegram_id: str, team_id: str, username: str, chat_type: str):
         self.telegram_id = telegram_id
         self.team_id = team_id
         self.username = username
@@ -284,9 +371,13 @@ Requirements:
 - Error handling: Comprehensive try/catch with specific exceptions
 - Testing: Unit tests for domain, integration tests for application
 
-Tool Signature:
-@tool("[tool_name]", result_as_answer=True)
-async def [tool_name](telegram_id: int, team_id: str, username: str, chat_type: str, [specific_params]) -> str:
+Tool Signature (Only Include Parameters Tool Actually Uses):
+@tool("[tool_name]")
+async def [tool_name](
+    telegram_id: str,    # Only if tool needs user identity
+    team_id: str,        # Only if tool needs team context  
+    [specific_params]: str  # Tool-specific parameters as needed
+) -> str:
 
 Integration:
 - Export from feature __init__.py
@@ -355,35 +446,33 @@ Integrate new functionality into KICKAI's 6-agent system:
 @pytest.mark.asyncio
 async def test_crewai_tool_success():
     # Given
-    mock_context = {
-        'telegram_id': 123456789,
-        'team_id': 'TEST',
-        'username': 'testuser',
-        'chat_type': 'main'
-    }
-    
-    # When
-    result = await tool_name(**mock_context)
+    # Test with only parameters the tool actually needs
+    result = await tool_name(
+        telegram_id="123456789",  # String type for LLM compatibility
+        team_id="TEST",
+        specific_param="test_value"
+        # Note: Only include params this specific tool uses
+    )
     
     # Then
     assert result is not None
-    response_data = json.loads(result)
-    assert response_data['status'] == 'success'
-    assert 'data' in response_data
+    assert isinstance(result, str)  # Tools return plain text
+    assert "✅" in result  # Success indicator in plain text
+    assert "error" not in result.lower()  # No error in successful response
 
 @pytest.mark.asyncio
-async def test_crewai_tool_parameter_dictionary():
-    # Test dictionary parameter handling
-    params_dict = {
-        'telegram_id': '123456789',  # String that needs conversion
-        'team_id': 'TEST',
-        'username': 'testuser',
-        'chat_type': 'main',
-        'additional_param': 'value'
-    }
+async def test_crewai_tool_type_conversion():
+    # Test string to int conversion for telegram_id
+    result = await tool_name(
+        telegram_id="123456789",  # String input
+        team_id="TEST"
+        # Only parameters this tool actually needs
+    )
     
-    result = await tool_name(params_dict)
-    assert 'Invalid telegram_id format' not in result
+    # Should handle string->int conversion internally
+    assert result is not None
+    assert "✅" in result or result.startswith("✅")
+    assert "Invalid telegram_id format" not in result
 ```
 
 ### 2. Agent Integration Testing
@@ -396,7 +485,7 @@ async def test_agent_task_execution():
     # Given
     agent = PlayerCoordinatorAgent()
     test_message = TelegramMessage(
-        telegram_id=123456789,
+        telegram_id="123456789",  # String type for consistency
         text="/update position goalkeeper",
         team_id="TEST",
         chat_type=ChatType.MAIN,
@@ -422,7 +511,7 @@ async def test_intelligent_routing_system():
     # Given
     system = TeamManagementSystem("TEST")
     message = TelegramMessage(
-        telegram_id=123456789,
+        telegram_id="123456789",  # String type for consistency
         text="I need to update my availability",
         team_id="TEST",
         chat_type=ChatType.MAIN,
@@ -521,4 +610,4 @@ PYTHONPATH=. python scripts/run_health_checks.py
 
 ---
 
-**Status**: Production Ready | **Agent System**: 5-Agent Clean Naming | **Routing**: Native CrewAI Intent-Based | **Tools**: 75+ with Clean Convention
+**Status**: Production Ready | **Agent System**: 5-Agent Clean Naming | **Routing**: Native CrewAI Intent-Based | **Tools**: 75+ with Clean Convention | **Docstrings**: Maintainable Semantic Focus

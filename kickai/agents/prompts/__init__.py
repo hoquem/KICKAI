@@ -14,7 +14,7 @@ Key Features:
 
 Usage:
     from kickai.agents.prompts import render_prompt, get_prompt_registry
-    
+
     # Render a prompt
     context = {
         'telegram_id': 123456789,
@@ -23,9 +23,9 @@ Usage:
         'chat_type': 'main',
         'message': 'What is my status?'
     }
-    
+
     prompt = render_prompt('intent_recognition', context)
-    
+
     # Get template registry for advanced usage
     registry = get_prompt_registry()
     template = registry.get_template('entity_extraction')
@@ -34,27 +34,24 @@ Usage:
 from kickai.agents.prompts.nlp_prompts import (
     # Core classes
     BasePromptTemplate,
-    FootballContextTemplate,
-    PromptTemplateRegistry,
-    
-    # Context models
-    PromptContext,
-    IntentAnalysisContext,
+    ConversationContextTemplate,
     EntityExtractionContext,
-    RoutingContext,
-    UpdateAnalysisContext,
-    PermissionValidationContext,
-    SimilarityAnalysisContext,
-    
+    EntityExtractionTemplate,
+    FootballContextTemplate,
+    IntentAnalysisContext,
     # Template implementations
     IntentRecognitionTemplate,
-    EntityExtractionTemplate,
-    ConversationContextTemplate,
-    SemanticSimilarityTemplate,
-    RoutingRecommendationTemplate,
-    UpdateContextTemplate,
+    PermissionValidationContext,
     PermissionValidationTemplate,
-    
+    # Context models
+    PromptContext,
+    PromptTemplateRegistry,
+    RoutingContext,
+    RoutingRecommendationTemplate,
+    SemanticSimilarityTemplate,
+    SimilarityAnalysisContext,
+    UpdateAnalysisContext,
+    UpdateContextTemplate,
     # Registry and convenience functions
     get_prompt_registry,
     render_prompt,
@@ -64,9 +61,8 @@ from kickai.agents.prompts.nlp_prompts import (
 __all__ = [
     # Core classes
     "BasePromptTemplate",
-    "FootballContextTemplate", 
+    "FootballContextTemplate",
     "PromptTemplateRegistry",
-    
     # Context models
     "PromptContext",
     "IntentAnalysisContext",
@@ -75,7 +71,6 @@ __all__ = [
     "UpdateAnalysisContext",
     "PermissionValidationContext",
     "SimilarityAnalysisContext",
-    
     # Template implementations
     "IntentRecognitionTemplate",
     "EntityExtractionTemplate",
@@ -84,7 +79,6 @@ __all__ = [
     "RoutingRecommendationTemplate",
     "UpdateContextTemplate",
     "PermissionValidationTemplate",
-    
     # Registry and convenience functions
     "get_prompt_registry",
     "render_prompt",

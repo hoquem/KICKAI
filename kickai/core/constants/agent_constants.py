@@ -158,7 +158,7 @@ class AgentConstants:
                 "max_tokens": cls.DATA_CRITICAL_MAX_TOKENS,
                 "max_iterations": cls.DATA_CRITICAL_MAX_ITERATIONS,
                 "timeout": cls.DATA_CRITICAL_TIMEOUT,
-                "memory_enabled": False,  # Disable for anti-hallucination
+                "memory_enabled": True,  # Enable for persistent crew memory
             }
         elif agent_role in cls.get_administrative_agent_roles():
             return {

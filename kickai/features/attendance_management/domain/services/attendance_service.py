@@ -1,4 +1,3 @@
-from typing import Optional
 import logging
 
 from kickai.core.dependency_container import get_container
@@ -15,7 +14,9 @@ from kickai.features.attendance_management.infrastructure.firestore_attendance_r
     FirestoreAttendanceRepository,
 )
 from kickai.features.match_management.domain.interfaces.match_service_interface import IMatchService
-from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+from kickai.features.player_registration.domain.interfaces.player_service_interface import (
+    IPlayerService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,8 @@ class AttendanceService:
         status: AttendanceStatus,
         team_id: str | None = None,
         response_method: AttendanceResponseMethod = AttendanceResponseMethod.COMMAND,
-        notes: Optional[str] = None,
-        marked_by: Optional[str] = None,
+        notes: str | None = None,
+        marked_by: str | None = None,
     ) -> Attendance:
         """
         Mark player attendance for a match.
@@ -109,11 +110,12 @@ class AttendanceService:
 
         except (RuntimeError, ValueError, KeyError, AttributeError) as e:
             from kickai.features.match_management.domain.exceptions import AttendanceError
+
             logger.error(f"Failed to mark attendance: {e}")
             attendance_error = AttendanceError(str(player_id), str(match_id), str(e))
             raise attendance_error from e
 
-    async def get_attendance_by_id(self, attendance_id: str) -> Optional[Attendance]:
+    async def get_attendance_by_id(self, attendance_id: str) -> Attendance | None:
         """Get attendance record by ID."""
         return await self.attendance_repository.get_by_id(attendance_id)
 
@@ -121,14 +123,18 @@ class AttendanceService:
         """Get all attendance records for a team."""
         return await self.attendance_repository.get_by_team(team_id)
 
-    async def get_attendance_by_match(self, match_id: str, team_id: Optional[str] = None) -> list[Attendance]:
+    async def get_attendance_by_match(
+        self, match_id: str, team_id: str | None = None
+    ) -> list[Attendance]:
         """Get all attendance records for a specific match."""
         # Repository in tests expects single arg; pass team_id only if provided
         if team_id is None:
             return await self.attendance_repository.get_by_match(match_id)
         return await self.attendance_repository.get_by_match(match_id, team_id)
 
-    async def get_attendance_by_player(self, player_id: str, team_id: Optional[str] = None) -> list[Attendance]:
+    async def get_attendance_by_player(
+        self, player_id: str, team_id: str | None = None
+    ) -> list[Attendance]:
         """Get all attendance records for a specific player."""
         if team_id is None:
             return await self.attendance_repository.get_by_player(player_id)
@@ -136,7 +142,7 @@ class AttendanceService:
 
     async def get_player_attendance_for_match(
         self, player_id: str, match_id: str, team_id: str
-    ) -> Optional[Attendance]:
+    ) -> Attendance | None:
         """Get attendance record for a specific player and match."""
         return await self.attendance_repository.get_by_player_and_match(
             player_id, match_id, team_id
@@ -147,7 +153,7 @@ class AttendanceService:
         return await self.attendance_repository.get_match_summary(match_id, team_id)
 
     async def get_player_attendance_stats(
-        self, player_id: str, team_id: str, year: Optional[int] = None
+        self, player_id: str, team_id: str, year: int | None = None
     ) -> dict:
         """Get attendance statistics for a player."""
         return await self.attendance_repository.get_player_stats(player_id, team_id, year)
@@ -212,7 +218,6 @@ class AttendanceService:
             return attendance_records
 
         except (RuntimeError, ValueError, KeyError, AttributeError) as e:
-            from kickai.features.match_management.domain.exceptions import AttendanceInitializationError
             logger.error(f"Failed to initialize match attendance: {e}")
             # Return empty list to prevent cascade failures
             return []
@@ -245,7 +250,6 @@ class AttendanceService:
             return available_players
 
         except (RuntimeError, ValueError, KeyError, AttributeError) as e:
-            from kickai.features.match_management.domain.exceptions import AttendanceError
             logger.error(f"Failed to get available players for match {match_id}: {e}")
             # Return empty list to prevent cascade failures
             return []
@@ -280,7 +284,6 @@ class AttendanceService:
             }
 
         except (RuntimeError, ValueError, KeyError, AttributeError) as e:
-            from kickai.features.match_management.domain.exceptions import AttendanceError
             logger.error(f"Failed to get team attendance summary: {e}")
             # Return empty dict to prevent cascade failures
             return {}

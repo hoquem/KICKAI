@@ -7,7 +7,7 @@ information about team interactions and context, using only CrewAI's native memo
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,21 +21,20 @@ class TeamMemory:
     def __init__(self, team_id: str):
         """
         Initialize team memory for a specific team.
-        
+
         Args:
             team_id: The team ID (required, no default)
         """
         if not team_id:
             raise ValueError("team_id is required and cannot be empty")
-        
+
         self.team_id = team_id
-        self._memory_store: Dict[str, Any] = {}
-        self._conversation_history: List[Dict[str, Any]] = []
-        self._telegram_memories: Dict[str, Dict[str, Any]] = {}
+        self._memory_store: dict[str, Any] = {}
+        self._conversation_history: list[dict[str, Any]] = []
+        self._telegram_memories: dict[str, dict[str, Any]] = {}
         logger.info(f"Initialized CrewAI-only team memory for {team_id}")
 
-    def get_memory(self, telegram_id: Optional[str] = None) -> Dict[str, Any]:
-
+    def get_memory(self, telegram_id: str | None = None) -> dict[str, Any]:
         """
         Get memory for a specific user or team-wide memory.
 
@@ -61,8 +60,11 @@ class TeamMemory:
             }
 
     def add_conversation(
-        self, telegram_id: str, input_text: str, output_text: str, context: Optional[Dict[str, Any]] = None
-
+        self,
+        telegram_id: str,
+        input_text: str,
+        output_text: str,
+        context: dict[str, Any] | None = None,
     ):
         """
         Add a conversation exchange to memory.
@@ -102,7 +104,9 @@ class TeamMemory:
 
         logger.debug(f"Added conversation to memory for telegram_id {telegram_id}")
 
-    def store_conversation(self, telegram_id: str, message: str, response: str, agent_role: str = None):
+    def store_conversation(
+        self, telegram_id: str, message: str, response: str, agent_role: str = None
+    ):
         """
         Store a conversation exchange in memory (alias for add_conversation).
 
@@ -116,9 +120,8 @@ class TeamMemory:
         self.add_conversation(telegram_id, message, response, context)
 
     def get_conversation_history(
-        self, telegram_id: Optional[str] = None, limit: Optional[int] = None
-
-    ) -> List[Dict[str, Any]]:
+        self, telegram_id: str | None = None, limit: int | None = None
+    ) -> list[dict[str, Any]]:
         """
         Get conversation history for a user or team.
 
@@ -139,8 +142,7 @@ class TeamMemory:
 
         return history
 
-    def clear_memory(self, telegram_id: Optional[str] = None):
-
+    def clear_memory(self, telegram_id: str | None = None):
         """
         Clear memory for a specific user or all memory.
 
@@ -157,7 +159,7 @@ class TeamMemory:
             self._telegram_memories.clear()
             logger.info(f"Cleared all team memory for {self.team_id}")
 
-    def get_memory_summary(self) -> Dict[str, Any]:
+    def get_memory_summary(self) -> dict[str, Any]:
         """
         Get a summary of memory usage.
 
@@ -176,9 +178,7 @@ class TeamMemory:
             else None,
         }
 
-
-    def get_telegram_memory_context(self, telegram_id: str) -> Dict[str, Any]:
-
+    def get_telegram_memory_context(self, telegram_id: str) -> dict[str, Any]:
         """
         Get user-specific memory context for agents.
 
@@ -208,15 +208,17 @@ class TeamMemory:
             "context": {},
         }
 
-    def get_user_memory_context(self, user_id: str) -> Dict[str, Any]:
+    def get_user_memory_context(self, user_id: str) -> dict[str, Any]:
         """
         Backward compatibility method - use get_telegram_memory_context instead.
-        
+
         Args:
             user_id: User ID (will be treated as telegram_id)
-            
+
         Returns:
             Dictionary with memory context
         """
-        logger.warning("get_user_memory_context is deprecated, use get_telegram_memory_context instead")
+        logger.warning(
+            "get_user_memory_context is deprecated, use get_telegram_memory_context instead"
+        )
         return self.get_telegram_memory_context(user_id)

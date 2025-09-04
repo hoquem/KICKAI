@@ -9,40 +9,42 @@ Instead of relying on agents to explicitly pass these parameters, we wrap
 tools to automatically inject context parameters from the execution context.
 """
 
-import inspect
 import functools
-from typing import Any, Callable, Dict, Optional
+import inspect
+from collections.abc import Callable
+from typing import Any
+
 from loguru import logger
 
 
 class ContextInjectionWrapper:
     """Wrapper that automatically injects context parameters into tool calls."""
-    
-    def __init__(self, context: Dict[str, Any]):
+
+    def __init__(self, context: dict[str, Any]):
         """
         Initialize context wrapper with execution context.
-        
+
         Args:
             context: Execution context containing telegram_id, team_id, username, chat_type
         """
         self.context = context
-        
+
         # Validate required context parameters
-        required_params = ['telegram_id', 'team_id', 'username', 'chat_type']
+        required_params = ["telegram_id", "team_id", "username", "chat_type"]
         missing_params = [param for param in required_params if not context.get(param)]
-        
+
         if missing_params:
             raise ValueError(f"Missing required context parameters: {', '.join(missing_params)}")
-            
+
         logger.debug(f"🔧 ContextInjectionWrapper initialized with context: {list(context.keys())}")
 
     def wrap_tool(self, tool_function: Callable) -> Callable:
         """
         Wrap a tool function to automatically inject context parameters.
-        
+
         Args:
             tool_function: The tool function to wrap
-            
+
         Returns:
             Wrapped function that injects context parameters
         """
@@ -50,140 +52,154 @@ class ContextInjectionWrapper:
             # Get function signature to understand parameters
             sig = inspect.signature(tool_function)
             param_names = list(sig.parameters.keys())
-            
+
             # Check if this tool expects context parameters
-            context_params = ['telegram_id', 'team_id', 'username', 'chat_type']
+            context_params = ["telegram_id", "team_id", "username", "chat_type"]
             expects_context = any(param in param_names for param in context_params)
-            
+
             if not expects_context:
                 # Tool doesn't need context injection, return as-is
-                logger.debug(f"🔧 Tool {getattr(tool_function, '__name__', 'unknown')} doesn't need context injection")
+                logger.debug(
+                    f"🔧 Tool {getattr(tool_function, '__name__', 'unknown')} doesn't need context injection"
+                )
                 return tool_function
-            
+
             @functools.wraps(tool_function)
             async def context_injected_tool(*args, **kwargs):
                 """Wrapper that injects context parameters automatically."""
                 try:
                     # First try to get context from CrewAI Task.config
                     task_context = self._extract_context_from_task()
-                    
+
                     # Merge Task.config context with stored context (Task.config takes precedence)
                     effective_context = self.context.copy()
                     if task_context:
                         effective_context.update(task_context)
-                        logger.debug(f"🔧 Updated context from Task.config: {list(task_context.keys())}")
-                    
+                        logger.debug(
+                            f"🔧 Updated context from Task.config: {list(task_context.keys())}"
+                        )
+
                     # Inject context parameters if they're not already provided
                     injected_kwargs = kwargs.copy()
-                    
+
                     for param in context_params:
                         if param in param_names and param not in injected_kwargs:
                             if param in effective_context:
                                 injected_kwargs[param] = effective_context[param]
-                                logger.debug(f"🔧 Injected {param}={effective_context[param]} into tool call")
-                    
+                                logger.debug(
+                                    f"🔧 Injected {param}={effective_context[param]} into tool call"
+                                )
+
                     # Call the original function with injected parameters
                     result = await tool_function(*args, **injected_kwargs)
-                    
-                    logger.debug(f"✅ Context-injected tool call completed successfully")
+
+                    logger.debug("✅ Context-injected tool call completed successfully")
                     return result
-                    
+
                 except Exception as e:
                     logger.error(f"❌ Context-injected tool call failed: {e}")
                     raise
-            
+
             # Preserve tool metadata for CrewAI - CRITICAL for tool discovery
-            if hasattr(tool_function, 'name'):
+            if hasattr(tool_function, "name"):
                 context_injected_tool.name = tool_function.name
-            if hasattr(tool_function, 'description'):
+            if hasattr(tool_function, "description"):
                 context_injected_tool.description = tool_function.description
-            if hasattr(tool_function, 'args_schema'):
+            if hasattr(tool_function, "args_schema"):
                 context_injected_tool.args_schema = tool_function.args_schema
-            if hasattr(tool_function, 'func'):
+            if hasattr(tool_function, "func"):
                 context_injected_tool.func = tool_function.func  # Preserve underlying function
-            if hasattr(tool_function, '_tool'):
+            if hasattr(tool_function, "_tool"):
                 context_injected_tool._tool = tool_function._tool  # Preserve CrewAI tool object
-            
+
             # Make sure the wrapper is callable like the original
             context_injected_tool.__call__ = context_injected_tool
-                
-            logger.debug(f"✅ Wrapped tool {getattr(tool_function, '__name__', 'unknown')} with context injection")
+
+            logger.debug(
+                f"✅ Wrapped tool {getattr(tool_function, '__name__', 'unknown')} with context injection"
+            )
             return context_injected_tool
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to wrap tool with context injection: {e}")
             return tool_function  # Return original if wrapping fails
 
-    def _extract_context_from_task(self) -> Optional[Dict[str, Any]]:
+    def _extract_context_from_task(self) -> dict[str, Any] | None:
         """
         DEPRECATED: Call stack inspection is unsafe and unnecessary.
-        
+
         With proper CrewAI parameter passing via unified parameter handler,
         context parameters are passed directly through tool arguments.
         This method is kept for backward compatibility but returns None.
         """
-        logger.debug("🔧 Context extraction via call stack is disabled (unsafe). Using direct parameter passing instead.")
+        logger.debug(
+            "🔧 Context extraction via call stack is disabled (unsafe). Using direct parameter passing instead."
+        )
         return None
 
     def wrap_tool_list(self, tools: list) -> list:
         """
         Wrap a list of tools with context injection.
-        
+
         Args:
             tools: List of tool functions to wrap
-            
+
         Returns:
             List of wrapped tools with context injection
         """
         wrapped_tools = []
-        
+
         for tool in tools:
             try:
                 wrapped_tool = self.wrap_tool(tool)
                 wrapped_tools.append(wrapped_tool)
-                
+
             except Exception as e:
                 logger.error(f"❌ Failed to wrap tool {getattr(tool, '__name__', 'unknown')}: {e}")
                 wrapped_tools.append(tool)  # Keep original if wrapping fails
-        
-        logger.info(f"🔧 Context wrapper processed {len(tools)} tools, wrapped {len(wrapped_tools)}")
+
+        logger.info(
+            f"🔧 Context wrapper processed {len(tools)} tools, wrapped {len(wrapped_tools)}"
+        )
         return wrapped_tools
 
 
-def create_context_wrapper(execution_context: Dict[str, Any]) -> ContextInjectionWrapper:
+def create_context_wrapper(execution_context: dict[str, Any]) -> ContextInjectionWrapper:
     """
     Create a context wrapper from execution context.
-    
+
     Args:
         execution_context: Execution context containing required parameters
-        
+
     Returns:
         ContextInjectionWrapper configured with the provided context
     """
     return ContextInjectionWrapper(execution_context)
 
 
-def apply_context_injection_to_agent_tools(agent_tools: list, execution_context: Dict[str, Any]) -> list:
+def apply_context_injection_to_agent_tools(
+    agent_tools: list, execution_context: dict[str, Any]
+) -> list:
     """
     Apply context injection to agent tools.
-    
+
     This is the main function to use in the crew system to automatically
     inject context parameters into tool calls.
-    
+
     Args:
         agent_tools: List of tools assigned to an agent
         execution_context: Execution context with required parameters
-        
+
     Returns:
         List of context-wrapped tools
     """
     try:
         wrapper = create_context_wrapper(execution_context)
         wrapped_tools = wrapper.wrap_tool_list(agent_tools)
-        
+
         logger.info(f"🎯 Applied context injection to {len(agent_tools)} agent tools")
         return wrapped_tools
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to apply context injection to agent tools: {e}")
         return agent_tools  # Return original tools if injection fails

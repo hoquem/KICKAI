@@ -12,11 +12,11 @@ task_templates:
     Context parameters available (STANDARDIZED ORDER):
     - telegram_id: User's Telegram ID (int)
     - team_id: Team identifier (str)
-    - username: User's username (str)
+    - telegram_username: User's telegram username (str)
     - chat_type: Chat context (str: main/leadership/private)
     
     TOOL NAMING PATTERN:
-    [action]_[entity]_[modifier] - e.g., get_player_info, create_member, list_players_active
+    [action]_[entity]_[modifier] - e.g., get_player_self, get_player_by_identifier, create_member, list_players_active
     
     CREWAI NATIVE WORKFLOW:
     1. Manager agent (MESSAGE_PROCESSOR) analyzes user intent
@@ -50,7 +50,7 @@ tasks:
       - Team administration → TEAM_ADMINISTRATOR
       - Match/squad operations → SQUAD_SELECTOR
       
-      Context parameters: telegram_id, team_id, username, chat_type
+      Context parameters: telegram_id, team_id, telegram_username, chat_type
     expected_output: >
       Coordinated response from appropriate specialist agent with preserved formatting.
     agent: message_processor
@@ -62,7 +62,7 @@ tasks:
       
       Use structured description with embedded context:
       - For /help requests, use show_help_commands tool first
-      - Pass telegram_id, team_id, username, chat_type to tools (STANDARDIZED ORDER)
+      - Pass telegram_id, team_id, telegram_username, chat_type to tools (STANDARDIZED ORDER)
       - Use get_system_commands for context-specific command lists
       - Use show_help_usage for detailed command explanations
       - Use show_help_welcome ONLY for new user onboarding
@@ -78,7 +78,7 @@ tasks:
       Use structured description with embedded context:
       - Use check_system_ping for connectivity tests
       - Use check_system_version for system information
-      - Use get_status_my for user status queries
+      - Use get_player_status_self or get_member_status_self for user status queries
       - Pass context parameters in standardized order
     expected_output: >
       System status information with complete tool outputs.
@@ -90,8 +90,8 @@ tasks:
       Handle complete player lifecycle and information management.
       
       Use structured description with embedded context:
-      - Pass telegram_id, team_id, username, chat_type to player tools (STANDARDIZED ORDER)
-      - Use get_status_my for current user, get_player_info for specific players
+      - Pass telegram_id, team_id, telegram_username, chat_type to player tools (STANDARDIZED ORDER)
+      - Use get_player_self for current user, get_player_by_identifier for specific players
       - Use list_players_all (all) or list_players_active (active only) for lists
       - Use approve_player for player approvals
       - Use update_player_field/update_player_multiple for updates
@@ -120,7 +120,7 @@ tasks:
       Handle team member management, roles, and governance.
       
       Use structured description with embedded context:
-      - Pass telegram_id, team_id, username, chat_type to team tools (STANDARDIZED ORDER)
+      - Pass telegram_id, team_id, telegram_username, chat_type to team tools (STANDARDIZED ORDER)
       - Use create_member for new team members with invite links
       - Use create_player for player registration (administrative function)
       - Use get_member_info for member information
@@ -152,7 +152,7 @@ tasks:
       Handle complete match lifecycle, availability tracking, and squad selection.
       
       Use structured description with embedded context:
-      - Pass telegram_id, team_id, username, chat_type plus match_id, player_id as needed (STANDARDIZED ORDER)
+      - Pass telegram_id, team_id, telegram_username, chat_type plus match_id, player_id as needed (STANDARDIZED ORDER)
       - Use create_match, list_matches, get_match_details for match operations
       - Use mark_availability, get_availability for availability management
       - Use select_squad_match, list_squad_available for squad building
@@ -211,7 +211,7 @@ execution_guidelines:
     Delegation Context:
     - User Telegram ID: {telegram_id} 
     - Team ID: {team_id}
-    - Username: {username}
+    - Username: {telegram_username}
     - Chat Type: {chat_type}
     
     Manager Instructions:
@@ -222,14 +222,14 @@ execution_guidelines:
     
     Specialist Instructions:
     Use the provided context information to call tools with the appropriate parameters.
-    Pass telegram_id, team_id, username, and chat_type as direct parameters to tools (STANDARDIZED ORDER).
+    Pass telegram_id, team_id, telegram_username, and chat_type as direct parameters to tools (STANDARDIZED ORDER).
     ```
   
   parameter_passing: |
     CRITICAL: Always pass context parameters directly to tools in STANDARDIZED ORDER:
     - telegram_id: User identification (int)
     - team_id: Required by most tools (str)
-    - username: Display name (str)
+    - telegram_username: Display name (str)
     - chat_type: Permission context (str: main/leadership/private)
   
   response_handling: |

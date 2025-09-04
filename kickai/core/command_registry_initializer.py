@@ -1,4 +1,3 @@
-from typing import Optional
 #!/usr/bin/env python3
 """
 Command Registry Initializer
@@ -21,7 +20,7 @@ class CommandRegistryInitializer:
     """
 
     def __init__(self):
-        self.registry: Optional[CommandRegistry] = None
+        self.registry: CommandRegistry | None = None
         self._initialized = False
 
     def initialize(self) -> CommandRegistry:
@@ -74,7 +73,6 @@ class CommandRegistryInitializer:
             "kickai.features.match_management.application.commands.match_commands",
             # Attendance management commands
             "kickai.features.attendance_management.application.commands.attendance_commands",
-
             # Communication commands
             "kickai.features.communication.application.commands.communication_commands",
             # Shared commands
@@ -130,7 +128,7 @@ class CommandRegistryInitializer:
         except Exception as e:
             logger.error(f"❌ Error copying commands from global registry: {e}")
 
-    def get_registry(self) -> Optional[CommandRegistry]:
+    def get_registry(self) -> CommandRegistry | None:
         """Get the initialized registry instance."""
         if not self._initialized:
             raise RuntimeError("Command registry not initialized. Call initialize() first.")
@@ -167,7 +165,7 @@ def get_initialized_command_registry() -> CommandRegistry:
     # This is the key change: if not initialized, initialize it.
     if not _command_registry_initializer._initialized:
         initialize_command_registry()
-    
+
     registry = _command_registry_initializer.get_registry()
     if not registry:
         # This should theoretically never be reached if initialization is successful

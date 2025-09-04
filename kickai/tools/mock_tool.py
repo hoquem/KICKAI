@@ -1,5 +1,6 @@
 from crewai.tools import tool
 
+
 @tool("mock_list_team_members_and_players")
 def mock_list_team_members_and_players(team_id: str) -> str:
     """

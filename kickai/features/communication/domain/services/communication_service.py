@@ -2,7 +2,6 @@
 Communication Service for handling Telegram communication operations.
 """
 
-from typing import Optional, Set, Union
 from loguru import logger
 
 from kickai.core.enums import ChatType
@@ -12,7 +11,7 @@ from kickai.features.communication.infrastructure.telegram_bot_service import Te
 class CommunicationService:
     """Service for handling communication operations including Telegram messaging."""
 
-    def __init__(self, telegram_bot_service: Optional[TelegramBotService] = None):
+    def __init__(self, telegram_bot_service: TelegramBotService | None = None):
         self.telegram_bot_service = telegram_bot_service
 
     def set_telegram_bot_service(self, telegram_bot_service: TelegramBotService):
@@ -20,7 +19,9 @@ class CommunicationService:
         self.telegram_bot_service = telegram_bot_service
         logger.info("✅ CommunicationService: TelegramBotService set")
 
-    async def send_message(self, message: str, chat_type: Union[str, ChatType], team_id: str, telegram_id: Optional[int] = None) -> bool:
+    async def send_message(
+        self, message: str, chat_type: str | ChatType, team_id: str, telegram_id: int | None = None
+    ) -> bool:
         """
         Send a message to a specific chat type.
 
@@ -55,7 +56,7 @@ class CommunicationService:
             elif chat_type_enum == ChatType.PRIVATE:
                 # For private chat, send to the user's private chat using telegram_id
                 if telegram_id is None:
-                    logger.error(f"Private chat messaging requires telegram_id parameter")
+                    logger.error("Private chat messaging requires telegram_id parameter")
                     return False
                 chat_id = str(telegram_id)  # Convert to string for consistency
             else:
@@ -68,7 +69,9 @@ class CommunicationService:
 
             # Send the message using TelegramBotService (plain text only)
             await self.telegram_bot_service.send_message(chat_id, message)
-            logger.info(f"✅ Plain text message sent to {chat_type_enum.value} chat (team_id: {team_id})")
+            logger.info(
+                f"✅ Plain text message sent to {chat_type_enum.value} chat (team_id: {team_id})"
+            )
             return True
 
         except Exception as e:

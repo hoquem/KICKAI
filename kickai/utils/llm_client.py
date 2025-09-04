@@ -6,7 +6,7 @@ in the KICKAI system.
 """
 
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -29,21 +29,21 @@ async def extract_intent(message: str, context: str = "") -> dict[str, Any]:
     # Use the new LLM-based intent recognizer
     recognizer = LLMIntentRecognizer()
     context_dict = {"context": context} if context else {}
-    
+
     result = await recognizer.extract_intent(message, context_dict)
-    
+
     return {
         "intent": result.intent,
         "entities": result.entities,
         "confidence": result.confidence,
-        "reasoning": result.reasoning
+        "reasoning": result.reasoning,
     }
 
 
 class LLMClient:
     """LLM client for natural language processing."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
         self._llm_instance = None
         self._intent_recognizer = None
@@ -73,12 +73,12 @@ class LLMClient:
         if self._intent_recognizer:
             context_dict = {"context": context} if context else {}
             result = await self._intent_recognizer.extract_intent(message, context_dict)
-            
+
             return {
                 "intent": result.intent,
                 "entities": result.entities,
                 "confidence": result.confidence,
-                "reasoning": result.reasoning
+                "reasoning": result.reasoning,
             }
         else:
             # Fallback to the async wrapper
@@ -128,8 +128,7 @@ class LLMClient:
 
         # Generate response using the LLM instance with timeout
         response = await asyncio.wait_for(
-            self._llm_instance.generate_text(full_prompt),
-            timeout=30.0
+            self._llm_instance.generate_text(full_prompt), timeout=30.0
         )
 
         return response if response else "No response generated"
@@ -152,7 +151,7 @@ class LLMClient:
             "success": True,
             "analysis_type": analysis_type,
             "result": result,
-            "original_text": text
+            "original_text": text,
         }
 
     def _create_analysis_prompt(self, text: str, analysis_type: str) -> str:

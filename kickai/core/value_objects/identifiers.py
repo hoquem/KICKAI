@@ -47,7 +47,9 @@ class TeamId:
             raise ValueError("TeamId cannot exceed 50 characters")
         # Team IDs should be alphanumeric with underscores/hyphens
         if not re.match(r"^[a-zA-Z0-9_-]+$", self.value):
-            raise ValueError("TeamId must contain only alphanumeric characters, underscores, and hyphens")
+            raise ValueError(
+                "TeamId must contain only alphanumeric characters, underscores, and hyphens"
+            )
 
     def __str__(self) -> str:
         return self.value

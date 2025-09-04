@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class TaskStatus(Enum):
@@ -35,10 +35,10 @@ class TaskTemplate:
     id: str
     name: str
     description: str
-    parameters: List[TaskParameter]
+    parameters: list[TaskParameter]
     agent_type: str
 
-    def instantiate(self, params: Dict[str, Any]) -> "Task":
+    def instantiate(self, params: dict[str, Any]) -> Task:
         for p in self.parameters:
             if p.required and p.name not in params:
                 raise TaskParameterValidationError(f"Missing required parameter: {p.name}")
@@ -64,15 +64,15 @@ class Task:
     name: str
     description: str
     status: TaskStatus
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    parameters: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
-    template_name: Optional[str] = None
+    template_name: str | None = None
 
 
 class TaskRegistry:
     def __init__(self) -> None:
-        self._templates: Dict[str, TaskTemplate] = {}
+        self._templates: dict[str, TaskTemplate] = {}
         # Seed a minimal set used by tests
         self.register_template(
             TaskTemplate(
@@ -100,7 +100,9 @@ class TaskRegistry:
                 id="payment_processing",
                 name="Payment Processing",
                 description="Process a payment",
-                parameters=[TaskParameter("payment", TaskParameterType.STRING, "Payment info", True)],
+                parameters=[
+                    TaskParameter("payment", TaskParameterType.STRING, "Payment info", True)
+                ],
                 agent_type="finance_manager",
             )
         )
@@ -117,16 +119,18 @@ class TaskRegistry:
     def register_template(self, template: TaskTemplate) -> None:
         self._templates[template.id] = template
 
-    def get_template(self, template_id: str) -> Optional[TaskTemplate]:
+    def get_template(self, template_id: str) -> TaskTemplate | None:
         return self._templates.get(template_id)
 
-    def list_templates(self) -> List[TaskTemplate]:
+    def list_templates(self) -> list[TaskTemplate]:
         return list(self._templates.values())
 
-    def get_templates_by_agent_type(self, agent_type: str) -> List[TaskTemplate]:
+    def get_templates_by_agent_type(self, agent_type: str) -> list[TaskTemplate]:
         return [t for t in self._templates.values() if t.agent_type == agent_type]
 
-    def create_task(self, template_id: str, params: Dict[str, Any], task_id: Optional[str] = None) -> Task:
+    def create_task(
+        self, template_id: str, params: dict[str, Any], task_id: str | None = None
+    ) -> Task:
         template = self.get_template(template_id)
         if not template:
             raise ValueError("Template not found")
@@ -147,5 +151,3 @@ class TaskRegistry:
 
     def create_team_creation_task(self, team: Any) -> Task:
         return self.create_task("team_creation", {"team": team})
-
-

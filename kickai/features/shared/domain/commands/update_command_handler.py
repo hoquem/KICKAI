@@ -41,7 +41,11 @@ class UpdateCommandHandler:
         """
         try:
             # Safe chat_type access for logging
-            chat_type_str = user_context.chat_type if isinstance(user_context.chat_type, str) else user_context.chat_type.value
+            chat_type_str = (
+                user_context.chat_type
+                if isinstance(user_context.chat_type, str)
+                else user_context.chat_type.value
+            )
             self.logger.info(
                 f"🔄 Processing /update command: chat_type={chat_type_str}, args={command_args}"
             )
@@ -77,7 +81,9 @@ class UpdateCommandHandler:
     ) -> CommandResponse:
         """Handle player information update in main chat."""
         try:
-            self.logger.info(f"👤 Player update: telegram_id={user_context.telegram_id}, field={field}")
+            self.logger.info(
+                f"👤 Player update: telegram_id={user_context.telegram_id}, field={field}"
+            )
 
             # Check if user is registered as a player
             if not user_context.is_registered or not user_context.is_player:
@@ -113,11 +119,16 @@ class UpdateCommandHandler:
 
             # Enhance task description with context parameters
             from kickai.utils.task_description_enhancer import TaskDescriptionEnhancer
-            enhanced_task_description = TaskDescriptionEnhancer.enhance_task_description(task_description, execution_context)
+
+            enhanced_task_description = TaskDescriptionEnhancer.enhance_task_description(
+                task_description, execution_context
+            )
 
             # Execute with PlayerCoordinatorAgent via CrewAI
             if crewai_system:
-                result = await crewai_system.execute_task(enhanced_task_description, execution_context)
+                result = await crewai_system.execute_task(
+                    enhanced_task_description, execution_context
+                )
                 return CommandResponse(message=result, success="✅" in result)
             else:
                 return CommandResponse(
@@ -172,11 +183,16 @@ class UpdateCommandHandler:
 
             # Enhance task description with context parameters
             from kickai.utils.task_description_enhancer import TaskDescriptionEnhancer
-            enhanced_task_description = TaskDescriptionEnhancer.enhance_task_description(task_description, execution_context)
+
+            enhanced_task_description = TaskDescriptionEnhancer.enhance_task_description(
+                task_description, execution_context
+            )
 
             # Execute with TeamManagerAgent via CrewAI
             if crewai_system:
-                result = await crewai_system.execute_task(enhanced_task_description, execution_context)
+                result = await crewai_system.execute_task(
+                    enhanced_task_description, execution_context
+                )
                 return CommandResponse(message=result, success="✅" in result)
             else:
                 return CommandResponse(
@@ -256,10 +272,15 @@ class UpdateCommandHandler:
 
                 # Enhance task description with context parameters
                 from kickai.utils.task_description_enhancer import TaskDescriptionEnhancer
-                enhanced_task_description = TaskDescriptionEnhancer.enhance_task_description(task_description, execution_context)
+
+                enhanced_task_description = TaskDescriptionEnhancer.enhance_task_description(
+                    task_description, execution_context
+                )
 
                 if crewai_system:
-                    result = await crewai_system.execute_task(enhanced_task_description, execution_context)
+                    result = await crewai_system.execute_task(
+                        enhanced_task_description, execution_context
+                    )
                     return CommandResponse(message=result, success=True)
 
             elif user_context.chat_type == ChatType.LEADERSHIP:
@@ -278,10 +299,15 @@ class UpdateCommandHandler:
 
                 # Enhance task description with context parameters
                 from kickai.utils.task_description_enhancer import TaskDescriptionEnhancer
-                enhanced_task_description = TaskDescriptionEnhancer.enhance_task_description(task_description, execution_context)
+
+                enhanced_task_description = TaskDescriptionEnhancer.enhance_task_description(
+                    task_description, execution_context
+                )
 
                 if crewai_system:
-                    result = await crewai_system.execute_task(enhanced_task_description, execution_context)
+                    result = await crewai_system.execute_task(
+                        enhanced_task_description, execution_context
+                    )
                     return CommandResponse(message=result, success=True)
 
             # Fallback response

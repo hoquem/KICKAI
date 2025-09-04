@@ -6,16 +6,14 @@ Provides secure and robust phone number validation for the KICKAI system.
 Uses Google's phonenumbers library for international phone number validation.
 """
 
-from typing import Optional
-from loguru import logger
+
 import phonenumbers
+from loguru import logger
 
 from kickai.agents.config.message_router_config import (
+    PHONE_ALLOWED_CHARS,
     PHONE_NUMBER_MAX_LENGTH,
     PHONE_NUMBER_MIN_LENGTH,
-    PHONE_NUMBER_MAX_DIGITS,
-    PHONE_NUMBER_MIN_DIGITS,
-    PHONE_ALLOWED_CHARS,
     WARNING_MESSAGES,
 )
 
@@ -23,7 +21,7 @@ from kickai.agents.config.message_router_config import (
 class PhoneValidator:
     """
     Secure phone number validation with security considerations.
-    
+
     Uses Google's phonenumbers library for robust international phone number
     validation and formatting. Validates phone numbers against international
     standards and prevents common attack vectors like DoS through oversized inputs.
@@ -61,15 +59,15 @@ class PhoneValidator:
             try:
                 # Try parsing with US as default country
                 phone_number = phonenumbers.parse(text, "US")
-                
+
                 # Check if it's a possible number (less strict validation)
                 if not phonenumbers.is_possible_number(phone_number):
                     return False
-                
+
                 # For validation, we'll be more lenient and accept possible numbers
                 # rather than requiring them to be strictly valid
                 return True
-                
+
             except phonenumbers.NumberParseException:
                 # Try parsing without country code
                 try:
@@ -77,19 +75,19 @@ class PhoneValidator:
                     return phonenumbers.is_possible_number(phone_number)
                 except phonenumbers.NumberParseException:
                     return False
-            
+
         except Exception as e:
             logger.error(f"❌ Error in looks_like_phone_number: {e}")
             return False
 
     @staticmethod
-    def normalize_phone_number(phone: str) -> Optional[str]:
+    def normalize_phone_number(phone: str) -> str | None:
         """
         Normalize phone number to E.164 international format.
-        
+
         Args:
             phone: Raw phone number string
-            
+
         Returns:
             Normalized phone number in E.164 format (+1234567890) or None if invalid
         """
@@ -97,7 +95,7 @@ class PhoneValidator:
             # ALL business logic here
             if not PhoneValidator.looks_like_phone_number(phone):
                 return None
-                
+
             # Parse the phone number
             try:
                 # Try parsing with US as default country
@@ -108,28 +106,30 @@ class PhoneValidator:
                     phone_number = phonenumbers.parse(phone, None)
                 except phonenumbers.NumberParseException:
                     return None
-            
+
             # Check if it's possible (less strict than valid)
             if not phonenumbers.is_possible_number(phone_number):
                 return None
-                
+
             # Format to E.164 international format
-            normalized = phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)
-            
+            normalized = phonenumbers.format_number(
+                phone_number, phonenumbers.PhoneNumberFormat.E164
+            )
+
             return normalized
-            
+
         except Exception as e:
             logger.error(f"❌ Error in normalize_phone_number: {e}")
             return None
 
     @staticmethod
-    def validate_phone_for_linking(phone: str) -> tuple[bool, Optional[str]]:
+    def validate_phone_for_linking(phone: str) -> tuple[bool, str | None]:
         """
         Validate phone number specifically for user linking operations.
-        
+
         Args:
             phone: Phone number to validate
-            
+
         Returns:
             Tuple of (is_valid, normalized_phone_or_error_message)
         """
@@ -137,25 +137,25 @@ class PhoneValidator:
             # ALL business logic here
             if not PhoneValidator.looks_like_phone_number(phone):
                 return False, "Invalid phone number format"
-                
+
             normalized = PhoneValidator.normalize_phone_number(phone)
             if not normalized:
                 return False, "Could not normalize phone number"
-                
+
             return True, normalized
-            
+
         except Exception as e:
             logger.error(f"❌ Error in validate_phone_for_linking: {e}")
             return False, "Phone validation failed"
 
     @staticmethod
-    def get_phone_info(phone: str) -> Optional[dict]:
+    def get_phone_info(phone: str) -> dict | None:
         """
         Get detailed information about a phone number.
-        
+
         Args:
             phone: Phone number to analyze
-            
+
         Returns:
             Dictionary with phone number information or None if invalid
         """
@@ -163,7 +163,7 @@ class PhoneValidator:
             # ALL business logic here
             if not PhoneValidator.looks_like_phone_number(phone):
                 return None
-                
+
             # Parse the phone number
             try:
                 phone_number = phonenumbers.parse(phone, "US")
@@ -172,10 +172,10 @@ class PhoneValidator:
                     phone_number = phonenumbers.parse(phone, None)
                 except phonenumbers.NumberParseException:
                     return None
-            
+
             # Get country information
             country_code = phonenumbers.region_code_for_number(phone_number)
-            
+
             # Get number type
             number_type = phonenumbers.number_type(phone_number)
             type_names = {
@@ -191,12 +191,18 @@ class PhoneValidator:
                 phonenumbers.PhoneNumberType.UAN: "uan",
                 phonenumbers.PhoneNumberType.UNKNOWN: "unknown",
             }
-            
+
             # Format in different formats
-            national_format = phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.NATIONAL)
-            international_format = phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.INTERNATIONAL)
-            e164_format = phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)
-            
+            national_format = phonenumbers.format_number(
+                phone_number, phonenumbers.PhoneNumberFormat.NATIONAL
+            )
+            international_format = phonenumbers.format_number(
+                phone_number, phonenumbers.PhoneNumberFormat.INTERNATIONAL
+            )
+            e164_format = phonenumbers.format_number(
+                phone_number, phonenumbers.PhoneNumberFormat.E164
+            )
+
             return {
                 "is_valid": phonenumbers.is_valid_number(phone_number),
                 "is_possible": phonenumbers.is_possible_number(phone_number),
@@ -209,7 +215,7 @@ class PhoneValidator:
                 "national_number": str(phone_number.national_number),
                 "country_calling_code": phone_number.country_code,
             }
-            
+
         except Exception as e:
             logger.error(f"❌ Error in get_phone_info: {e}")
             return None
@@ -218,10 +224,10 @@ class PhoneValidator:
     def is_mobile_number(phone: str) -> bool:
         """
         Check if the phone number is a mobile number.
-        
+
         Args:
             phone: Phone number to check
-            
+
         Returns:
             True if it's a mobile number, False otherwise
         """
@@ -229,7 +235,7 @@ class PhoneValidator:
             # ALL business logic here
             if not PhoneValidator.looks_like_phone_number(phone):
                 return False
-                
+
             # Parse the phone number
             try:
                 phone_number = phonenumbers.parse(phone, "US")
@@ -238,24 +244,24 @@ class PhoneValidator:
                     phone_number = phonenumbers.parse(phone, None)
                 except phonenumbers.NumberParseException:
                     return False
-            
+
             # Check if it's a mobile number
             number_type = phonenumbers.number_type(phone_number)
             return number_type == phonenumbers.PhoneNumberType.MOBILE
-            
+
         except Exception as e:
             logger.error(f"❌ Error in is_mobile_number: {e}")
             return False
 
     @staticmethod
-    def format_for_display(phone: str, format_type: str = "national") -> Optional[str]:
+    def format_for_display(phone: str, format_type: str = "national") -> str | None:
         """
         Format phone number for display purposes.
-        
+
         Args:
             phone: Phone number to format
             format_type: Format type ("national", "international", "e164")
-            
+
         Returns:
             Formatted phone number or None if invalid
         """
@@ -263,7 +269,7 @@ class PhoneValidator:
             # ALL business logic here
             if not PhoneValidator.looks_like_phone_number(phone):
                 return None
-                
+
             # Parse the phone number
             try:
                 phone_number = phonenumbers.parse(phone, "US")
@@ -272,17 +278,19 @@ class PhoneValidator:
                     phone_number = phonenumbers.parse(phone, None)
                 except phonenumbers.NumberParseException:
                     return None
-            
+
             # Format based on requested type
             format_map = {
                 "national": phonenumbers.PhoneNumberFormat.NATIONAL,
                 "international": phonenumbers.PhoneNumberFormat.INTERNATIONAL,
                 "e164": phonenumbers.PhoneNumberFormat.E164,
             }
-            
-            phone_format = format_map.get(format_type.lower(), phonenumbers.PhoneNumberFormat.NATIONAL)
+
+            phone_format = format_map.get(
+                format_type.lower(), phonenumbers.PhoneNumberFormat.NATIONAL
+            )
             return phonenumbers.format_number(phone_number, phone_format)
-            
+
         except Exception as e:
             logger.error(f"❌ Error in format_for_display: {e}")
             return None

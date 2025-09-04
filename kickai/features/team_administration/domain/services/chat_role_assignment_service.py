@@ -12,7 +12,7 @@ This service handles automatic role assignment based on chat membership:
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # TeamMemberService removed - using mock service instead
 # Import TeamMember dynamically to avoid circular imports
@@ -44,7 +44,10 @@ class ChatRoleAssignmentService:
 
         # Get real TeamMemberService from container
         try:
-            from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
+            from kickai.features.team_administration.domain.services.team_member_service import (
+                TeamMemberService,
+            )
+
             self.team_member_service = container.get_service(TeamMemberService)
             if not self.team_member_service:
                 logger.warning("⚠️ TeamMemberService not available, using mock service")
@@ -87,8 +90,8 @@ class ChatRoleAssignmentService:
         return MockTeamMemberService()
 
     async def add_user_to_chat(
-        self, team_id: str, user_id: str, chat_type: str, username: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, team_id: str, user_id: str, chat_type: str, username: str | None = None
+    ) -> dict[str, Any]:
         """
         Add user to a chat and assign appropriate role.
 
@@ -115,10 +118,10 @@ class ChatRoleAssignmentService:
 
             if not team_member:
                 # Create new team member
+                from kickai.core.enums import MemberStatus
                 from kickai.features.team_administration.domain.entities.team_member import (
                     TeamMember,
                 )
-                from kickai.core.enums import MemberStatus
 
                 roles = self._determine_initial_roles(chat_type, is_first_user)
                 team_member = TeamMember(
@@ -131,20 +134,22 @@ class ChatRoleAssignmentService:
                     is_admin=is_first_user,  # First user becomes admin
                     created_at=datetime.now(),
                     updated_at=datetime.now(),
-                    source="chat_join"
+                    source="chat_join",
                 )
 
                 member_id = await self.team_member_service.create_team_member(team_member)
-                logger.info(f"✅ Created and activated new team member {user_id} with roles: {roles}")
+                logger.info(
+                    f"✅ Created and activated new team member {user_id} with roles: {roles}"
+                )
             else:
                 # Update existing team member and activate if pending
                 from kickai.core.enums import MemberStatus
-                
+
                 # Automatically activate if status is pending
                 if team_member.status.value == "pending":
                     team_member.status = MemberStatus.ACTIVE
                     logger.info(f"✅ Automatically activated pending team member {user_id}")
-                
+
                 team_member.updated_at = datetime.now()
                 await self.team_member_service.update_team_member(team_member)
                 logger.info(f"Updated existing team member {user_id} for {chat_type}")
@@ -173,7 +178,7 @@ class ChatRoleAssignmentService:
 
     async def remove_user_from_chat(
         self, team_id: str, user_id: str, chat_type: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Remove user from a chat and update roles accordingly.
 
@@ -261,7 +266,7 @@ class ChatRoleAssignmentService:
             logger.error(f"Failed to promote user {user_id} to admin: {e}")
             return False
 
-    def _determine_initial_roles(self, chat_type: str, is_first_user: bool) -> List[str]:
+    def _determine_initial_roles(self, chat_type: str, is_first_user: bool) -> list[str]:
         """Determine initial roles based on chat type and first user status."""
         roles = []
 
@@ -285,7 +290,7 @@ class ChatRoleAssignmentService:
             team_member.roles.append("team_member")
 
     async def _ensure_player_role(
-        self, team_id: str, user_id: str, username: Optional[str] = None
+        self, team_id: str, user_id: str, username: str | None = None
     ) -> None:
         """Ensure user has a player record if they're in the main chat and activate if pending."""
         try:
@@ -312,11 +317,18 @@ class ChatRoleAssignmentService:
                 # Player exists, check if they need activation
                 if existing_player.status == "pending":
                     # Automatically activate pending player when they join main chat
-                    from kickai.features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
+                    from kickai.features.player_registration.domain.services.player_registration_service import (
+                        PlayerRegistrationService,
+                    )
+
                     player_service = container.get_service(PlayerRegistrationService)
                     if player_service:
-                        await player_service.approve_player(player_id=existing_player.player_id, team_id=team_id)
-                        logger.info(f"✅ Automatically activated pending player {user_id} when joining main chat")
+                        await player_service.approve_player(
+                            player_id=existing_player.player_id, team_id=team_id
+                        )
+                        logger.info(
+                            f"✅ Automatically activated pending player {user_id} when joining main chat"
+                        )
         except Exception as e:
             logger.warning(f"Failed to create/activate player record for user {user_id}: {e}")
 
@@ -357,7 +369,7 @@ class ChatRoleAssignmentService:
         except Exception as e:
             logger.error(f"Failed to handle admin leaving leadership: {e}")
 
-    async def _promote_longest_tenured_to_admin(self, team_id: str) -> Optional[str]:
+    async def _promote_longest_tenured_to_admin(self, team_id: str) -> str | None:
         """
         Promote the longest-tenured leadership member to admin.
 
@@ -396,7 +408,7 @@ class ChatRoleAssignmentService:
             logger.error(f"Failed to promote longest-tenured member to admin: {e}")
             return None
 
-    async def get_user_roles(self, team_id: str, user_id: str) -> Dict[str, Any]:
+    async def get_user_roles(self, team_id: str, user_id: str) -> dict[str, Any]:
         """Get comprehensive role information for a user."""
         try:
             team_member = await self.team_member_service.get_team_member_by_telegram_id(

@@ -37,12 +37,18 @@ class ConfigurationCheck(BaseCheck):
                     missing_fields.append(field)
 
             # Model requirement: simple/advanced pair (legacy ai_model_name deprecated)
-            has_pair = bool(getattr(config, "ai_model_simple", None)) and bool(getattr(config, "ai_model_advanced", None))
+            has_pair = bool(getattr(config, "ai_model_simple", None)) and bool(
+                getattr(config, "ai_model_advanced", None)
+            )
             has_legacy = bool(getattr(config, "ai_model_name", None))
             if not has_pair and not has_legacy:
-                missing_fields.append("AI model configuration (AI_MODEL_SIMPLE & AI_MODEL_ADVANCED required)")
+                missing_fields.append(
+                    "AI model configuration (AI_MODEL_SIMPLE & AI_MODEL_ADVANCED required)"
+                )
             elif has_legacy and not has_pair:
-                logger.warning("AI_MODEL_NAME is deprecated. Please use AI_MODEL_SIMPLE and AI_MODEL_ADVANCED instead.")
+                logger.warning(
+                    "AI_MODEL_NAME is deprecated. Please use AI_MODEL_SIMPLE and AI_MODEL_ADVANCED instead."
+                )
 
             # REMOVED: default_team_id validation - team context should come from execution context
 

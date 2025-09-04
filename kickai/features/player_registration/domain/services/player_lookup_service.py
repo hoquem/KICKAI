@@ -1,25 +1,26 @@
 import logging
-from typing import Optional
 
-from kickai.features.player_registration.domain.repositories.player_repository_interface import PlayerRepositoryInterface
+from kickai.features.player_registration.domain.repositories.player_repository_interface import (
+    PlayerRepositoryInterface,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class PlayerLookupService:
     """Service for player lookup operations using repository pattern."""
-    
+
     def __init__(self, player_repository: PlayerRepositoryInterface):
         self._player_repository = player_repository
 
-    async def get_player_team_id(self, player_id: str, team_id: str) -> Optional[str]:
+    async def get_player_team_id(self, player_id: str, team_id: str) -> str | None:
         """
         Get team ID for a player using repository pattern.
-        
+
         Args:
             player_id: Player identifier
             team_id: Team identifier to scope the search
-            
+
         Returns:
             Team ID if player exists, None otherwise
         """
@@ -35,11 +36,11 @@ class PlayerLookupService:
     async def player_exists(self, player_id: str, team_id: str) -> bool:
         """
         Check if a player exists using repository pattern.
-        
+
         Args:
             player_id: Player identifier
             team_id: Team identifier to scope the search
-            
+
         Returns:
             True if player exists, False otherwise
         """

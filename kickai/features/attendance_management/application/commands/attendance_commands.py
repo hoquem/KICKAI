@@ -6,9 +6,9 @@ This module registers all attendance management related commands with the comman
 Each feature maintains its own command definitions for clean separation.
 """
 
+
 from kickai.core.command_registry import CommandType, PermissionLevel, command
 from kickai.core.enums import ChatType
-from typing import List, Optional
 
 # ============================================================================
 # ATTENDANCE MANAGEMENT COMMANDS

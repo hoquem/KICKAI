@@ -11,15 +11,14 @@ This module provides comprehensive health checks for CrewAI agents including:
 - Error recovery testing
 """
 
-import asyncio
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from loguru import logger
 
-from kickai.core.startup_validation.checks.base_check import BaseCheck
-from kickai.core.startup_validation.reporting import CheckResult, CheckStatus, CheckCategory
 from kickai.core.config import get_settings
+from kickai.core.startup_validation.checks.base_check import BaseCheck
+from kickai.core.startup_validation.reporting import CheckCategory, CheckResult, CheckStatus
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +41,12 @@ class CrewAIAgentHealthCheck(BaseCheck):
     category = CheckCategory.AGENT
     description = "Comprehensive CrewAI agent health and performance validation"
 
-    async def execute(self, context: Dict[str, Any] = None) -> CheckResult:
+    async def execute(self, context: dict[str, Any] = None) -> CheckResult:
         """Execute comprehensive CrewAI agent health validation."""
         try:
             # Simple validation for now - just check that core configuration is loaded
             settings = get_settings()
-            
+
             if settings:
                 return CheckResult(
                     name=self.name,
@@ -56,8 +55,10 @@ class CrewAIAgentHealthCheck(BaseCheck):
                     message="CrewAI agent health validation passed",
                     details={
                         "provider": settings.ai_provider.value,
-                        "models_configured": bool(settings.ai_model_simple or settings.ai_model_advanced)
-                    }
+                        "models_configured": bool(
+                            settings.ai_model_simple or settings.ai_model_advanced
+                        ),
+                    },
                 )
             else:
                 return CheckResult(
@@ -65,9 +66,9 @@ class CrewAIAgentHealthCheck(BaseCheck):
                     category=self.category,
                     status=CheckStatus.FAILED,
                     message="Settings not loaded",
-                    details={"error": "Core settings configuration not available"}
+                    details={"error": "Core settings configuration not available"},
                 )
-                
+
         except Exception as e:
             logger.error(f"❌ CrewAI agent health check failed: {e}")
             return CheckResult(
@@ -75,5 +76,5 @@ class CrewAIAgentHealthCheck(BaseCheck):
                 category=self.category,
                 status=CheckStatus.FAILED,
                 message=f"Agent health validation error: {e!s}",
-                error=e
+                error=e,
             )

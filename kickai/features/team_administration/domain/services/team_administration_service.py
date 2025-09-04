@@ -6,7 +6,7 @@ This module provides team administration functionality.
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ..entities.team import Team, TeamStatus
 from ..repositories.team_repository_interface import TeamRepositoryInterface
@@ -24,11 +24,11 @@ class TeamAdministrationService:
         """Get all teams."""
         return await self.team_repository.list_all()
 
-    async def get_team_by_id(self, *, team_id: str) -> Optional[Team]:
+    async def get_team_by_id(self, *, team_id: str) -> Team | None:
         """Get a team by ID."""
         return await self.team_repository.get_by_id(team_id)
 
-    async def get_team_by_name(self, name: str) -> Optional[Team]:
+    async def get_team_by_name(self, name: str) -> Team | None:
         """Get a team by name."""
         return await self.team_repository.get_by_name(name)
 
@@ -38,7 +38,7 @@ class TeamAdministrationService:
         name: str,
         description: str,
         created_by: str,
-        settings: Optional[Dict[str, Any]] = None,
+        settings: dict[str, Any] | None = None,
     ) -> Team:
         """Create a new team."""
         team = Team(
@@ -54,10 +54,10 @@ class TeamAdministrationService:
     async def update_team(
         self,
         team_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        status: Optional[TeamStatus] = None,
-        settings: Optional[Dict[str, Any]] = None,
+        name: str | None = None,
+        description: str | None = None,
+        status: TeamStatus | None = None,
+        settings: dict[str, Any] | None = None,
     ) -> Team:
         """Update a team."""
         team = await self.team_repository.get_by_id(team_id)

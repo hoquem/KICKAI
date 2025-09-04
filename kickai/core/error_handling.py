@@ -15,8 +15,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional, Set, List, Union
-
+from typing import Any
 
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -32,13 +31,16 @@ from .exceptions import (
 try:
     from crewai.exceptions import CrewException
 except ImportError:
+
     class CrewException(Exception):
         """Fallback CrewException if CrewAI is not available."""
+
         pass
 
 
 class CrewAIErrorCategory(str, Enum):
     """Categories of CrewAI-specific errors."""
+
     AGENT_INITIALIZATION = "agent_initialization"
     TASK_EXECUTION = "task_execution"
     TOOL_EXECUTION = "tool_execution"
@@ -53,6 +55,7 @@ class CrewAIErrorCategory(str, Enum):
 
 class ErrorSeverity(str, Enum):
     """Error severity levels."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -62,33 +65,34 @@ class ErrorSeverity(str, Enum):
 @dataclass
 class CrewAIErrorContext:
     """Context information for CrewAI error recovery."""
-    agent_role: Optional[str] = None
-    task_type: Optional[str] = None
-    team_id: Optional[str] = None
-    telegram_id: Optional[int] = None
-    username: Optional[str] = None
-    chat_type: Optional[str] = None
-    tool_name: Optional[str] = None
-    llm_model: Optional[str] = None
-    execution_step: Optional[str] = None
+
+    agent_role: str | None = None
+    task_type: str | None = None
+    team_id: str | None = None
+    telegram_id: int | None = None
+    username: str | None = None
+    chat_type: str | None = None
+    tool_name: str | None = None
+    llm_model: str | None = None
+    execution_step: str | None = None
 
 
 class CrewAIErrorInfo(BaseModel):
     """Structured CrewAI error information."""
+
     error_id: str = Field(description="Unique error identifier")
     category: CrewAIErrorCategory = Field(description="Error category")
     severity: ErrorSeverity = Field(description="Error severity level")
     message: str = Field(description="Human-readable error message")
     technical_details: str = Field(description="Technical error details")
-    context: Dict[str, Any] = Field(default_factory=dict, description="Error context")
+    context: dict[str, Any] = Field(default_factory=dict, description="Error context")
     timestamp: datetime = Field(default_factory=datetime.now, description="When error occurred")
-    stack_trace: Optional[str] = Field(None, description="Stack trace if available")
-    recovery_suggestion: Optional[str] = Field(None, description="Suggested recovery action")
-    
+    stack_trace: str | None = Field(None, description="Stack trace if available")
+    recovery_suggestion: str | None = Field(None, description="Suggested recovery action")
+
     class Config:
-        json_encoders = {
-            datetime: lambda dt: dt.isoformat()
-        }
+        json_encoders = {datetime: lambda dt: dt.isoformat()}
+
 
 # logger = logging.getLogger(__name__) # Remove this, use loguru's logger
 
@@ -104,20 +108,20 @@ class ErrorHandlingConfig:
     max_retries: int = 3
     user_friendly_messages: bool = True
     raise_on_critical: bool = True
-    context_operation: Optional[str] = None
+    context_operation: str | None = None
 
 
 class ErrorHandler:
     """Centralized error handler for the KICKAI system."""
 
-    def __init__(self, config: Optional[ErrorHandlingConfig] = None):
+    def __init__(self, config: ErrorHandlingConfig | None = None):
         self.config = config or ErrorHandlingConfig()
 
     def handle_error(
         self,
         error: Exception,
-        context: Optional[Dict[str, Any]] = None,
-        operation: Optional[str] = None,
+        context: dict[str, Any] | None = None,
+        operation: str | None = None,
     ) -> str:
         """
         Handle an error and return a user-friendly message.
@@ -190,85 +194,91 @@ class ErrorHandler:
 
 class CrewAIErrorHandler:
     """CrewAI-specific error handler with recovery strategies."""
-    
+
     def __init__(self):
-        self.error_callbacks: List[Callable[[CrewAIErrorInfo], None]] = []
-        self.recovery_strategies: Dict[CrewAIErrorCategory, Callable[[CrewAIErrorInfo, CrewAIErrorContext], str]] = {}
-        self.error_counts: Dict[CrewAIErrorCategory, int] = {}
-        
+        self.error_callbacks: list[Callable[[CrewAIErrorInfo], None]] = []
+        self.recovery_strategies: dict[
+            CrewAIErrorCategory, Callable[[CrewAIErrorInfo, CrewAIErrorContext], str]
+        ] = {}
+        self.error_counts: dict[CrewAIErrorCategory, int] = {}
+
         # Setup default recovery strategies
         self._setup_default_recovery_strategies()
-    
+
     def add_error_callback(self, callback: Callable[[CrewAIErrorInfo], None]):
         """Add callback to be executed when errors occur."""
         self.error_callbacks.append(callback)
-    
+
     def register_recovery_strategy(
         self,
         category: CrewAIErrorCategory,
-        strategy: Callable[[CrewAIErrorInfo, CrewAIErrorContext], str]
+        strategy: Callable[[CrewAIErrorInfo, CrewAIErrorContext], str],
     ):
         """Register custom recovery strategy for error category."""
         self.recovery_strategies[category] = strategy
-    
+
     def handle_crewai_error(
         self,
         exception: Exception,
-        context: Optional[CrewAIErrorContext] = None,
-        fallback_message: str = "An unexpected error occurred"
+        context: CrewAIErrorContext | None = None,
+        fallback_message: str = "An unexpected error occurred",
     ) -> str:
         """
         Handle CrewAI-specific errors with proper categorization and recovery.
-        
+
         Args:
             exception: The exception that occurred
             context: Context information for recovery
             fallback_message: Fallback message if recovery fails
-            
+
         Returns:
             User-friendly response message
         """
         try:
             # Categorize and structure the error
             crew_error = self._categorize_error(exception, context or CrewAIErrorContext())
-            
+
             # Update error statistics
-            self.error_counts[crew_error.category] = self.error_counts.get(crew_error.category, 0) + 1
-            
+            self.error_counts[crew_error.category] = (
+                self.error_counts.get(crew_error.category, 0) + 1
+            )
+
             # Log the error
             self._log_error(crew_error)
-            
+
             # Execute callbacks
             for callback in self.error_callbacks:
                 try:
                     callback(crew_error)
                 except Exception as callback_error:
                     logger.error(f"Error in CrewAI error callback: {callback_error}")
-            
+
             # Attempt recovery
             recovery_response = self._attempt_recovery(crew_error, context or CrewAIErrorContext())
-            
+
             if recovery_response:
                 logger.info(f"✅ CrewAI error recovery successful for {crew_error.category.value}")
                 return recovery_response
             else:
                 logger.warning(f"⚠️ No recovery strategy available for {crew_error.category.value}")
                 return fallback_message
-                
+
         except Exception as handler_error:
             logger.error(f"❌ Error in CrewAI error handler: {handler_error}")
             return fallback_message
-    
-    def _categorize_error(self, exception: Exception, context: CrewAIErrorContext) -> CrewAIErrorInfo:
+
+    def _categorize_error(
+        self, exception: Exception, context: CrewAIErrorContext
+    ) -> CrewAIErrorInfo:
         """Categorize exception into structured error information."""
         error_id = str(uuid.uuid4())[:8]
-        
+
         # Determine category based on exception type and context
         category = self._determine_category(exception, context)
-        
+
         # Determine severity
         severity = self._determine_severity(exception, category)
-        
+
         # Create structured error
         crew_error = CrewAIErrorInfo(
             error_id=error_id,
@@ -286,82 +296,97 @@ class CrewAIErrorHandler:
                 "tool_name": context.tool_name,
                 "llm_model": context.llm_model,
                 "execution_step": context.execution_step,
-                "exception_type": type(exception).__name__
+                "exception_type": type(exception).__name__,
             },
             stack_trace=traceback.format_exc(),
-            recovery_suggestion=self._get_recovery_suggestion(category)
+            recovery_suggestion=self._get_recovery_suggestion(category),
         )
-        
+
         return crew_error
-    
-    def _determine_category(self, exception: Exception, context: CrewAIErrorContext) -> CrewAIErrorCategory:
+
+    def _determine_category(
+        self, exception: Exception, context: CrewAIErrorContext
+    ) -> CrewAIErrorCategory:
         """Determine error category based on exception type and context."""
         exception_type = type(exception).__name__
         exception_str = str(exception).lower()
-        
+
         # CrewAI-specific errors
         if isinstance(exception, CrewException):
             return CrewAIErrorCategory.CREW_ORCHESTRATION
-        
+
         # Context validation errors
         if "context" in exception_str or "missing" in exception_str:
             if context.execution_step == "validation":
                 return CrewAIErrorCategory.CONTEXT_VALIDATION
-        
+
         # Tool execution errors
         if context.tool_name or "tool" in exception_str:
             return CrewAIErrorCategory.TOOL_EXECUTION
-        
+
         # LLM communication errors
-        if any(keyword in exception_str for keyword in ["llm", "model", "api", "token", "groq", "openai", "gemini"]):
+        if any(
+            keyword in exception_str
+            for keyword in ["llm", "model", "api", "token", "groq", "openai", "gemini"]
+        ):
             return CrewAIErrorCategory.LLM_COMMUNICATION
-        
+
         # Rate limiting errors
         if any(keyword in exception_str for keyword in ["rate", "limit", "quota", "429"]):
             return CrewAIErrorCategory.RATE_LIMITING
-        
+
         # Agent initialization errors
         if context.execution_step == "agent_creation" or "agent" in exception_str:
             return CrewAIErrorCategory.AGENT_INITIALIZATION
-        
+
         # Task execution errors
         if context.task_type or "task" in exception_str:
             return CrewAIErrorCategory.TASK_EXECUTION
-        
+
         # Memory operations
         if "memory" in exception_str or "embedding" in exception_str:
             return CrewAIErrorCategory.MEMORY_OPERATIONS
-        
+
         # Output parsing errors
         if any(keyword in exception_str for keyword in ["json", "parse", "format", "output"]):
             return CrewAIErrorCategory.OUTPUT_PARSING
-        
+
         return CrewAIErrorCategory.UNKNOWN
-    
-    def _determine_severity(self, exception: Exception, category: CrewAIErrorCategory) -> ErrorSeverity:
+
+    def _determine_severity(
+        self, exception: Exception, category: CrewAIErrorCategory
+    ) -> ErrorSeverity:
         """Determine error severity based on exception and category."""
         exception_str = str(exception).lower()
-        
+
         # Critical errors that break core functionality
-        if category in [CrewAIErrorCategory.AGENT_INITIALIZATION, CrewAIErrorCategory.CREW_ORCHESTRATION]:
+        if category in [
+            CrewAIErrorCategory.AGENT_INITIALIZATION,
+            CrewAIErrorCategory.CREW_ORCHESTRATION,
+        ]:
             return ErrorSeverity.CRITICAL
-        
+
         # High severity for LLM and context issues
-        if category in [CrewAIErrorCategory.LLM_COMMUNICATION, CrewAIErrorCategory.CONTEXT_VALIDATION]:
-            if any(keyword in exception_str for keyword in ["auth", "key", "permission", "forbidden"]):
+        if category in [
+            CrewAIErrorCategory.LLM_COMMUNICATION,
+            CrewAIErrorCategory.CONTEXT_VALIDATION,
+        ]:
+            if any(
+                keyword in exception_str for keyword in ["auth", "key", "permission", "forbidden"]
+            ):
                 return ErrorSeverity.CRITICAL
             return ErrorSeverity.HIGH
-        
+
         # Medium severity for tool and task issues
         if category in [CrewAIErrorCategory.TOOL_EXECUTION, CrewAIErrorCategory.TASK_EXECUTION]:
             return ErrorSeverity.MEDIUM
-        
+
         # Low severity for rate limiting and parsing (recoverable)
         if category in [CrewAIErrorCategory.RATE_LIMITING, CrewAIErrorCategory.OUTPUT_PARSING]:
             return ErrorSeverity.LOW
-        
+
         return ErrorSeverity.MEDIUM
-    
+
     def _create_user_message(self, exception: Exception, category: CrewAIErrorCategory) -> str:
         """Create user-friendly error message based on category."""
         messages = {
@@ -374,11 +399,11 @@ class CrewAIErrorHandler:
             CrewAIErrorCategory.CONTEXT_VALIDATION: "Request information is incomplete or invalid. Please check your input.",
             CrewAIErrorCategory.OUTPUT_PARSING: "Response formatting issue occurred. Please try again.",
             CrewAIErrorCategory.RATE_LIMITING: "Service is busy. Please wait a moment and try again.",
-            CrewAIErrorCategory.UNKNOWN: "An unexpected issue occurred. Please try again."
+            CrewAIErrorCategory.UNKNOWN: "An unexpected issue occurred. Please try again.",
         }
-        
+
         return messages.get(category, "An unexpected error occurred. Please try again.")
-    
+
     def _get_recovery_suggestion(self, category: CrewAIErrorCategory) -> str:
         """Get recovery suggestion for error category."""
         suggestions = {
@@ -391,18 +416,20 @@ class CrewAIErrorHandler:
             CrewAIErrorCategory.CONTEXT_VALIDATION: "Ensure all required context fields are provided",
             CrewAIErrorCategory.OUTPUT_PARSING: "Check expected output format and validation",
             CrewAIErrorCategory.RATE_LIMITING: "Implement exponential backoff retry strategy",
-            CrewAIErrorCategory.UNKNOWN: "Enable verbose logging for detailed diagnosis"
+            CrewAIErrorCategory.UNKNOWN: "Enable verbose logging for detailed diagnosis",
         }
-        
+
         return suggestions.get(category, "Review logs for detailed error information")
-    
+
     def _setup_default_recovery_strategies(self):
         """Setup default recovery strategies for different error categories."""
-        
+
         def rate_limit_recovery(error: CrewAIErrorInfo, context: CrewAIErrorContext) -> str:
             """Recovery strategy for rate limiting errors."""
-            return "⏳ Service is temporarily busy. Please wait a moment and try your request again."
-        
+            return (
+                "⏳ Service is temporarily busy. Please wait a moment and try your request again."
+            )
+
         def context_validation_recovery(error: CrewAIErrorInfo, context: CrewAIErrorContext) -> str:
             """Recovery strategy for context validation errors."""
             missing_fields = []
@@ -410,32 +437,37 @@ class CrewAIErrorHandler:
                 missing_fields.append("team information")
             if not context.username:
                 missing_fields.append("user information")
-            
+
             if missing_fields:
                 return f"❌ Missing required information: {', '.join(missing_fields)}. Please ensure you're registered and try again."
             return "❌ Request information is incomplete. Please check your input and try again."
-        
+
         def tool_execution_recovery(error: CrewAIErrorInfo, context: CrewAIErrorContext) -> str:
             """Recovery strategy for tool execution errors."""
             if context.tool_name:
                 return f"⚠️ The {context.tool_name} tool is temporarily unavailable. Please try again in a moment."
             return "⚠️ A required service is temporarily unavailable. Please try again shortly."
-        
+
         def llm_communication_recovery(error: CrewAIErrorInfo, context: CrewAIErrorContext) -> str:
             """Recovery strategy for LLM communication errors."""
-            if "auth" in error.technical_details.lower() or "key" in error.technical_details.lower():
+            if (
+                "auth" in error.technical_details.lower()
+                or "key" in error.technical_details.lower()
+            ):
                 return "🔑 Authentication issue with AI service. Please contact support if this persists."
             if "model" in error.technical_details.lower():
                 return "🤖 AI model is temporarily unavailable. Please try again shortly."
             return "🔌 AI service connection issue. Please try again in a moment."
-        
+
         # Register default strategies
         self.recovery_strategies[CrewAIErrorCategory.RATE_LIMITING] = rate_limit_recovery
-        self.recovery_strategies[CrewAIErrorCategory.CONTEXT_VALIDATION] = context_validation_recovery
+        self.recovery_strategies[
+            CrewAIErrorCategory.CONTEXT_VALIDATION
+        ] = context_validation_recovery
         self.recovery_strategies[CrewAIErrorCategory.TOOL_EXECUTION] = tool_execution_recovery
         self.recovery_strategies[CrewAIErrorCategory.LLM_COMMUNICATION] = llm_communication_recovery
-    
-    def _attempt_recovery(self, error: CrewAIErrorInfo, context: CrewAIErrorContext) -> Optional[str]:
+
+    def _attempt_recovery(self, error: CrewAIErrorInfo, context: CrewAIErrorContext) -> str | None:
         """Attempt to recover from error using registered strategies."""
         if error.category in self.recovery_strategies:
             try:
@@ -443,11 +475,11 @@ class CrewAIErrorHandler:
             except Exception as recovery_error:
                 logger.error(f"Error in recovery strategy for {error.category}: {recovery_error}")
         return None
-    
+
     def _log_error(self, error: CrewAIErrorInfo):
         """Log error with appropriate level based on severity."""
         log_message = f"[{error.error_id}] {error.category.value}: {error.message}"
-        
+
         if error.severity == ErrorSeverity.CRITICAL:
             logger.critical(log_message)
             logger.critical(f"Technical details: {error.technical_details}")
@@ -460,11 +492,11 @@ class CrewAIErrorHandler:
         else:
             logger.info(log_message)
             logger.debug(f"Technical details: {error.technical_details}")
-    
-    def get_error_statistics(self) -> Dict[str, int]:
+
+    def get_error_statistics(self) -> dict[str, int]:
         """Get error statistics by category."""
         return dict(self.error_counts)
-    
+
     def reset_statistics(self):
         """Reset error statistics."""
         self.error_counts.clear()
@@ -487,7 +519,7 @@ def get_global_error_handler() -> ErrorHandler:
 
 
 def handle_agent_errors(
-    operation: Optional[str] = None, config: Optional[ErrorHandlingConfig] = None
+    operation: str | None = None, config: ErrorHandlingConfig | None = None
 ) -> Callable:
     """
     Decorator for handling agent execution errors.
@@ -529,7 +561,7 @@ def handle_agent_errors(
 
 
 def handle_tool_errors(
-    tool_name: Optional[str] = None, config: Optional[ErrorHandlingConfig] = None
+    tool_name: str | None = None, config: ErrorHandlingConfig | None = None
 ) -> Callable:
     """
     Decorator for handling tool execution errors.
@@ -587,8 +619,8 @@ def handle_tool_errors(
 @contextmanager
 def error_context(
     operation: str,
-    context: Optional[Dict[str, Any]] = None,
-    config: Optional[ErrorHandlingConfig] = None,
+    context: dict[str, Any] | None = None,
+    config: ErrorHandlingConfig | None = None,
     reraise: bool = False,
 ):
     """
@@ -620,7 +652,7 @@ def validate_input(
     expected_type: type,
     field_name: str,
     required: bool = True,
-    validator: Optional[Callable] = None,
+    validator: Callable | None = None,
 ) -> None:
     """
     Validate input parameters.
@@ -672,8 +704,8 @@ def safe_execute(
     func: Callable,
     *args,
     operation: str = "unknown",
-    context: Optional[Dict[str, Any]] = None,
-    config: Optional[ErrorHandlingConfig] = None,
+    context: dict[str, Any] | None = None,
+    config: ErrorHandlingConfig | None = None,
     default_return: Any = None,
     **kwargs,
 ) -> Any:
@@ -703,8 +735,8 @@ async def safe_execute_async(
     func: Callable,
     *args,
     operation: str = "unknown",
-    context: Optional[Dict[str, Any]] = None,
-    config: Optional[ErrorHandlingConfig] = None,
+    context: dict[str, Any] | None = None,
+    config: ErrorHandlingConfig | None = None,
     default_return: Any = None,
     **kwargs,
 ) -> Any:
@@ -744,17 +776,17 @@ def set_crewai_error_handler(handler: CrewAIErrorHandler) -> None:
 
 def handle_crewai_error(
     exception: Exception,
-    context: Optional[CrewAIErrorContext] = None,
-    fallback_message: str = "An unexpected error occurred"
+    context: CrewAIErrorContext | None = None,
+    fallback_message: str = "An unexpected error occurred",
 ) -> str:
     """
     Convenience function for handling CrewAI errors.
-    
+
     Args:
         exception: The exception that occurred
         context: Optional context information
         fallback_message: Fallback message if recovery fails
-        
+
     Returns:
         User-friendly response message
     """
@@ -763,15 +795,15 @@ def handle_crewai_error(
 
 
 def create_crewai_error_context(
-    agent_role: Optional[str] = None,
-    task_type: Optional[str] = None,
-    team_id: Optional[str] = None,
-    telegram_id: Optional[int] = None,
-    username: Optional[str] = None,
-    chat_type: Optional[str] = None,
-    tool_name: Optional[str] = None,
-    llm_model: Optional[str] = None,
-    execution_step: Optional[str] = None
+    agent_role: str | None = None,
+    task_type: str | None = None,
+    team_id: str | None = None,
+    telegram_id: int | None = None,
+    username: str | None = None,
+    chat_type: str | None = None,
+    tool_name: str | None = None,
+    llm_model: str | None = None,
+    execution_step: str | None = None,
 ) -> CrewAIErrorContext:
     """Convenience function for creating CrewAI error context."""
     return CrewAIErrorContext(
@@ -783,21 +815,22 @@ def create_crewai_error_context(
         chat_type=chat_type,
         tool_name=tool_name,
         llm_model=llm_model,
-        execution_step=execution_step
+        execution_step=execution_step,
     )
 
 
 def crewai_error_handler(
     fallback_message: str = "An unexpected error occurred",
-    context_factory: Optional[Callable[..., CrewAIErrorContext]] = None
+    context_factory: Callable[..., CrewAIErrorContext] | None = None,
 ):
     """
     Decorator for automatic CrewAI error handling.
-    
+
     Args:
         fallback_message: Default fallback message
         context_factory: Function to create error context from function args
     """
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -810,23 +843,26 @@ def crewai_error_handler(
                         context = context_factory(*args, **kwargs)
                     except Exception:
                         pass
-                
+
                 return handle_crewai_error(e, context, fallback_message)
+
         return wrapper
+
     return decorator
 
 
 def async_crewai_error_handler(
     fallback_message: str = "An unexpected error occurred",
-    context_factory: Optional[Callable[..., CrewAIErrorContext]] = None
+    context_factory: Callable[..., CrewAIErrorContext] | None = None,
 ):
     """
     Decorator for automatic async CrewAI error handling.
-    
+
     Args:
         fallback_message: Default fallback message
         context_factory: Function to create error context from function args
     """
+
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
@@ -839,7 +875,9 @@ def async_crewai_error_handler(
                         context = context_factory(*args, **kwargs)
                     except Exception:
                         pass
-                
+
                 return handle_crewai_error(e, context, fallback_message)
+
         return wrapper
+
     return decorator

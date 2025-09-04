@@ -10,9 +10,11 @@ from .application.tools import *
 __all__ = [
     # Squad selection tools (clean naming convention)
     "select_squad_optimal",
-    "list_players_available", 
+    "list_players_available",
     "get_availability_summary",
-    "get_availability_player",
-    "get_attendance_player_history",
-    "list_matches_upcoming"
+    "get_availability_player_self",
+    "get_availability_player_lookup",
+    "get_attendance_player_history_self",
+    "get_attendance_player_history_lookup",
+    "list_matches_upcoming",
 ]

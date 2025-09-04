@@ -1,4 +1,3 @@
-from typing import Optional
 from abc import ABC, abstractmethod
 
 from kickai.features.match_management.domain.entities.match import Match, MatchStatus
@@ -13,7 +12,7 @@ class MatchRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, match_id: str) -> Optional[Match]:
+    async def get_by_id(self, match_id: str) -> Match | None:
         """Get match by ID."""
         pass
 
@@ -48,6 +47,8 @@ class MatchRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_matches_by_date_range(self, team_id: str, start_date: str, end_date: str) -> list[Match]:
+    async def get_matches_by_date_range(
+        self, team_id: str, start_date: str, end_date: str
+    ) -> list[Match]:
         """Get matches within a date range."""
         pass

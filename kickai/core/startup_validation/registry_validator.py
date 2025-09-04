@@ -8,7 +8,6 @@ proper initialization and prevent runtime errors.
 import asyncio
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 from loguru import logger
 
@@ -18,12 +17,12 @@ class RegistryValidationResult:
     """Result of registry validation."""
 
     success: bool
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     registry_name: str = ""
     validation_duration: float = 0.0
-    details: Dict[str, any] = field(default_factory=dict)
-    
+    details: dict[str, any] = field(default_factory=dict)
+
     def __post_init__(self) -> None:
         """Initialize default values after dataclass creation."""
         if self.errors is None:
@@ -37,29 +36,29 @@ class RegistryValidationResult:
 class RegistryStartupValidator:
     """
     Validates all registries during startup.
-    
+
     Performs validation of:
     - Tool Registry: Ensures tools are properly discovered and registered
     - Command Registry: Validates command registration and uniqueness
     - Service Registry: Checks service availability and initialization
     """
-    
+
     def __init__(self) -> None:
         """Initialize the registry validator."""
-        self.validation_results: List[RegistryValidationResult] = []
+        self.validation_results: list[RegistryValidationResult] = []
         self.start_time: float = 0.0
-        
+
         # Configuration for required services
         self.required_services = [
             "DataStoreInterface",
-            "PlayerRepositoryInterface", 
+            "PlayerRepositoryInterface",
             "TeamRepositoryInterface",
         ]
 
     def validate_all_registries(self) -> RegistryValidationResult:
         """
         Validate all registries and return success status.
-        
+
         Returns:
             RegistryValidationResult: Overall validation result
         """
@@ -105,21 +104,21 @@ class RegistryStartupValidator:
             details={
                 "total_registries": len(self.validation_results),
                 "passed_registries": sum(1 for r in self.validation_results if r.success),
-                "failed_registries": sum(1 for r in self.validation_results if not r.success)
-            }
+                "failed_registries": sum(1 for r in self.validation_results if not r.success),
+            },
         )
 
     def _validate_tool_registry(self) -> RegistryValidationResult:
         """
         Validate tool registry.
-        
+
         Returns:
             RegistryValidationResult: Tool registry validation result
         """
         start_time = time.time()
-        errors: List[str] = []
-        warnings: List[str] = []
-        details: Dict[str, any] = {}
+        errors: list[str] = []
+        warnings: list[str] = []
+        details: dict[str, any] = {}
 
         try:
             from kickai.agents.tool_registry import initialize_tool_registry
@@ -152,7 +151,7 @@ class RegistryStartupValidator:
                     details["duplicate_tools"] = []
 
             # Check tool registry state
-            if hasattr(registry, '_initialized') and not registry._initialized:
+            if hasattr(registry, "_initialized") and not registry._initialized:
                 errors.append("Tool registry not properly initialized")
                 details["initialized"] = False
             else:
@@ -165,12 +164,12 @@ class RegistryStartupValidator:
                 warnings=warnings,
                 registry_name="Tool Registry",
                 validation_duration=duration,
-                details=details
+                details=details,
             )
 
         except Exception as e:
             duration = time.time() - start_time
-            error_msg = f"Tool registry validation failed: {str(e)}"
+            error_msg = f"Tool registry validation failed: {e!s}"
             logger.error(f"❌ {error_msg}")
             return RegistryValidationResult(
                 success=False,
@@ -178,20 +177,20 @@ class RegistryStartupValidator:
                 warnings=[],
                 registry_name="Tool Registry",
                 validation_duration=duration,
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
     def _validate_command_registry(self) -> RegistryValidationResult:
         """
         Validate command registry.
-        
+
         Returns:
             RegistryValidationResult: Command registry validation result
         """
         start_time = time.time()
-        errors: List[str] = []
-        warnings: List[str] = []
-        details: Dict[str, any] = {}
+        errors: list[str] = []
+        warnings: list[str] = []
+        details: dict[str, any] = {}
 
         try:
             from kickai.core.command_registry_initializer import initialize_command_registry
@@ -218,7 +217,7 @@ class RegistryStartupValidator:
                     details["duplicate_commands"] = []
 
             # Check command registry state
-            if hasattr(registry, '_initialized') and not registry._initialized:
+            if hasattr(registry, "_initialized") and not registry._initialized:
                 errors.append("Command registry not properly initialized")
                 details["initialized"] = False
             else:
@@ -238,12 +237,12 @@ class RegistryStartupValidator:
                 warnings=warnings,
                 registry_name="Command Registry",
                 validation_duration=duration,
-                details=details
+                details=details,
             )
 
         except Exception as e:
             duration = time.time() - start_time
-            error_msg = f"Command registry validation failed: {str(e)}"
+            error_msg = f"Command registry validation failed: {e!s}"
             logger.error(f"❌ {error_msg}")
             return RegistryValidationResult(
                 success=False,
@@ -251,26 +250,26 @@ class RegistryStartupValidator:
                 warnings=[],
                 registry_name="Command Registry",
                 validation_duration=duration,
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
     def _validate_service_registry(self) -> RegistryValidationResult:
         """
         Validate service registry.
-        
+
         Returns:
             RegistryValidationResult: Service registry validation result
         """
         start_time = time.time()
-        errors: List[str] = []
-        warnings: List[str] = []
-        details: Dict[str, any] = {}
+        errors: list[str] = []
+        warnings: list[str] = []
+        details: dict[str, any] = {}
 
         try:
             from kickai.core.dependency_container import get_container
 
             container = get_container()
-            
+
             # Initialize container asynchronously
             try:
                 asyncio.run(container.initialize())
@@ -288,7 +287,7 @@ class RegistryStartupValidator:
             # Check required services
             available_services = 0
             failed_services = 0
-            
+
             for service_name in self.required_services:
                 try:
                     service = container.get_service(service_name)
@@ -301,17 +300,19 @@ class RegistryStartupValidator:
                         available_services += 1
                         logger.info(f"✅ Service {service_name} available")
                 except Exception as e:
-                    error_msg = f"Service {service_name} failed: {str(e)}"
+                    error_msg = f"Service {service_name} failed: {e!s}"
                     errors.append(error_msg)
                     failed_services += 1
                     logger.error(f"❌ {error_msg}")
 
-            details.update({
-                "required_services": len(self.required_services),
-                "available_services": available_services,
-                "failed_services": failed_services,
-                "service_list": self.required_services
-            })
+            details.update(
+                {
+                    "required_services": len(self.required_services),
+                    "available_services": available_services,
+                    "failed_services": failed_services,
+                    "service_list": self.required_services,
+                }
+            )
 
             duration = time.time() - start_time
             return RegistryValidationResult(
@@ -320,12 +321,12 @@ class RegistryStartupValidator:
                 warnings=warnings,
                 registry_name="Service Registry",
                 validation_duration=duration,
-                details=details
+                details=details,
             )
 
         except Exception as e:
             duration = time.time() - start_time
-            error_msg = f"Service registry validation failed: {str(e)}"
+            error_msg = f"Service registry validation failed: {e!s}"
             logger.error(f"❌ {error_msg}")
             return RegistryValidationResult(
                 success=False,
@@ -333,36 +334,38 @@ class RegistryStartupValidator:
                 warnings=[],
                 registry_name="Service Registry",
                 validation_duration=duration,
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
-    def _check_command_conflicts(self, commands: Dict[str, any]) -> List[str]:
+    def _check_command_conflicts(self, commands: dict[str, any]) -> list[str]:
         """
         Check for command conflicts between different features.
-        
+
         Args:
             commands: Dictionary of registered commands
-            
+
         Returns:
             List[str]: List of conflict warnings
         """
         conflicts = []
-        
+
         # Check for feature conflicts (same command registered by different features)
         command_features = {}
         for cmd_name, cmd_info in commands.items():
-            if hasattr(cmd_info, 'feature'):
+            if hasattr(cmd_info, "feature"):
                 if cmd_name in command_features:
-                    conflicts.append(f"Command '{cmd_name}' registered by multiple features: {command_features[cmd_name]} and {cmd_info.feature}")
+                    conflicts.append(
+                        f"Command '{cmd_name}' registered by multiple features: {command_features[cmd_name]} and {cmd_info.feature}"
+                    )
                 else:
                     command_features[cmd_name] = cmd_info.feature
-        
+
         return conflicts
 
     def get_validation_report(self) -> str:
         """
         Generate a comprehensive validation report.
-        
+
         Returns:
             str: Formatted validation report
         """
@@ -378,15 +381,19 @@ class RegistryStartupValidator:
         passed_count = sum(1 for r in self.validation_results if r.success)
         failed_count = len(self.validation_results) - passed_count
 
-        report.append(f"OVERALL STATUS: {'✅ PASS' if all(r.success for r in self.validation_results) else '❌ FAIL'}")
+        report.append(
+            f"OVERALL STATUS: {'✅ PASS' if all(r.success for r in self.validation_results) else '❌ FAIL'}"
+        )
         report.append(f"TOTAL DURATION: {total_duration:.2f}s")
         report.append(f"REGISTRIES PASSED: {passed_count}/{len(self.validation_results)}")
         report.append("")
 
         for result in self.validation_results:
             status = "✅ PASS" if result.success else "❌ FAIL"
-            report.append(f"{result.registry_name.upper()}: {status} ({result.validation_duration:.2f}s)")
-            
+            report.append(
+                f"{result.registry_name.upper()}: {status} ({result.validation_duration:.2f}s)"
+            )
+
             if result.details:
                 report.append("  Details:")
                 for key, value in result.details.items():

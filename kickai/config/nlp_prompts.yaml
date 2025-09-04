@@ -92,7 +92,8 @@ templates:
     
     # Template customizations
     intent_categories:
-      - get_player_info: "Getting player status, details, or information"
+      - get_player_self: "Getting requesting user's player status and information"
+      - get_player_by_identifier: "Getting specific player's details by name/phone/ID"
       - update_profile: "Updating player/member information or settings"
       - get_team_info: "Getting team lists, rosters, or member information"
       - get_help: "Requesting help, guidance, or command information"

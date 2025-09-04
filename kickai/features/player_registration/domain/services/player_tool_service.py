@@ -197,8 +197,9 @@ class PlayerToolService:
             if not team_id:
                 logger.error("❌ Team ID is required for invite service")
                 return None
-                
+
             from kickai.database.firebase_client import get_firebase_client
+
             database = get_firebase_client()
             return InviteLinkService(database=database, team_id=team_id)
         except Exception as e:

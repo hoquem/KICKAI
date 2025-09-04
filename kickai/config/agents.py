@@ -8,7 +8,7 @@ template processing and context variable substitution with performance optimizat
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from loguru import logger
@@ -19,6 +19,7 @@ from kickai.core.enums import AgentRole
 @dataclass
 class AgentConfig:
     """Configuration for a single agent."""
+
     role: AgentRole
     goal: str
     backstory: str
@@ -29,7 +30,7 @@ class AgentConfig:
     verbose: bool = True
     temperature: float = 0.3  # Default from settings.ai_temperature
     max_tokens: int = 800  # Use default from settings.ai_max_tokens
-    primary_entity_type: Optional[str] = None
+    primary_entity_type: str | None = None
     entity_types: list[str] = field(default_factory=list)
 
 
@@ -49,7 +50,7 @@ class YAMLAgentConfigurationManager:
             raise FileNotFoundError(f"Agent configuration file not found: {self.yaml_path}")
 
         try:
-            with open(self.yaml_path, encoding='utf-8') as f:
+            with open(self.yaml_path, encoding="utf-8") as f:
                 self._config_data = yaml.safe_load(f)
             logger.info(f"✅ Loaded agent configuration from {self.yaml_path}")
         except Exception as e:
@@ -108,7 +109,9 @@ class YAMLAgentConfigurationManager:
         if agent_name in ["message_processor", "player_coordinator", "help_assistant"]:
             return agent_optimizations.get("data_critical_agents", {}).get("optimization_rules", "")
         elif agent_name in ["team_administration", "availability_manager", "communication_manager"]:
-            return agent_optimizations.get("administrative_agents", {}).get("optimization_rules", "")
+            return agent_optimizations.get("administrative_agents", {}).get(
+                "optimization_rules", ""
+            )
         elif agent_name in ["squad_selector", "performance_analyst"]:
             return agent_optimizations.get("creative_agents", {}).get("optimization_rules", "")
         else:
@@ -117,34 +120,48 @@ class YAMLAgentConfigurationManager:
     def _get_agent_temperature(self, agent_name: str) -> float:
         """Get agent-specific temperature setting."""
         from kickai.core.config import get_settings
+
         settings = get_settings()
-        
+
         agent_optimizations = self._config_data.get("agent_optimizations", {})
 
         # Determine agent type based on name and use settings values
         if agent_name in ["message_processor", "player_coordinator", "help_assistant"]:
-            return agent_optimizations.get("data_critical_agents", {}).get("temperature", settings.ai_temperature_tools)
+            return agent_optimizations.get("data_critical_agents", {}).get(
+                "temperature", settings.ai_temperature_tools
+            )
         elif agent_name in ["team_administration", "availability_manager", "communication_manager"]:
-            return agent_optimizations.get("administrative_agents", {}).get("temperature", settings.ai_temperature)
+            return agent_optimizations.get("administrative_agents", {}).get(
+                "temperature", settings.ai_temperature
+            )
         elif agent_name in ["squad_selector", "performance_analyst"]:
-            return agent_optimizations.get("creative_agents", {}).get("temperature", settings.ai_temperature_creative)
+            return agent_optimizations.get("creative_agents", {}).get(
+                "temperature", settings.ai_temperature_creative
+            )
         else:
             return settings.ai_temperature  # Default temperature from settings
 
     def _get_agent_max_tokens(self, agent_name: str) -> int:
         """Get agent-specific max_tokens setting."""
         from kickai.core.config import get_settings
+
         settings = get_settings()
-        
+
         agent_optimizations = self._config_data.get("agent_optimizations", {})
 
         # Determine agent type based on name and use settings values
         if agent_name in ["message_processor", "player_coordinator", "help_assistant"]:
-            return agent_optimizations.get("data_critical_agents", {}).get("max_tokens", settings.ai_max_tokens_tools)
+            return agent_optimizations.get("data_critical_agents", {}).get(
+                "max_tokens", settings.ai_max_tokens_tools
+            )
         elif agent_name in ["team_administration", "availability_manager", "communication_manager"]:
-            return agent_optimizations.get("administrative_agents", {}).get("max_tokens", settings.ai_max_tokens)
+            return agent_optimizations.get("administrative_agents", {}).get(
+                "max_tokens", settings.ai_max_tokens
+            )
         elif agent_name in ["squad_selector", "performance_analyst"]:
-            return agent_optimizations.get("creative_agents", {}).get("max_tokens", settings.ai_max_tokens_creative)
+            return agent_optimizations.get("creative_agents", {}).get(
+                "max_tokens", settings.ai_max_tokens_creative
+            )
         else:
             return settings.ai_max_tokens  # Default max_tokens from settings
 
@@ -170,7 +187,7 @@ class YAMLAgentConfigurationManager:
             if agent.get("name") == agent_name:
                 agent_data = agent
                 break
-                
+
         if agent_data is None:
             raise ValueError(f"Agent '{agent_name}' not found in configuration")
 
@@ -200,7 +217,7 @@ class YAMLAgentConfigurationManager:
             temperature=temperature,
             max_tokens=max_tokens,
             primary_entity_type=agent_data.get("primary_entity_type"),
-            entity_types=agent_data.get("entity_types", [])
+            entity_types=agent_data.get("entity_types", []),
         )
 
         # Cache the processed config
@@ -220,7 +237,7 @@ class YAMLAgentConfigurationManager:
                 if not agent_name:
                     logger.warning(f"⚠️ Agent data missing name: {agent_data}")
                     continue
-                    
+
                 role = AgentRole(agent_name)
                 configs[role] = self.get_agent_config(role, context)
             except ValueError:
@@ -234,18 +251,17 @@ class YAMLAgentConfigurationManager:
     def get_enabled_agent_configs(self, context: dict[str, Any]) -> dict[AgentRole, AgentConfig]:
         """Get only enabled agent configurations with processed templates and performance optimizations."""
         all_configs = self.get_all_agent_configs(context)
-        enabled_configs = {
-            role: config for role, config in all_configs.items()
-            if config.enabled
-        }
-        logger.info(f"✅ Loaded {len(enabled_configs)} enabled agent configurations with performance optimizations")
+        enabled_configs = {role: config for role, config in all_configs.items() if config.enabled}
+        logger.info(
+            f"✅ Loaded {len(enabled_configs)} enabled agent configurations with performance optimizations"
+        )
         return enabled_configs
 
     def get_agent_tools(self, role: AgentRole) -> list[str]:
         """Get tools for a specific agent."""
         agent_name = role.value
         agents_data = self._config_data.get("agents", [])
-        
+
         for agent in agents_data:
             if agent.get("name") == agent_name:
                 return agent.get("tools", [])
@@ -288,7 +304,7 @@ class YAMLAgentConfigurationManager:
             "team_id": "KAI",
             "chat_type": "main",
             "user_role": "public",
-            "username": "user"
+            "username": "user",
         }
         return self.get_all_agent_configs(context)
 
@@ -300,7 +316,7 @@ class YAMLAgentConfigurationManager:
             "team_id": "KAI",
             "chat_type": "main",
             "user_role": "public",
-            "username": "user"
+            "username": "user",
         }
         context_key = hash(str(context))
         cache_key = f"{role.value}_{context_key}"
@@ -311,6 +327,7 @@ class YAMLAgentConfigurationManager:
 # Global instance
 _agent_config_manager = None
 
+
 def get_agent_config_manager() -> YAMLAgentConfigurationManager:
     """Get the global agent configuration manager instance."""
     global _agent_config_manager
@@ -318,41 +335,51 @@ def get_agent_config_manager() -> YAMLAgentConfigurationManager:
         _agent_config_manager = YAMLAgentConfigurationManager()
     return _agent_config_manager
 
+
 def get_agent_config(role: AgentRole, context: dict[str, Any]) -> AgentConfig:
     """Get agent configuration with context and performance optimizations."""
     return get_agent_config_manager().get_agent_config(role, context)
+
 
 def get_all_agent_configs(context: dict[str, Any]) -> dict[AgentRole, AgentConfig]:
     """Get all agent configurations with context and performance optimizations."""
     return get_agent_config_manager().get_all_agent_configs(context)
 
+
 def get_enabled_agent_configs(context: dict[str, Any]) -> dict[AgentRole, AgentConfig]:
     """Get enabled agent configurations with context and performance optimizations."""
     return get_agent_config_manager().get_enabled_agent_configs(context)
+
 
 def get_agent_tools(role: AgentRole) -> list[str]:
     """Get tools for a specific agent."""
     return get_agent_config_manager().get_agent_tools(role)
 
+
 def get_agent_goal(role: AgentRole, context: dict[str, Any]) -> str:
     """Get processed goal for a specific agent."""
     return get_agent_config_manager().get_agent_goal(role, context)
+
 
 def get_agent_backstory(role: AgentRole, context: dict[str, Any]) -> str:
     """Get processed backstory for a specific agent."""
     return get_agent_config_manager().get_agent_backstory(role, context)
 
+
 def get_agent_temperature(role: AgentRole) -> float:
     """Get temperature setting for a specific agent."""
     return get_agent_config_manager().get_agent_temperature(role)
+
 
 def get_agent_max_tokens(role: AgentRole) -> int:
     """Get max_tokens setting for a specific agent."""
     return get_agent_config_manager().get_agent_max_tokens(role)
 
+
 def get_llm_optimizations() -> dict[str, Any]:
     """Get LLM performance optimization settings."""
     return get_agent_config_manager().get_llm_optimizations()
+
 
 def get_performance_rules() -> dict[str, str]:
     """Get performance rules for LLM optimization."""
@@ -362,37 +389,66 @@ def get_performance_rules() -> dict[str, str]:
 # Backward compatibility functions
 def get_agent_config_manager_legacy():
     """Legacy function for backward compatibility."""
-    logger.warning("⚠️ Using legacy get_agent_config_manager_legacy() - use get_agent_config_manager() instead")
+    logger.warning(
+        "⚠️ Using legacy get_agent_config_manager_legacy() - use get_agent_config_manager() instead"
+    )
     return get_agent_config_manager()
 
-def get_agent_config_legacy(role: AgentRole) -> Optional[AgentConfig]:
+
+def get_agent_config_legacy(role: AgentRole) -> AgentConfig | None:
     """Legacy function for backward compatibility."""
-    logger.warning("⚠️ Using legacy get_agent_config_legacy() - use get_agent_config(role, context) instead")
+    logger.warning(
+        "⚠️ Using legacy get_agent_config_legacy() - use get_agent_config(role, context) instead"
+    )
     # Return a basic config without context for backward compatibility
     try:
-        context = {"team_name": "KICKAI", "team_id": "KAI", "chat_type": "main", "user_role": "public", "username": "user"}
+        context = {
+            "team_name": "KICKAI",
+            "team_id": "KAI",
+            "chat_type": "main",
+            "user_role": "public",
+            "username": "user",
+        }
         return get_agent_config(role, context)
     except Exception as e:
         logger.error(f"❌ Failed to get legacy agent config for {role}: {e}")
         return None
 
+
 def get_all_agent_configs_legacy() -> dict[AgentRole, AgentConfig]:
     """Legacy function for backward compatibility."""
-    logger.warning("⚠️ Using legacy get_all_agent_configs_legacy() - use get_all_agent_configs(context) instead")
+    logger.warning(
+        "⚠️ Using legacy get_all_agent_configs_legacy() - use get_all_agent_configs(context) instead"
+    )
     # Return basic configs without context for backward compatibility
     try:
-        context = {"team_name": "KICKAI", "team_id": "KAI", "chat_type": "main", "user_role": "public", "username": "user"}
+        context = {
+            "team_name": "KICKAI",
+            "team_id": "KAI",
+            "chat_type": "main",
+            "user_role": "public",
+            "username": "user",
+        }
         return get_all_agent_configs(context)
     except Exception as e:
         logger.error(f"❌ Failed to get legacy agent configs: {e}")
         return {}
 
+
 def get_enabled_agent_configs_legacy() -> dict[AgentRole, AgentConfig]:
     """Legacy function for backward compatibility."""
-    logger.warning("⚠️ Using legacy get_enabled_agent_configs_legacy() - use get_enabled_agent_configs(context) instead")
+    logger.warning(
+        "⚠️ Using legacy get_enabled_agent_configs_legacy() - use get_enabled_agent_configs(context) instead"
+    )
     # Return basic configs without context for backward compatibility
     try:
-        context = {"team_name": "KICKAI", "team_id": "KAI", "chat_type": "main", "user_role": "public", "username": "user"}
+        context = {
+            "team_name": "KICKAI",
+            "team_id": "KAI",
+            "chat_type": "main",
+            "user_role": "public",
+            "username": "user",
+        }
         return get_enabled_agent_configs(context)
     except Exception as e:
         logger.error(f"❌ Failed to get legacy enabled agent configs: {e}")

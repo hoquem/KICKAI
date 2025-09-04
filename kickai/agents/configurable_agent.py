@@ -7,9 +7,9 @@ best practices for context passing and tool parameter handling.
 """
 
 import traceback
-from typing import Any, Dict, Set, List
+from typing import Any
 
-from crewai import Agent, Crew, Process, Task
+from crewai import Agent
 from loguru import logger
 
 from kickai.config.agents import get_agent_config
@@ -52,6 +52,7 @@ class ConfigurableAgent:
         try:
             # 1. Tool registry - get singleton instance (already initialized)
             from kickai.agents.tool_registry import get_tool_registry
+
             self.tool_registry = get_tool_registry()
 
             # 2. LLM configuration
@@ -68,7 +69,7 @@ class ConfigurableAgent:
                 "team_id": self.team_id,
                 "chat_type": "main",
                 "user_role": "public",
-                "username": "user"
+                "username": "user",
             }
             self.config = get_agent_config(self.agent_role, context)
 
@@ -88,9 +89,10 @@ class ConfigurableAgent:
 
         # Get memory system for this agent
         from kickai.core.memory_manager import get_memory_manager
+
         memory_manager = get_memory_manager()
         agent_memory = memory_manager.get_memory_for_agent(self.agent_role)
-        
+
         # Create agent with optimized configuration and memory
         settings = get_settings()
 
@@ -112,19 +114,19 @@ class ConfigurableAgent:
         )
         return agent
 
-    def _get_tools_for_agent(self) -> List[Any]:
+    def _get_tools_for_agent(self) -> list[Any]:
         """
         Get tools for this agent using direct assignment (CrewAI best practice).
-        
+
         Now applies context injection using the existing context_wrapper.py
         """
         tools = []
-        
+
         try:
             # Get tool names from agent config (from YAML)
             tool_names = self.config.tools
             logger.debug(f"🔍 Looking for {len(tool_names)} tools for {self.agent_role.value}")
-            
+
             # Direct tool lookup from registry (no manager layer)
             for tool_name in tool_names:
                 tool_func = self.tool_registry.get_tool_function(tool_name)
@@ -139,27 +141,33 @@ class ConfigurableAgent:
                         if tool.name == tool_name:
                             found_tool = tool
                             break
-                    
+
                     if found_tool and found_tool.tool_function:
                         tools.append(found_tool.tool_function)
-                        logger.debug(f"✅ Found tool '{tool_name}' via search for {self.agent_role.value}")
+                        logger.debug(
+                            f"✅ Found tool '{tool_name}' via search for {self.agent_role.value}"
+                        )
                     else:
-                        logger.warning(f"❌ Tool '{tool_name}' not found for {self.agent_role.value}")
-            
+                        logger.warning(
+                            f"❌ Tool '{tool_name}' not found for {self.agent_role.value}"
+                        )
+
             # For now, skip context injection to avoid callable issues
             # Context will be passed via Task.config instead
             if tools:
-                logger.info(f"🔧 Loaded {len(tools)} tools (context via Task.config) for {self.agent_role.value}")
+                logger.info(
+                    f"🔧 Loaded {len(tools)} tools (context via Task.config) for {self.agent_role.value}"
+                )
                 return tools
             else:
                 logger.info(f"🔧 No tools found for {self.agent_role.value}")
                 return []
-            
+
         except Exception as e:
             logger.error(f"❌ Error loading tools for {self.agent_role.value}: {e}")
             return []
 
-    def _apply_context_injection_to_tools(self, tools: List[Any]) -> List[Any]:
+    def _apply_context_injection_to_tools(self, tools: list[Any]) -> list[Any]:
         """
         Apply context injection to tools using the existing context_wrapper.py
         """
@@ -167,19 +175,22 @@ class ConfigurableAgent:
             # Create default execution context for this agent
             # This will be updated dynamically when tasks are executed
             default_context = {
-                'telegram_id': 0,  # Will be updated per task
-                'team_id': self.team_id,
-                'username': 'user',  # Will be updated per task
-                'chat_type': 'main'  # Will be updated per task
+                "telegram_id": 0,  # Will be updated per task
+                "team_id": self.team_id,
+                "username": "user",  # Will be updated per task
+                "chat_type": "main",  # Will be updated per task
             }
-            
+
             # Apply context injection using existing wrapper
             from kickai.agents.context_wrapper import apply_context_injection_to_agent_tools
+
             wrapped_tools = apply_context_injection_to_agent_tools(tools, default_context)
-            
-            logger.info(f"🎯 Applied context injection to {len(tools)} tools for {self.agent_role.value}")
+
+            logger.info(
+                f"🎯 Applied context injection to {len(tools)} tools for {self.agent_role.value}"
+            )
             return wrapped_tools
-            
+
         except Exception as e:
             logger.error(f"❌ Error applying context injection for {self.agent_role.value}: {e}")
             # Return original tools if context injection fails
@@ -189,7 +200,7 @@ class ConfigurableAgent:
 
     def get_tools(self) -> list:
         """Get the tools available for this agent."""
-        if hasattr(self.crew_agent, 'tools'):
+        if hasattr(self.crew_agent, "tools"):
             return self.crew_agent.tools
         else:
             # Fallback: get tools directly from registry
@@ -197,11 +208,15 @@ class ConfigurableAgent:
 
     def is_enabled(self) -> bool:
         """Check if this agent is enabled."""
-        return self.config.enabled if hasattr(self, 'config') else True
+        return self.config.enabled if hasattr(self, "config") else True
 
-    async def execute(self, task_description: str, context: Dict[str, Any]) -> str:
+    async def execute(self, task_description: str, context: dict[str, Any]) -> str:
         """
-        Execute a task using CrewAI best practices.
+        Execute a task by delegating to the team's persistent crew system.
+
+        This method now acts as a delegation layer to the TeamManagementSystem,
+        ensuring all task execution goes through persistent crews with memory
+        and proper resource management.
 
         Args:
             task_description: Description of the task to execute
@@ -216,94 +231,48 @@ class ConfigurableAgent:
         if not context:
             raise ValueError("Execution context is required and cannot be empty")
 
-        logger.info(f"🚀 Executing task for {self.agent_role.value}: {task_description[:50]}...")
+        logger.info(
+            f"🚀 Delegating task for {self.agent_role.value} to persistent team system: {task_description[:50]}..."
+        )
 
         try:
             # Validate context to prevent placeholder values
             self._validate_context(context)
 
-            # Create enhanced task description with context
-            from kickai.utils.task_description_enhancer import TaskDescriptionEnhancer
-            enhanced_description = TaskDescriptionEnhancer.enhance_task_description(task_description, context)
+            # Get or create the team's persistent management system
+            from kickai.core.team_system_manager import get_team_system
 
-            # Create and execute CrewAI task
-            result = await self._execute_crewai_task(enhanced_description, context)
+            team_system = await get_team_system(self.team_id)
 
-            logger.info(f"✅ Task completed for {self.agent_role.value}")
+            # Delegate to the persistent crew system
+            result = await team_system.execute_task(task_description, context)
+
+            logger.info(f"✅ Task completed for {self.agent_role.value} via persistent crew")
             return result
 
         except Exception as e:
-            logger.error(f"❌ Task execution failed for {self.agent_role.value}: {e}")
+            logger.error(f"❌ Task delegation failed for {self.agent_role.value}: {e}")
             logger.error(traceback.format_exc())
             return f"❌ Task execution failed: {e!s}"
 
-    def _validate_context(self, context: Dict[str, Any]):
+    def _validate_context(self, context: dict[str, Any]):
         """Validate execution context to ensure it's complete and valid."""
         # CrewAI 2025 native validation - check required keys
-        required_keys = ['team_id', 'telegram_id', 'username', 'chat_type', 'user_role', 'is_registered']
+        required_keys = [
+            "team_id",
+            "telegram_id",
+            "chat_type",
+            "user_role",
+            "is_registered",
+            "telegram_username",
+        ]
         for key in required_keys:
             if key not in context:
                 raise ValueError(f"Missing required context key: {key}")
             if context[key] is None:
                 raise ValueError(f"Context key '{key}' cannot be None")
-        
+
         logger.debug(f"🔍 Context validated for {self.agent_role.value}")
-
-
-
-    async def _execute_crewai_task(self, task_description: str, context: Dict[str, Any]) -> str:
-        """Execute the actual CrewAI task with proper context handling."""
-        logger.debug(f"🔧 Creating task with context: {context}")
-
-        # Create task with simplified description to avoid prompt pollution
-        task = Task(
-            description=task_description,
-            agent=self.crew_agent,
-            expected_output="A clear and helpful response based on the user's request.",
-            config=context,  # Tools access this via get_task_config()
-        )
-
-        # Create and execute crew with minimal configuration
-        crew = Crew(
-            agents=[self.crew_agent],
-            tasks=[task],
-            process=Process.sequential,
-            memory=False,  # Disable memory for stateless execution
-            verbose=False,  # Disable verbose logging to reduce output pollution
-        )
-
-        logger.info(f"🚀 Starting CrewAI execution for {self.agent_role.value}")
-
-
-        # Execute and return result
-        result = crew.kickoff()
-
-        logger.info(f"✅ CrewAI execution completed for {self.agent_role.value}")
-        
-        # Clean up the result to remove any prompt pollution
-        result_str = result.raw if hasattr(result, 'raw') else str(result)
-        
-        # Use the sanitizer to clean up any prompt pollution
-        from kickai.utils.tool_output_sanitizer import sanitize_tool_output, validate_tool_output
-        
-        # Validate the output first
-        validation = validate_tool_output(result_str)
-        
-        if validation["is_polluted"]:
-            logger.warning(f"⚠️ Tool output pollution detected for {self.agent_role.value}")
-            logger.debug(f"🔍 Pollution issues: {validation['issues']}")
-            
-            # Use the sanitizer to clean the output
-            clean_result = sanitize_tool_output(result_str)
-            
-            if clean_result and clean_result.strip():
-                logger.info(f"✅ Successfully cleaned polluted output for {self.agent_role.value}")
-                return clean_result
-            else:
-                logger.error(f"❌ Failed to extract clean data from polluted output for {self.agent_role.value}")
-                return f"❌ Error: Tool output was corrupted. Please try again."
-        
-        return result_str
 
 
 class AgentFactory:
@@ -339,9 +308,11 @@ class AgentFactory:
         try:
             return ConfigurableAgent(role, self.team_id)
         except Exception as e:
-            raise AgentInitializationError(role.value, f"Failed to create agent for role {role.value}: {e}")
+            raise AgentInitializationError(
+                role.value, f"Failed to create agent for role {role.value}: {e}"
+            )
 
-    def create_all_agents(self) -> Dict[AgentRole, ConfigurableAgent]:
+    def create_all_agents(self) -> dict[AgentRole, ConfigurableAgent]:
         """
         Create all enabled agents for the team with delegation support.
 
@@ -352,13 +323,14 @@ class AgentFactory:
 
         try:
             from kickai.config.agents import get_enabled_agent_configs
+
             # Use default context for agent creation
             context = {
                 "team_name": "KICKAI",
                 "team_id": self.team_id,
                 "chat_type": "main",
                 "user_role": "public",
-                "username": "user"
+                "username": "user",
             }
             enabled_configs = get_enabled_agent_configs(context)
 
@@ -372,7 +344,9 @@ class AgentFactory:
                     # Continue creating other agents even if one fails
 
             # All agents are independent - no delegation setup needed for sequential process
-            logger.info(f"🎉 AgentFactory created {len(agents)} independent agents for team {self.team_id}")
+            logger.info(
+                f"🎉 AgentFactory created {len(agents)} independent agents for team {self.team_id}"
+            )
             return agents
 
         except Exception as e:
@@ -396,7 +370,7 @@ def create_agent(role: AgentRole, team_id: str) -> ConfigurableAgent:
     return factory.create_agent(role)
 
 
-def create_all_agents(team_id: str) -> Dict[AgentRole, ConfigurableAgent]:
+def create_all_agents(team_id: str) -> dict[AgentRole, ConfigurableAgent]:
     """
     Convenience function to create all agents for a team.
 

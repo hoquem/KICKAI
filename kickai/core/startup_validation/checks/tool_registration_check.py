@@ -96,7 +96,7 @@ class ToolRegistrationCheck(BaseCheck):
                 "team_id": "KAI",
                 "chat_type": "main",
                 "user_role": "public",
-                "username": "user"
+                "username": "user",
             }
             agent_configs = get_enabled_agent_configs(context)
             agents_without_tools = []

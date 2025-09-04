@@ -29,9 +29,4 @@ RESPONSE_TYPE_TRUNCATE_LENGTH = 50
 # All routing is now handled by agent LLM intelligence and native CrewAI delegation
 
 # Logging Configuration
-LOG_LEVELS = {
-    'DEBUG': 'debug',
-    'INFO': 'info', 
-    'WARNING': 'warning',
-    'ERROR': 'error'
-}
+LOG_LEVELS = {"DEBUG": "debug", "INFO": "info", "WARNING": "warning", "ERROR": "error"}

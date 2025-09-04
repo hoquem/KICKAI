@@ -29,9 +29,9 @@ class AsyncToolMetadata:
     use_cases: list[str] = field(default_factory=list)
     permissions: list[str] = field(default_factory=list)
     is_async: bool = field(default=True, init=False)  # Always True, not settable
-    standard_params: list[str] = field(default_factory=lambda: [
-        "telegram_id", "team_id", "username", "chat_type"
-    ])
+    standard_params: list[str] = field(
+        default_factory=lambda: ["telegram_id", "team_id", "username", "chat_type"]
+    )
     tool_specific_params: list[str] = field(default_factory=list)
 
 
@@ -39,12 +39,7 @@ class AsyncToolProtocol(Protocol):
     """Standard interface for all async tools in KICKAI."""
 
     async def __call__(
-        self,
-        telegram_id: int,
-        team_id: str,
-        username: str,
-        chat_type: ChatType,
-        **kwargs
+        self, telegram_id: int, team_id: str, username: str, chat_type: ChatType, **kwargs
     ) -> str:
         """Standard async tool signature with required context parameters."""
         ...
@@ -66,21 +61,25 @@ class AsyncToolRegistry:
         """Register async tool with automatic metadata extraction. ALL tools must be async."""
         try:
             # Handle both CrewAI Tool objects and regular functions
-            if hasattr(tool_func, 'name'):
+            if hasattr(tool_func, "name"):
                 # CrewAI Tool object
                 tool_name = tool_func.name
-                actual_func = getattr(tool_func, 'func', tool_func)
+                actual_func = getattr(tool_func, "func", tool_func)
             else:
                 # Regular function
-                tool_name = getattr(tool_func, '__name__', 'unknown_tool')
+                tool_name = getattr(tool_func, "__name__", "unknown_tool")
                 actual_func = tool_func
 
             # Validate that tool is async - ALL tools must be async
             is_async = callable(actual_func) and asyncio.iscoroutinefunction(actual_func)
 
             if not is_async:
-                logger.error(f"❌ ARCHITECTURE VIOLATION: Tool {tool_name} is not async - ALL tools must be async in 2025 architecture")
-                raise ValueError(f"Tool {tool_name} must be async - sync tools are no longer supported")
+                logger.error(
+                    f"❌ ARCHITECTURE VIOLATION: Tool {tool_name} is not async - ALL tools must be async in 2025 architecture"
+                )
+                raise ValueError(
+                    f"Tool {tool_name} must be async - sync tools are no longer supported"
+                )
 
             self.tools[tool_name] = tool_func
             self.metadata[tool_name] = self._extract_metadata(tool_func, tool_name, actual_func)
@@ -90,23 +89,29 @@ class AsyncToolRegistry:
 
         except Exception as e:
             # Get tool name for error logging
-            tool_name = 'unknown'
+            tool_name = "unknown"
             try:
-                if hasattr(tool_func, 'name'):
+                if hasattr(tool_func, "name"):
                     tool_name = tool_func.name
-                elif hasattr(tool_func, '__name__'):
+                elif hasattr(tool_func, "__name__"):
                     tool_name = tool_func.__name__
             except Exception:
                 pass
             logger.error(f"❌ Failed to register tool {tool_name}: {e}")
             # Don't re-raise other types of errors - continue processing
 
-    def _extract_metadata(self, tool_func: Callable, tool_name: str, actual_func: Callable) -> AsyncToolMetadata:
+    def _extract_metadata(
+        self, tool_func: Callable, tool_name: str, actual_func: Callable
+    ) -> AsyncToolMetadata:
         """Extract metadata from tool function."""
         try:
             # Extract docstring from the actual function
-            docstring = getattr(actual_func, '__doc__', None) or getattr(tool_func, '__doc__', None) or f"Tool: {tool_name}"
-            description = docstring.split('\n')[0].strip()
+            docstring = (
+                getattr(actual_func, "__doc__", None)
+                or getattr(tool_func, "__doc__", None)
+                or f"Tool: {tool_name}"
+            )
+            description = docstring.split("\n")[0].strip()
 
             # Extract use cases from docstring
             use_cases = self._extract_use_cases(docstring)
@@ -122,30 +127,27 @@ class AsyncToolRegistry:
                 description=description,
                 use_cases=use_cases,
                 permissions=permissions,
-                tool_specific_params=tool_specific_params
+                tool_specific_params=tool_specific_params,
             )
 
         except Exception as e:
             logger.warning(f"⚠️ Failed to extract metadata for {tool_name}: {e}")
-            return AsyncToolMetadata(
-                name=tool_name,
-                description=f"Tool: {tool_name}"
-            )
+            return AsyncToolMetadata(name=tool_name, description=f"Tool: {tool_name}")
 
     def _extract_use_cases(self, docstring: str) -> list[str]:
         """Extract use cases from tool docstring."""
         use_cases = []
-        lines = docstring.split('\n')
+        lines = docstring.split("\n")
 
         for line in lines:
             line = line.strip()
-            if any(keyword in line.lower() for keyword in ['use when:', 'use for:', 'commands:']):
+            if any(keyword in line.lower() for keyword in ["use when:", "use for:", "commands:"]):
                 # Extract the part after the colon
-                if ':' in line:
-                    cases = line.split(':', 1)[1].strip()
+                if ":" in line:
+                    cases = line.split(":", 1)[1].strip()
                     # Split by common separators
-                    for case in cases.replace(',', ';').split(';'):
-                        case = case.strip().strip('"\'')
+                    for case in cases.replace(",", ";").split(";"):
+                        case = case.strip().strip("\"'")
                         if case:
                             use_cases.append(case)
 
@@ -154,17 +156,17 @@ class AsyncToolRegistry:
     def _extract_permissions(self, docstring: str) -> list[str]:
         """Extract permissions from tool docstring."""
         permissions = []
-        lines = docstring.split('\n')
+        lines = docstring.split("\n")
 
         for line in lines:
             line = line.strip().lower()
-            if 'requires:' in line or 'permission:' in line:
-                if 'leadership' in line:
-                    permissions.append('leadership')
-                elif 'admin' in line:
-                    permissions.append('admin')
-                elif 'player' in line:
-                    permissions.append('player')
+            if "requires:" in line or "permission:" in line:
+                if "leadership" in line:
+                    permissions.append("leadership")
+                elif "admin" in line:
+                    permissions.append("admin")
+                elif "player" in line:
+                    permissions.append("player")
 
         return permissions
 
@@ -176,7 +178,7 @@ class AsyncToolRegistry:
 
             tool_params = []
             for param_name in sig.parameters:
-                if param_name not in standard_params and param_name != 'kwargs':
+                if param_name not in standard_params and param_name != "kwargs":
                     tool_params.append(param_name)
 
             return tool_params
@@ -198,11 +200,7 @@ class AsyncToolRegistry:
 
     def get_metadata_for_tools(self, tool_names: list[str]) -> dict[str, AsyncToolMetadata]:
         """Get metadata for specific tools."""
-        return {
-            name: self.metadata[name]
-            for name in tool_names
-            if name in self.metadata
-        }
+        return {name: self.metadata[name] for name in tool_names if name in self.metadata}
 
     def generate_tools_documentation(self, tool_names: list[str]) -> str:
         """Generate documentation for a set of tools."""
@@ -226,7 +224,7 @@ class AsyncToolRegistry:
             else:
                 docs.append(f"• {tool_name}: Tool documentation not available")
 
-        return '\n'.join(docs)
+        return "\n".join(docs)
 
     def validate_async_tools(self, tool_names: list[str]) -> dict[str, bool]:
         """Validate that tools are properly async. ALL tools MUST be async in 2025 architecture."""
@@ -237,7 +235,7 @@ class AsyncToolRegistry:
             if tool_name in self.tools:
                 tool_func = self.tools[tool_name]
                 # Handle both CrewAI Tool objects and regular functions
-                if hasattr(tool_func, 'func'):
+                if hasattr(tool_func, "func"):
                     actual_func = tool_func.func
                 else:
                     actual_func = tool_func
@@ -252,8 +250,12 @@ class AsyncToolRegistry:
 
         # Log warning if any sync tools found - ALL tools should be async now
         if sync_tools_found:
-            logger.warning(f"⚠️ ARCHITECTURE VIOLATION: Found sync tools (should be async): {sync_tools_found}")
-            logger.warning("🔧 All tools MUST be async in 2025 architecture for CrewAI compatibility")
+            logger.warning(
+                f"⚠️ ARCHITECTURE VIOLATION: Found sync tools (should be async): {sync_tools_found}"
+            )
+            logger.warning(
+                "🔧 All tools MUST be async in 2025 architecture for CrewAI compatibility"
+            )
 
         return validation
 
@@ -267,12 +269,16 @@ class AsyncToolRegistry:
         async_tools_count = sum(validation.values())
 
         if sync_tools:
-            logger.error(f"❌ ARCHITECTURE VIOLATION: {len(sync_tools)} sync tools found out of {total_tools} total tools")
+            logger.error(
+                f"❌ ARCHITECTURE VIOLATION: {len(sync_tools)} sync tools found out of {total_tools} total tools"
+            )
             logger.error(f"❌ Sync tools that need conversion: {sync_tools}")
             logger.info(f"✅ Async tools: {async_tools_count}/{total_tools}")
             return False
         else:
-            logger.info(f"✅ ALL TOOLS ARE ASYNC: {async_tools_count}/{total_tools} tools are properly async")
+            logger.info(
+                f"✅ ALL TOOLS ARE ASYNC: {async_tools_count}/{total_tools} tools are properly async"
+            )
             return True
 
     def get_registry_stats(self) -> dict[str, Any]:
@@ -287,7 +293,7 @@ class AsyncToolRegistry:
             "sync_tools": 0,  # Always 0 - sync tools not supported
             "tools_with_metadata": len(self.metadata),
             "tools_by_permission": self._count_tools_by_permission(),
-            "architecture": "100% async"
+            "architecture": "100% async",
         }
 
     def _count_tools_by_permission(self) -> dict[str, int]:
@@ -309,7 +315,7 @@ class AsyncContextInjector:
         user_request: str,
         context: dict,
         tool_registry: AsyncToolRegistry,
-        agent_tool_names: list[str]
+        agent_tool_names: list[str],
     ) -> str:
         """Generate clean, token-efficient task description with optimal parameter passing instructions."""
         try:
@@ -317,13 +323,15 @@ class AsyncContextInjector:
             tool_signatures = AsyncContextInjector._format_tool_signatures(
                 agent_tool_names, tool_registry, context
             )
-            
+
             # Count available tools
-            available_tools_count = len([name for name in agent_tool_names if name in tool_registry.tools])
-            
+            available_tools_count = len(
+                [name for name in agent_tool_names if name in tool_registry.tools]
+            )
+
             # Context-aware tool selection guidance (simplified)
             context_guidance = AsyncContextInjector._generate_context_aware_guidance(
-                context['chat_type'], agent_tool_names
+                context["chat_type"], agent_tool_names
             )
 
             return f"""## CONTEXT
@@ -362,82 +370,88 @@ Instructions: Use available tools to respond to the user's request.
 
     @staticmethod
     def _format_tool_signatures(
-        agent_tool_names: list[str], 
-        tool_registry: AsyncToolRegistry, 
-        context: dict
+        agent_tool_names: list[str], tool_registry: AsyncToolRegistry, context: dict
     ) -> str:
         """Format tools as function signatures for clarity."""
         try:
             signatures = []
-            
+
             for tool_name in agent_tool_names:
                 if tool_name in tool_registry.metadata:
                     meta = tool_registry.metadata[tool_name]
-                    
+
                     # Build function signature
                     params = ["telegram_id: int", "team_id: str", "username: str", "chat_type: str"]
-                    
+
                     # Add tool-specific parameters with types if available
                     if meta.tool_specific_params:
                         for param in meta.tool_specific_params:
                             params.append(f"{param}: str")
-                    
+
                     signature = f"- {tool_name}({', '.join(params)})"
-                    
+
                     # Add brief description if available
                     if meta.description:
                         # Keep description concise (first sentence only)
-                        desc = meta.description.split('.')[0] + '.'
+                        desc = meta.description.split(".")[0] + "."
                         if len(desc) > 80:
                             desc = desc[:77] + "..."
                         signature += f"  # {desc}"
-                    
+
                     signatures.append(signature)
                 else:
                     # Fallback for tools without metadata
-                    signatures.append(f"- {tool_name}(telegram_id: int, team_id: str, username: str, chat_type: str, ...)")
-            
-            return '\n'.join(signatures)
-            
+                    signatures.append(
+                        f"- {tool_name}(telegram_id: int, team_id: str, username: str, chat_type: str, ...)"
+                    )
+
+            return "\n".join(signatures)
+
         except Exception as e:
             logger.warning(f"⚠️ Failed to format tool signatures: {e}")
-            return '\n'.join([f"- {name}" for name in agent_tool_names])
-    
+            return "\n".join([f"- {name}" for name in agent_tool_names])
+
     @staticmethod
     def _generate_context_aware_guidance(chat_type: str, agent_tool_names: list[str]) -> str:
         """Generate concise context-aware tool selection guidance."""
         try:
             # Check available tools for guidance
-            has_get_my_status = 'get_my_status' in agent_tool_names
-            has_active_players = 'get_active_players' in agent_tool_names
-            has_list_all = 'list_team_members_and_players' in agent_tool_names
-            has_player_status = 'get_player_status' in agent_tool_names
-            has_update_player_field = 'update_player_field' in agent_tool_names
-            has_update_multiple_fields = 'update_player_multiple_fields' in agent_tool_names
+            has_get_my_status = "get_my_status" in agent_tool_names
+            has_active_players = "get_active_players" in agent_tool_names
+            has_list_all = "list_team_members_and_players" in agent_tool_names
+            has_player_status = "get_player_status" in agent_tool_names
+            has_update_player_field = "update_player_field" in agent_tool_names
+            has_update_multiple_fields = "update_player_multiple_fields" in agent_tool_names
 
             guidance = []
-            
+
             # Intent recognition (simplified)
             if has_get_my_status or has_player_status:
                 guidance.append("👤 PERSONAL: /myinfo, /info, /status → get_my_status")
                 if has_player_status:
                     guidance.append("👥 SPECIFIC: /status [name/phone] → get_player_status")
-            
+
             # Update commands guidance
             if has_update_player_field or has_update_multiple_fields:
                 if has_update_player_field:
-                    guidance.append("✏️ UPDATE SINGLE: /update [field] [value] → update_player_field")
+                    guidance.append(
+                        "✏️ UPDATE SINGLE: /update [field] [value] → update_player_field"
+                    )
                 if has_update_multiple_fields:
-                    guidance.append("✏️ UPDATE MULTIPLE: bulk updates → update_player_multiple_fields")
-            
+                    guidance.append(
+                        "✏️ UPDATE MULTIPLE: bulk updates → update_player_multiple_fields"
+                    )
+
             # Context-based list tools
             if has_active_players and has_list_all:
                 chat_lower = chat_type.lower()
-                if chat_lower in ['main', 'main_chat']:
+                if chat_lower in ["main", "main_chat"]:
                     guidance.append("📋 MAIN CHAT: /list → get_active_players (match planning)")
-                elif chat_lower in ['leadership', 'leadership_chat']:
-                    guidance.append("📋 LEADERSHIP: /list → list_team_members_and_players (full roster)")
-            
+                elif chat_lower in ["leadership", "leadership_chat"]:
+                    guidance.append(
+                        "📋 LEADERSHIP: /list → list_team_members_and_players (full roster)"
+                    )
+
             if guidance:
                 return "## TOOL SELECTION\n" + "\n".join(guidance)
             else:
@@ -450,7 +464,7 @@ Instructions: Use available tools to respond to the user's request.
     @staticmethod
     def validate_context(context: dict) -> bool:
         """Validate that required context is present."""
-        required_keys = ['telegram_id', 'team_id', 'username', 'chat_type']
+        required_keys = ["telegram_id", "team_id", "username", "chat_type"]
         return all(key in context and context[key] for key in required_keys)
 
 

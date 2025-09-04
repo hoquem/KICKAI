@@ -7,23 +7,24 @@ between string and integer formats, ensuring consistent database queries
 and preventing type mismatch issues.
 """
 
-from typing import Any, Union
+from typing import Any
+
 from loguru import logger
 
 
-def normalize_telegram_id_for_query(telegram_id: Union[str, int, None]) -> Union[int, None]:
+def normalize_telegram_id_for_query(telegram_id: str | int | None) -> int | None:
     """
     Normalize telegram_id to integer format for consistent database queries.
-    
+
     Uses Telegram's native integer format which is more efficient and
     consistent with Telegram's API specification.
-    
+
     Args:
         telegram_id: Telegram ID in string or integer format
-        
+
     Returns:
         Integer telegram_id or None if invalid
-        
+
     Examples:
         >>> normalize_telegram_id_for_query("1001")
         1001
@@ -36,10 +37,10 @@ def normalize_telegram_id_for_query(telegram_id: Union[str, int, None]) -> Union
     """
     if telegram_id is None:
         return None
-        
+
     if isinstance(telegram_id, int):
         return telegram_id if telegram_id > 0 else None
-        
+
     if isinstance(telegram_id, str):
         if not telegram_id.strip():
             return None
@@ -50,39 +51,39 @@ def normalize_telegram_id_for_query(telegram_id: Union[str, int, None]) -> Union
         except ValueError:
             logger.warning(f"Invalid telegram_id format: '{telegram_id}' - not a valid integer")
             return None
-    
+
     logger.warning(f"Unexpected telegram_id type: {type(telegram_id)} - value: {telegram_id}")
     return None
 
 
-def normalize_telegram_id_for_storage(telegram_id: Union[str, int, None]) -> Union[int, None]:
+def normalize_telegram_id_for_storage(telegram_id: str | int | None) -> int | None:
     """
     Normalize telegram_id to integer format for consistent database storage.
-    
+
     Uses the same integer format as query normalization to maintain consistency.
     Firestore handles integers natively and efficiently.
-    
+
     Args:
         telegram_id: Telegram ID in string or integer format
-        
+
     Returns:
         Integer telegram_id or None if invalid
     """
     return normalize_telegram_id_for_query(telegram_id)
 
 
-def safe_telegram_id_to_int(telegram_id: Union[str, int, None]) -> int:
+def safe_telegram_id_to_int(telegram_id: str | int | None) -> int:
     """
     Safely convert telegram_id to integer, raising ValueError if invalid.
-    
+
     Use this when you need to guarantee an integer result or fail explicitly.
-    
+
     Args:
         telegram_id: Telegram ID in string or integer format
-        
+
     Returns:
         Integer telegram_id
-        
+
     Raises:
         ValueError: If telegram_id cannot be converted to valid integer
     """
@@ -92,18 +93,18 @@ def safe_telegram_id_to_int(telegram_id: Union[str, int, None]) -> int:
     return normalized
 
 
-def safe_telegram_id_to_string(telegram_id: Union[str, int, None]) -> str:
+def safe_telegram_id_to_string(telegram_id: str | int | None) -> str:
     """
     Safely convert telegram_id to string, raising ValueError if invalid.
-    
+
     Kept for backward compatibility with existing code.
-    
+
     Args:
         telegram_id: Telegram ID in string or integer format
-        
+
     Returns:
         String telegram_id
-        
+
     Raises:
         ValueError: If telegram_id cannot be converted to valid string
     """
@@ -116,10 +117,10 @@ def safe_telegram_id_to_string(telegram_id: Union[str, int, None]) -> str:
 def is_valid_telegram_id(telegram_id: Any) -> bool:
     """
     Check if a value is a valid telegram_id.
-    
+
     Args:
         telegram_id: Value to check
-        
+
     Returns:
         True if valid telegram_id, False otherwise
     """

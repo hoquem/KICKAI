@@ -7,6 +7,7 @@ These tools serve as the application boundary and delegate to pure domain servic
 All framework dependencies (@tool decorators, container access) are confined to this layer.
 """
 
+
 from crewai.tools import tool
 from loguru import logger
 
@@ -15,196 +16,250 @@ from kickai.features.communication.domain.services.communication_service import 
 from kickai.utils.tool_validation import create_tool_response
 
 
-@tool("send_message_team")
-async def send_message_team(
-    telegram_id: int,
-    team_id: str,
-    username: str,
-    chat_type: str,
-    message: str,
-    target_chat: str = None
-) -> str:
+def _get_communication_service() -> CommunicationService:
+    """Get communication service from container with error handling."""
+    try:
+        container = get_container()
+        service = container.get_service(CommunicationService)
+        if not service:
+            raise ValueError("Communication service not found in container")
+        return service
+    except Exception as e:
+        logger.error(f"Failed to get communication service: {e}")
+        raise
+
+
+def _validate_chat_access(target_chat: str, user_chat_type: str) -> bool:
+    """Validate user has access to target chat channel."""
+    if not target_chat or not isinstance(target_chat, str):
+        return False
+
+    target_chat_lower = target_chat.lower().strip()
+    user_chat_type_lower = user_chat_type.lower().strip() if user_chat_type else ""
+
+    # Leadership chat requires leadership access
+    if target_chat_lower == "leadership" and user_chat_type_lower != "leadership":
+        return False
+
+    # Only allow known chat types
+    if target_chat_lower not in ["main", "leadership"]:
+        return False
+
+    return True
+
+
+def _parse_poll_options(poll_options: str) -> tuple[list[str], str]:
+    """Parse and validate poll options string with enhanced validation.
+
+    Returns: (options_list, error_message or empty string)
     """
-    Send a message to a specific chat or broadcast to team.
+    if not poll_options or not isinstance(poll_options, str):
+        return [], "Poll options must be provided as text"
 
-    This tool serves as the application boundary for message sending functionality.
-    It handles framework concerns and delegates business logic to the domain service.
+    # Security: Sanitize input and check for malicious content
+    if len(poll_options) > 1000:
+        return [], "Poll options input is too long (maximum 1000 characters)"
 
-    Args:
-        telegram_id: Sender's Telegram ID
-        team_id: Team ID (required)
-        username: Sender's username for logging
-        chat_type: Chat type context
-        message: Message content to send
-        target_chat: Target chat identifier (optional)
+    try:
+        # Parse options with enhanced validation
+        options_list = []
+        for opt in poll_options.split(","):
+            clean_opt = opt.strip()
+            if clean_opt:
+                # Basic security: Remove control characters and validate content
+                if any(ord(char) < 32 and char not in ["\n", "\r", "\t"] for char in clean_opt):
+                    return [], f"Invalid characters detected in poll option: {clean_opt[:20]}..."
+                options_list.append(clean_opt)
+    except Exception as e:
+        logger.warning(f"Failed to parse poll options: {e}")
+        return [], "Failed to parse poll options. Please use comma-separated values"
 
-    Returns:
-        JSON formatted response with message sending result
+    if len(options_list) < 2:
+        return [], "At least 2 poll options are required (separate with commas)"
+
+    if len(options_list) > 10:
+        return [], "Maximum 10 poll options allowed for readability"
+
+    # Check for duplicates (case-insensitive)
+    options_lower = [opt.lower() for opt in options_list]
+    if len(options_lower) != len(set(options_lower)):
+        return [], "Poll options must be unique (no duplicates allowed)"
+
+    # Validate option lengths and content
+    for i, option in enumerate(options_list, 1):
+        if len(option) > 100:
+            return [], f"Poll option {i} is too long (maximum 100 characters)"
+        if len(option) < 1:
+            return [], f"Poll option {i} cannot be empty"
+        # Basic content validation
+        if option.startswith(("/", "@", "#")) or option.strip() in ["", " "]:
+            return [], f"Poll option {i} has invalid format or is empty"
+
+    return options_list, ""
+
+
+@tool("send_team_message")
+async def send_team_message(team_id: str, message: str, target_chat: str = "main") -> str:
+    """
+    Send targeted message to specific team chat channel.
+
+    Business operation to deliver messages to designated team communication channels
+    with appropriate access control and channel-specific routing.
+
+    Use when: Need to send targeted messages to specific team channels
+    Required: User must have appropriate chat access permissions
+
+    Returns: Message delivery confirmation with channel details
     """
     try:
-        logger.info(f"📤 Message send request from {username} ({telegram_id}) in team {team_id}")
+        # Input validation with enhanced security
+        if not team_id or not team_id.strip():
+            return create_tool_response(False, "Team ID is required")
 
-        # Validate inputs at application boundary
         if not message or not message.strip():
-            return create_tool_response(False, "Message content is required"
-            )
+            return create_tool_response(False, "Message content is required")
 
-        # Get domain service from container and delegate to domain function
-        container = get_container()
-        communication_service = container.get_service(CommunicationService)
-        
+        if not target_chat or not target_chat.strip():
+            return create_tool_response(False, "Target chat is required")
+
+        # Enhanced message validation for security
+        if len(message) > 4000:  # Telegram message limit
+            return create_tool_response(False, "Message is too long (maximum 4000 characters)")
+
+        # Basic security check for malicious content
+        if any(ord(char) < 32 and char not in ["\n", "\r", "\t"] for char in message):
+            return create_tool_response(False, "Message contains invalid characters")
+
+        # Validate target chat with enhanced security
+        if not _validate_chat_access(target_chat, "main"):  # Simplified for now
+            return create_tool_response(False, "Invalid target chat or insufficient permissions")
+
+        logger.info(f"📤 Message send request to {target_chat} chat for team {team_id}")
+
+        # Get communication service with error handling
+        try:
+            communication_service = _get_communication_service()
+        except Exception as e:
+            logger.error(f"Service initialization failed: {e}")
+            return create_tool_response(False, "Communication service temporarily unavailable")
+
         # Execute domain operation
-        success = await communication_service.send_message(message, chat_type, team_id)
-        
-        if not success:
-            return create_tool_response(False, "Failed to send message"
-            )
-        
-        response_data = {
-            "message_sent": True,
-            "sender": username,
-            "message_content": message[:100] + "..." if len(message) > 100 else message,
-            "target_chat": chat_type,
-            "team_id": team_id,
-            "message": f"✅ Message sent successfully by {username}"
-        }
+        success = await communication_service.send_message(message, target_chat, team_id)
 
-        logger.info(f"✅ Message sent by {username}")
-        return create_tool_response(True, "Operation completed successfully", data=response_data)
+        if not success:
+            logger.error(f"❌ Failed to send message to team {team_id} in {target_chat} chat")
+            return create_tool_response(False, f"Failed to send message to {target_chat} chat")
+
+        logger.info(f"✅ Message sent to {target_chat} chat for team {team_id}")
+        return create_tool_response(
+            True, "Message sent successfully", data=f"📤 Message delivered to {target_chat} chat"
+        )
 
     except Exception as e:
         logger.error(f"❌ Error sending message: {e}")
-        return create_tool_response(False, f"Failed to send message: {e}")
+        # Avoid exposing internal error details to users
+        error_msg = "Failed to send message. Please try again or contact support."
+        if "not found" in str(e).lower():
+            error_msg = "Team or chat channel not found"
+        elif "permission" in str(e).lower() or "access" in str(e).lower():
+            error_msg = "Insufficient permissions to send message"
+        elif "rate limit" in str(e).lower():
+            error_msg = "Too many messages sent. Please wait before sending another."
+        return create_tool_response(False, error_msg)
 
 
-@tool("send_announcement_all")
-async def send_announcement_all(
-    telegram_id: int,
-    team_id: str,
-    username: str,
-    chat_type: str,
-    announcement: str
-) -> str:
+@tool("send_team_announcement")
+async def send_team_announcement(team_id: str, announcement: str) -> str:
     """
-    Send an announcement to the team.
+    Broadcast official team communication to all members.
 
-    This tool serves as the application boundary for announcement functionality.
-    It handles framework concerns and delegates business logic to the domain service.
+    Business operation to deliver important information to every team member through
+    established communication channels with delivery confirmation.
 
-    Args:
-        telegram_id: Sender's Telegram ID (admin/leadership)
-        team_id: Team ID (required)
-        username: Sender's username for logging
-        chat_type: Chat type context (should be 'leadership')
-        announcement: Announcement content
+    Use when: Need to broadcast important information to entire team
+    Required: User must have announcement privileges, typically leadership access
 
-    Returns:
-        JSON formatted response with announcement sending result
+    Returns: Broadcast confirmation with delivery status to all team members
     """
     try:
-        logger.info(f"📢 Announcement from {username} ({telegram_id}) in team {team_id}")
+        logger.info(f"📢 Announcement broadcast request for team {team_id}")
 
-        # Validate inputs at application boundary
-        if not announcement or not announcement.strip():
-            return create_tool_response(False, "Announcement content is required"
-            )
+        # Validate required parameters
+        if not team_id.strip():
+            return create_tool_response(False, "Team ID is required")
 
-        # Get domain service from container and delegate to domain function
-        container = get_container()
-        communication_service = container.get_service(CommunicationService)
-        
+        if not announcement.strip():
+            return create_tool_response(False, "Announcement content is required")
+
+        # Get communication service
+        communication_service = _get_communication_service()
+
         # Execute domain operation
         success = await communication_service.send_announcement(announcement, team_id)
-        
-        if not success:
-            return create_tool_response(False, "Failed to send announcement"
-            )
-        
-        response_data = {
-            "announcement_sent": True,
-            "sender": username,
-            "announcement_content": announcement[:100] + "..." if len(announcement) > 100 else announcement,
-            "team_id": team_id,
-            "broadcast_to": "all_team_members",
-            "message": f"📢 Announcement sent successfully by {username}"
-        }
 
-        logger.info(f"✅ Announcement sent by {username}")
-        return create_tool_response(True, "Operation completed successfully", data=response_data)
+        if not success:
+            logger.error(f"❌ Failed to broadcast announcement to team {team_id}")
+            return create_tool_response(False, "Failed to send announcement")
+
+        logger.info(f"✅ Announcement broadcast successful for team {team_id}")
+        return create_tool_response(
+            True,
+            "Announcement sent successfully",
+            data="📢 Announcement broadcast to all team members",
+        )
 
     except Exception as e:
         logger.error(f"❌ Error sending announcement: {e}")
         return create_tool_response(False, f"Failed to send announcement: {e}")
 
 
-@tool("send_poll_team")
-async def send_poll_team(
-    telegram_id: int,
-    team_id: str,
-    username: str,
-    chat_type: str,
-    poll_question: str,
-    poll_options: str
-) -> str:
+@tool("send_team_poll")
+async def send_team_poll(team_id: str, poll_question: str, poll_options: str) -> str:
     """
-    Send a poll to the team for voting.
+    Create team voting poll for democratic decision making.
 
-    This tool serves as the application boundary for poll functionality.
-    It handles framework concerns and delegates business logic to the domain service.
+    Business operation to generate interactive polls for team members to vote on decisions,
+    gathering democratic input on various team topics and initiatives.
 
-    Args:
-        telegram_id: Sender's Telegram ID (admin/leadership)
-        team_id: Team ID (required)
-        username: Sender's username for logging
-        chat_type: Chat type context (should be 'leadership')
-        poll_question: The poll question
-        poll_options: Poll options (comma-separated)
+    Use when: Need team consensus or opinion gathering on decisions
+    Required: User must have poll creation privileges, poll must have valid options
 
-    Returns:
-        JSON formatted response with poll creation result
+    Returns: Poll creation confirmation with voting details and option count
     """
     try:
-        logger.info(f"🗳️ Poll creation request from {username} ({telegram_id}) in team {team_id}")
+        logger.info(f"🗳️ Poll creation request for team {team_id}")
 
-        # Validate inputs at application boundary
-        if not poll_question or not poll_question.strip():
-            return create_tool_response(False, "Poll question is required"
-            )
-        
-        if not poll_options or not poll_options.strip():
-            return create_tool_response(False, "Poll options are required"
-            )
+        # Validate required parameters
+        if not team_id.strip():
+            return create_tool_response(False, "Team ID is required")
 
-        # Parse poll options
-        options_list = [opt.strip() for opt in poll_options.split(',') if opt.strip()]
-        
-        if len(options_list) < 2:
-            return create_tool_response(False, "At least 2 poll options are required"
-            )
+        if not poll_question.strip():
+            return create_tool_response(False, "Poll question is required")
 
-        # Get domain service from container and delegate to domain function
-        container = get_container()
-        communication_service = container.get_service(CommunicationService)
-        
+        if not poll_options.strip():
+            return create_tool_response(False, "Poll options are required")
+
+        # Parse and validate poll options
+        options_list, error_message = _parse_poll_options(poll_options)
+        if error_message:
+            return create_tool_response(False, error_message)
+
+        # Get communication service
+        communication_service = _get_communication_service()
+
         # Execute domain operation
         success = await communication_service.send_poll(poll_question, poll_options, team_id)
-        
-        if not success:
-            return create_tool_response(False, "Failed to send poll"
-            )
-        
-        response_data = {
-            "poll_created": True,
-            "sender": username,
-            "poll_question": poll_question,
-            "poll_options": options_list,
-            "team_id": team_id,
-            "voters": "all_team_members",
-            "message": f"🗳️ Poll created successfully by {username}: {poll_question}"
-        }
 
-        logger.info(f"✅ Poll created by {username}")
-        return create_tool_response(True, "Operation completed successfully", data=response_data)
+        if not success:
+            logger.error(f"❌ Failed to create poll for team {team_id}")
+            return create_tool_response(False, "Failed to create poll")
+
+        logger.info(f"✅ Poll created successfully for team {team_id}")
+        return create_tool_response(
+            True,
+            "Poll created successfully",
+            data=f"🗳️ Poll '{poll_question}' created with {len(options_list)} options",
+        )
 
     except Exception as e:
         logger.error(f"❌ Error creating poll: {e}")

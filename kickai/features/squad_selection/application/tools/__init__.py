@@ -6,12 +6,14 @@ These tools serve as the application boundary and delegate to pure domain servic
 
 # Import squad and availability tools (clean naming convention)
 from .squad_availability_tools import (
-    select_squad_optimal,
-    list_players_available,
+    get_attendance_player_history_lookup,
+    get_attendance_player_history_self,
+    get_availability_player_lookup,
+    get_availability_player_self,
     get_availability_summary,
-    get_availability_player,
-    get_attendance_player_history,
-    list_matches_upcoming
+    list_matches_upcoming,
+    list_players_available,
+    select_squad_optimal,
 )
 
 # Export all tools for agent registration
@@ -20,7 +22,9 @@ __all__ = [
     "select_squad_optimal",
     "list_players_available",
     "get_availability_summary",
-    "get_availability_player",
-    "get_attendance_player_history",
-    "list_matches_upcoming"
+    "get_availability_player_self",
+    "get_availability_player_lookup",
+    "get_attendance_player_history_self",
+    "get_attendance_player_history_lookup",
+    "list_matches_upcoming",
 ]

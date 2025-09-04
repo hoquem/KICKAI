@@ -1,4 +1,3 @@
-from typing import Dict, Optional, Tuple
 #!/usr/bin/env python3
 """
 Simplified Team Member Service
@@ -13,21 +12,20 @@ from loguru import logger
 
 from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
 from kickai.features.team_administration.domain.entities.team_member import TeamMember
+from kickai.features.team_administration.domain.exceptions import (
+    InviteLinkCreationError,
+    InviteLinkServiceUnavailableError,
+    LeadershipChatNotConfiguredError,
+    TeamNotFoundError,
+    TeamServiceUnavailableError,
+)
 from kickai.features.team_administration.domain.repositories.team_member_repository_interface import (
     TeamMemberRepositoryInterface,
 )
 from kickai.features.team_administration.domain.services.team_service import TeamService
-from kickai.features.team_administration.domain.exceptions import (
-    TeamNotFoundError,
-    TeamServiceUnavailableError,
-    LeadershipChatNotConfiguredError,
-    InviteLinkServiceUnavailableError,
-    InviteLinkCreationError,
-)
 from kickai.utils.constants import (
     DEFAULT_MEMBER_ROLE,
     DEFAULT_MEMBER_STATUS,
-    ERROR_MESSAGES,
     SUCCESS_MESSAGES,
 )
 from kickai.utils.simple_id_generator import generate_simple_team_member_id
@@ -36,7 +34,9 @@ from kickai.utils.simple_id_generator import generate_simple_team_member_id
 class SimplifiedTeamMemberService:
     """Simplified service for team member management."""
 
-    def __init__(self, team_member_repository: TeamMemberRepositoryInterface, team_service: TeamService):
+    def __init__(
+        self, team_member_repository: TeamMemberRepositoryInterface, team_service: TeamService
+    ):
         self.team_member_repository = team_member_repository
         self.team_service = team_service
         self.logger = logger
@@ -44,7 +44,7 @@ class SimplifiedTeamMemberService:
 
     async def add_team_member_or_get_existing(
         self, name: str, phone: str, role: str = None, team_id: str = None, email: str = None
-    ) -> Tuple[bool, str, Optional[TeamMember]]:
+    ) -> tuple[bool, str, TeamMember | None]:
         """
         Add a new team member with simplified ID generation, or return existing member if duplicate.
 
@@ -63,7 +63,11 @@ class SimplifiedTeamMemberService:
             existing_member = await self.get_team_member_by_phone(phone=phone, team_id=team_id)
             if existing_member:
                 # Return existing member for invite link generation
-                return True, f"Team member {existing_member.name} already exists with ID: {existing_member.member_id}", existing_member
+                return (
+                    True,
+                    f"Team member {existing_member.name} already exists with ID: {existing_member.member_id}",
+                    existing_member,
+                )
 
             # Get existing team member IDs for collision detection
             existing_members = await self.team_member_repository.get_team_members(team_id)
@@ -88,17 +92,21 @@ class SimplifiedTeamMemberService:
             # Save to repository
             await self.team_member_repository.create_team_member(team_member)
 
-            return True, SUCCESS_MESSAGES["MEMBER_ADDED"].format(name=name, member_id=member_id), team_member
+            return (
+                True,
+                SUCCESS_MESSAGES["MEMBER_ADDED"].format(name=name, member_id=member_id),
+                team_member,
+            )
         except Exception as e:
             logger.error(f"Error adding team member {name}: {e}")
             return False, f"❌ Failed to add team member: {e!s}", None
 
     async def add_team_member(
         self, name: str, phone: str, role: str = None, team_id: str = None, email: str = None
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         Backward compatibility method - adds team member or returns error for duplicates.
-        
+
         Args:
             name: Team member's full name
             phone: Team member's phone number
@@ -109,10 +117,12 @@ class SimplifiedTeamMemberService:
         Returns:
             Tuple of (success, message)
         """
-        success, message, existing_member = await self.add_team_member_or_get_existing(name, phone, role, team_id, email)
+        success, message, existing_member = await self.add_team_member_or_get_existing(
+            name, phone, role, team_id, email
+        )
         return success, message
 
-    async def get_team_member_by_phone(self, phone: str, team_id: str) -> Optional[TeamMember]:
+    async def get_team_member_by_phone(self, phone: str, team_id: str) -> TeamMember | None:
         """Get team member by phone number using phonenumbers library for flexible matching."""
         try:
             # Use phonenumbers library for proper phone matching
@@ -181,23 +191,26 @@ class SimplifiedTeamMemberService:
         """
         try:
             logger.info(f"🔗 Starting invite link creation for {name} (team: {team_id})")
-            
+
             # Get team configuration
             logger.debug(f"🔍 Looking up team configuration for team_id: {team_id}")
             team = await self.team_service.get_team(team_id=team_id)
 
             if not team:
                 raise TeamNotFoundError(team_id)
-            
+
             if not team.leadership_chat_id:
                 raise LeadershipChatNotConfiguredError(team_id)
-            
-            logger.info(f"✅ Team found: {team.name}, leadership_chat_id: {team.leadership_chat_id}")
+
+            logger.info(
+                f"✅ Team found: {team.name}, leadership_chat_id: {team.leadership_chat_id}"
+            )
 
             logger.info(f"🔗 Creating invite link via service for member: {name}")
-            
+
             # Create team-specific invite service
             from kickai.core.dependency_container import get_container
+
             database = get_container().get_database()
             invite_service = InviteLinkService(database=database, team_id=team_id)
 
@@ -219,8 +232,12 @@ class SimplifiedTeamMemberService:
                 "expires_at": invite_result["expires_at"],
             }
 
-        except (TeamServiceUnavailableError, TeamNotFoundError, LeadershipChatNotConfiguredError, 
-                InviteLinkServiceUnavailableError) as e:
+        except (
+            TeamServiceUnavailableError,
+            TeamNotFoundError,
+            LeadershipChatNotConfiguredError,
+            InviteLinkServiceUnavailableError,
+        ) as e:
             logger.error(f"❌ Error creating team member invite link for {name}: {e}")
             return {"success": False, "error": str(e)}
         except Exception as e:

@@ -2,7 +2,14 @@
 
 ## Overview
 
-This document explains the simplified parameter handling solution for CrewAI tools in the KICKAI system, using CrewAI's native delegation and simple string parameters.
+This document explains the parameter handling standards for CrewAI tools in the KICKAI system, emphasizing parameter minimalism and string types for LLM compatibility.
+
+## Key Principles
+
+1. **Parameter Minimalism**: Tools should ONLY include parameters they actually use
+2. **String Types**: Use `telegram_id: str` for LLM compatibility (convert to int internally)
+3. **Direct Parameter Passing**: No `**kwargs` patterns, explicit parameters only
+4. **Context When Needed**: Not all tools need user context (telegram_id, username, chat_type)
 
 ## The Solution
 
@@ -25,29 +32,53 @@ Instead of complex custom delegation tools, use CrewAI's built-in delegation:
 
 ### **Simple String Parameters**
 
-All tools use simple string parameters for maximum compatibility:
+All tools use simple string parameters for maximum LLM compatibility, but only include parameters they actually need:
 
 ```python
+# Example 1: Tool that NEEDS user context for player updates
 @tool("update_player_field")
 async def update_player_field(
-    telegram_id: str,  # ✅ Simple string
-    team_id: str,      # ✅ Simple string
-    username: str,     # ✅ Simple string
-    chat_type: str,    # ✅ Simple string
-    field: str,        # ✅ Simple string
-    value: str         # ✅ Simple string
+    telegram_id: str,  # ✅ NEEDED - identifies which player
+    team_id: str,      # ✅ NEEDED - scopes to team
+    field: str,        # ✅ NEEDED - what to update
+    value: str         # ✅ NEEDED - new value
+    # Note: username, chat_type NOT included - tool doesn't need them
 ) -> str:
-    """Update a single field for a player."""
+    """Update player field - only parameters tool actually uses."""
+    
+# Example 2: Tool that DOESN'T need user context
+@tool("get_system_status")
+async def get_system_status() -> str:
+    """Get system status - no parameters needed."""
+    
+# Example 3: Tool with minimal context
+@tool("send_team_message")
+async def send_team_message(
+    team_id: str,     # ✅ NEEDED - which team
+    message: str      # ✅ NEEDED - what to send
+    # Note: No telegram_id, username - doesn't matter who sends
+) -> str:
+    """Update player field with validation."""
     try:
-        # Simple type conversion
+        # Validate required parameters
+        if not telegram_id or not team_id:
+            return "❌ Player identification and team required"
+        if not field or not value:
+            return "❌ Field name and value required"
+            
+        # Convert telegram_id to int internally for database
         telegram_id_int = int(telegram_id)
         
         # Process the update
-        # ... business logic here
+        service = get_container().get_service(PlayerService)
+        result = await service.update_field(telegram_id_int, team_id, field, value)
         
-        return "✅ Field updated successfully"
+        return f"✅ Player {field} updated to: {value}"
         
     except ValueError:
+        return "❌ Invalid telegram_id format"
+    except Exception as e:
+        return f"❌ Update failed: {str(e)}"
         return "❌ Invalid telegram_id format"
 ```
 

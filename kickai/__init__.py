@@ -10,8 +10,8 @@ __author__ = "KICKAI Team"
 __description__ = "AI-powered Telegram bot for Sunday league football team management"
 
 # Export main components for easy access
-from .core.dependency_container import get_service, get_singleton
 from .core.config import get_settings
+from .core.dependency_container import get_service, get_singleton
 from .database.firebase_client import get_firebase_client
 from .utils.id_generator import (
     generate_match_id,

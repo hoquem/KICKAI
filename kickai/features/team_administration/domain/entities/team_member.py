@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Set
 
 from kickai.core.enums import MemberStatus
 
@@ -16,13 +15,13 @@ class TeamMember:
     """
 
     # Core identification fields
-    telegram_id: Optional[int] = None  # Telegram user ID (integer) - for linking to Telegram
-    member_id: Optional[str] = None    # Member identifier (M001MH format) - unique within team
-    team_id: str = ""                  # Team identifier (KA format)
+    telegram_id: int | None = None  # Telegram user ID (integer) - for linking to Telegram
+    member_id: str | None = None  # Member identifier (M001MH format) - unique within team
+    team_id: str = ""  # Team identifier (KA format)
 
     # Personal information
-    name: Optional[str] = None
-    username: Optional[str] = None
+    name: str | None = None
+    username: str | None = None
 
     # Administrative role information
     role: str = "Team Member"  # e.g., "Club Administrator", "Team Manager", "Coach"
@@ -30,18 +29,18 @@ class TeamMember:
     status: MemberStatus = MemberStatus.ACTIVE  # Use enum for type safety
 
     # Contact information
-    phone_number: Optional[str] = None
-    email: Optional[str] = None
-    emergency_contact_name: Optional[str] = None
-    emergency_contact_phone: Optional[str] = None
+    phone_number: str | None = None
+    email: str | None = None
+    emergency_contact_name: str | None = None
+    emergency_contact_phone: str | None = None
 
     # Timestamps
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     # Metadata
-    source: Optional[str] = None  # e.g., "telegram_sync", "manual_entry"
-    sync_version: Optional[str] = None
+    source: str | None = None  # e.g., "telegram_sync", "manual_entry"
+    sync_version: str | None = None
 
     def _post_init_(self):
         """Validate and set defaults after initialization."""
@@ -54,11 +53,11 @@ class TeamMember:
         """Validate team member data."""
         if not self.team_id:
             raise ValueError("Team ID cannot be empty")
-        
+
         # Require either member_id or telegram_id for identification
         if not self.member_id and not self.telegram_id:
             raise ValueError("Either member_id or telegram_id must be provided")
-            
+
         if not self.role:
             raise ValueError("Role cannot be empty")
 
@@ -69,7 +68,7 @@ class TeamMember:
         # Validate member_id format if provided
         if self.member_id and not self.member_id.startswith("M"):
             raise ValueError(f"Invalid member_id format: {self.member_id}. Must start with 'M'")
-            
+
         # Validate telegram_id type if provided
         if self.telegram_id is not None and not isinstance(self.telegram_id, int):
             raise ValueError(f"telegram_id must be an integer, got {type(self.telegram_id)}")
@@ -173,26 +172,26 @@ class TeamMember:
             "source": data.get("source"),
             "sync_version": data.get("sync_version"),
         }
-        
+
         return cls(**constructor_args)
 
     @staticmethod
-    def _parse_datetime(dt_value) -> Optional[datetime]:
+    def _parse_datetime(dt_value) -> datetime | None:
         """Parse datetime value handling both string and datetime objects."""
         if not dt_value:
             return None
-        
+
         # If it's already a datetime object (from Firestore), return it
         if isinstance(dt_value, datetime):
             return dt_value
-        
+
         # If it's a string, parse it
         if isinstance(dt_value, str):
             try:
                 return datetime.fromisoformat(dt_value.replace("Z", "+00:00"))
             except ValueError:
                 return None
-        
+
         return None
 
     @staticmethod
@@ -200,11 +199,11 @@ class TeamMember:
         """Parse status value handling both string and enum objects."""
         if status_value is None:
             return MemberStatus.ACTIVE
-            
+
         # If it's already a MemberStatus enum, return it
         if isinstance(status_value, MemberStatus):
             return status_value
-            
+
         # If it's a string, convert to enum
         if isinstance(status_value, str):
             try:
@@ -213,10 +212,9 @@ class TeamMember:
             except ValueError:
                 # If invalid status string, default to active
                 return MemberStatus.ACTIVE
-        
+
         # For any other type, default to active
         return MemberStatus.ACTIVE
-
 
     def is_administrative_role(self) -> bool:
         """Check if this is an administrative role."""
@@ -247,8 +245,11 @@ class TeamMember:
         return self.role
 
     def update_contact_info(
-        self, phone_number: str = None, email: str = None, 
-        emergency_contact_name: str = None, emergency_contact_phone: str = None
+        self,
+        phone_number: str = None,
+        email: str = None,
+        emergency_contact_name: str = None,
+        emergency_contact_phone: str = None,
     ):
         """Update contact information."""
         if phone_number is not None:

@@ -13,11 +13,11 @@ class AgentRole(str, Enum):
     """Agent roles in the optimized 5-Agent CrewAI system with native routing."""
 
     # Essential 5-Agent System - Native CrewAI routing (no separate NLP processor needed)
-    MESSAGE_PROCESSOR = "message_processor"        # Primary interface with native LLM routing
-    HELP_ASSISTANT = "help_assistant"              # Help system and guidance
-    PLAYER_COORDINATOR = "player_coordinator"      # Player management and onboarding
-    TEAM_ADMINISTRATOR = "team_administrator"      # Team member management
-    SQUAD_SELECTOR = "squad_selector"              # Squad selection and match management
+    MESSAGE_PROCESSOR = "message_processor"  # Primary interface with native LLM routing
+    HELP_ASSISTANT = "help_assistant"  # Help system and guidance
+    PLAYER_COORDINATOR = "player_coordinator"  # Player management and onboarding
+    TEAM_ADMINISTRATOR = "team_administrator"  # Team member management
+    SQUAD_SELECTOR = "squad_selector"  # Squad selection and match management
 
 
 class MemberRole(str, Enum):
@@ -47,19 +47,19 @@ class UserStatus(str, Enum):
 class MemberStatus(str, Enum):
     """Team member status values."""
 
-    PENDING = "pending"     # Newly added, awaiting activation via invite link
-    ACTIVE = "active"       # Active team member with full access
-    INACTIVE = "inactive"   # Temporarily inactive team member
-    SUSPENDED = "suspended" # Suspended team member
+    PENDING = "pending"  # Newly added, awaiting activation via invite link
+    ACTIVE = "active"  # Active team member with full access
+    INACTIVE = "inactive"  # Temporarily inactive team member
+    SUSPENDED = "suspended"  # Suspended team member
 
 
 class InviteLinkStatus(str, Enum):
     """Invite link status values."""
 
-    ACTIVE = "active"       # Active invite link that can be used
-    USED = "used"          # Invite link has been used successfully
-    EXPIRED = "expired"    # Invite link has expired
-    REVOKED = "revoked"    # Invite link has been revoked by admin
+    ACTIVE = "active"  # Active invite link that can be used
+    USED = "used"  # Invite link has been used successfully
+    EXPIRED = "expired"  # Invite link has expired
+    REVOKED = "revoked"  # Invite link has been revoked by admin
 
 
 class ChatType(str, Enum):
@@ -137,9 +137,6 @@ class TeamStatus(Enum):
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
     PENDING = "pending"
-
-
-
 
 
 class ExpenseCategory(Enum):
@@ -322,7 +319,6 @@ class IDType(Enum):
     PLAYER = "player"
     TEAM = "team"
     MATCH = "match"
-
 
     MESSAGE = "message"
 

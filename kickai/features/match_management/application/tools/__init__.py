@@ -7,19 +7,19 @@ These tools serve as the application boundary and delegate to pure domain servic
 # Import all match management tools
 from .match_tools import (
     create_match,
-    list_matches,
+    get_availability,
     get_match_details,
-    record_match_result,
+    list_matches,
     mark_availability,
-    get_availability
+    record_match_result,
 )
 
 # Export all tools for agent registration
 __all__ = [
     "create_match",
     "list_matches",
-    "get_match_details", 
+    "get_match_details",
     "record_match_result",
     "mark_availability",
-    "get_availability"
+    "get_availability",
 ]

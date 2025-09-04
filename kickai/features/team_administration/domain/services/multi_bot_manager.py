@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -346,11 +346,11 @@ class MultiBotManager:
         """Return True if bots are running."""
         return self._running
 
-    def get_bot(self, team_id: str) -> Optional[Any]:
+    def get_bot(self, team_id: str) -> Any | None:
         """Get the bot instance for a given team ID."""
         return self.bots.get(team_id)
 
-    def get_crewai_system(self, team_id: str) -> Optional[Any]:
+    def get_crewai_system(self, team_id: str) -> Any | None:
         """Get the CrewAI system for a given team ID."""
         return self.crewai_systems.get(team_id)
 

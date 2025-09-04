@@ -51,7 +51,9 @@ class StubDetectionCheck(BaseCheck):
                 if not hasattr(router, "route_message"):
                     stub_detections.append("AgenticMessageRouter missing route_message method")
                 if not hasattr(router, "route_contact_share"):
-                    stub_detections.append("AgenticMessageRouter missing route_contact_share method")
+                    stub_detections.append(
+                        "AgenticMessageRouter missing route_contact_share method"
+                    )
                 if not hasattr(router, "_process_message"):
                     stub_detections.append("AgenticMessageRouter missing _process_message method")
                 if not hasattr(router, "_execute_crew_task"):

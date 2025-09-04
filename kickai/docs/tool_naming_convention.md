@@ -11,44 +11,102 @@ This document defines the comprehensive tool naming convention for the KICKAI 5-
 
 Actions: get, list, create, update, delete, send, mark, record, validate, check, show
 Entities: player, member, match, squad, team, status, availability, system, help
-Modifiers: info, all, active, pending, field, multiple, history, upcoming, current
+Modifiers: self, by_identifier, info, all, active, pending, field, multiple, history, upcoming
 ```
 
 ## Core Principles
 
-1. **Action-First**: Start with what the tool does
-2. **Entity-Clear**: Specify what it operates on
-3. **Modifier-Specific**: Add context when needed
-4. **Agent-Aligned**: Names reflect agent responsibilities
-5. **No Ambiguity**: Each tool has unique, clear purpose
-6. **Predictable**: Agents can infer tool names
+1. **CrewAI Semantic First**: Tool names enable intelligent selection through semantic understanding
+2. **Intent-Based Naming**: `_self` vs `_by_identifier` patterns for clear intent
+3. **Explicit Parameters**: `telegram_username` vs generic `username` for clarity
+4. **Action-First**: Start with what the tool does
+5. **Entity-Clear**: Specify what it operates on
+6. **Modifier-Specific**: Add context when needed
+7. **No Hardcoded Routing**: Trust CrewAI's intelligence over brittle routing rules
+8. **Predictable**: Agents can infer tool purpose from semantic patterns
 
-## Complete Tool Catalog (75 Tools)
+## CrewAI Semantic Tool Patterns (NEW 2025)
+
+### Self vs By-Identifier Pattern
+**Problem**: Agent confusion between "current user" and "specific lookup" tools
+**Solution**: Clear semantic distinction through naming
+
+#### Self Pattern (`_self`)
+**Purpose**: For requesting user's own data  
+**Usage Context**: `/myinfo`, `/mystatus`, "my availability"  
+**Examples**:
+- `get_player_self` - Current user's player information
+- `get_member_self` - Current user's member/admin information
+- `get_player_match_self` - Current user's upcoming matches
+
+#### By-Identifier Pattern (`_by_identifier`) 
+**Purpose**: For looking up other users/entities
+**Usage Context**: `/info [name]`, `/status [player]`, "John's availability"
+**Examples**:
+- `get_player_by_identifier` - Look up specific player
+- `get_member_by_identifier` - Look up specific team member  
+- `get_player_match_by_identifier` - Look up player's matches
+
+### Tool Description Best Practices for CrewAI
+```python
+@tool("get_player_self")
+async def get_player_self(...):
+    """Get requesting user's player information and status.
+    
+    USE THIS FOR:
+    - /myinfo command in player context
+    - "my status", "my information" queries  
+    - Current user asking about themselves
+    
+    DO NOT USE FOR:
+    - Looking up other players
+    - Administrative queries about specific players
+    - Use get_player_by_identifier for those cases
+    """
+```
+
+### Parameter Naming for Clarity (Critical for CrewAI Success)
+**Problem**: Generic parameter names cause CrewAI confusion and wrong tool selection
+
+**Old (Ambiguous - Causes Issues)**:
+- `username` - Could be Telegram username or display name  
+- `player_id` - Agent confused this with username "alima_begum"
+- `user_id` - Unclear if Telegram ID or internal ID
+
+**New (Explicit - Eliminates Confusion)**:
+- `telegram_username` - Explicitly Telegram @username (e.g., "@alima_begum")
+- `telegram_id` - Numeric Telegram user ID (e.g., 123456789)
+- `player_identifier` - Clear that it's for searching (ID, name, or phone)
+- `target_identifier` - When looking up other users by any identifier
+
+**Benefits for CrewAI**:
+- Tools select correctly based on parameter clarity
+- Agents understand the difference between telegram_id (123456) and telegram_username ("@user")
+- Explicit naming prevents parameter misuse and tool confusion
+
+## Complete Tool Catalog (75+ Tools)
 
 ### Information Retrieval Tools
 
-#### Player Information
-- `get_player_info` - Get individual player details
-- `get_player_current_info` - Current player information with updates
+#### Player Information (CrewAI Semantic Pattern)
+- `get_player_self` - Get requesting user's player information (USE FOR: /myinfo as player)
+- `get_player_by_identifier` - Get specific player details by ID/name/phone (USE FOR: /info [name])
 - `list_players_all` - All players in system
 - `list_players_active` - Active players only
 - `list_players_pending` - Players awaiting approval
-- `get_player_match` - Player's match information
-- `get_player_attendance_history` - Player's attendance record
-- `get_player_availability_history` - Player's availability history
+- `get_player_match_self` - Requesting user's match information
+- `get_player_match_by_identifier` - Specific player's match information
+- `get_player_attendance_history_self` - Requesting user's attendance record
+- `get_player_attendance_history_by_identifier` - Specific player's attendance record
+- `get_player_availability_history_self` - Requesting user's availability history
+- `get_player_availability_history_by_identifier` - Specific player's availability history
 
-#### Member Information  
-- `get_member_info` - Individual team member details
-- `get_member_current_info` - Current member information
+#### Member Information (CrewAI Semantic Pattern)
+- `get_member_self` - Get requesting user's member/admin information (USE FOR: /myinfo as admin)
+- `get_member_by_identifier` - Get specific member details by ID/name/phone (USE FOR: admin lookup)
 - `list_members_all` - All team members
 - `list_members_and_players` - Combined listing
 - `get_member_update_help` - Member update guidance
-
-#### Personal Status
-- `get_status_my` - Current user's status
-- `get_status_user` - Another user's status
-- `get_status_player` - Player status check
-- `get_status_member` - Member status check
 
 ### Administrative Actions
 
@@ -274,8 +332,25 @@ from .application.tools.member_admin_tools import (
 
 ## Migration Mapping
 
-### Complete Current → New Mapping
+### Complete Current → New Mapping (Including CrewAI Semantic Patterns)
 ```
+# Status Tools - CrewAI Semantic Pattern
+get_player_status_current        → get_player_self
+get_player_status                → get_player_by_identifier
+get_member_status_current        → get_member_self
+get_member_status                → get_member_by_identifier
+
+# Information Tools - CrewAI Semantic Pattern  
+get_player_info_current          → get_player_self
+get_player_info                  → get_player_by_identifier
+get_member_info_current          → get_member_self
+get_member_info                  → get_member_by_identifier
+
+# Match Tools - CrewAI Semantic Pattern
+get_player_match_current         → get_player_match_self
+get_player_match_specific        → get_player_match_by_identifier
+
+# Legacy Mappings (Maintained for Compatibility)
 get_my_status                    → get_status_my
 get_user_status                  → get_status_user  
 add_player                       → create_player

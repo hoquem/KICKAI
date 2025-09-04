@@ -10,31 +10,40 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
-from kickai.core.enums import AIProvider
 from kickai.core.config import get_settings
+from kickai.core.enums import AIProvider
+
+
 # Simple compatibility classes for LLM factory
 @dataclass
 class LLMConfig:
     """Legacy LLM configuration for compatibility."""
+
     provider: AIProvider
     model_name: str
-    api_key: Optional[str] = None
+    api_key: str | None = None
     temperature: float = 0.7
     timeout: int = 30
 
+
 class LLMFactory:
     """Legacy LLM factory for compatibility."""
+
     @staticmethod
     def create_llm(config: LLMConfig) -> Any:
         """Create LLM using the new factory."""
         from kickai.utils.llm_factory_simple import SimpleLLMFactory
+
         return SimpleLLMFactory.create_llm(config.model_name, config.temperature)
+
 
 class LLMProviderError(Exception):
     """LLM provider error."""
+
     pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +54,12 @@ class ProviderConfig:
 
     provider: AIProvider
     model_name: str
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
+    api_key: str | None = None
+    base_url: str | None = None
     temperature: float = 0.7
     timeout_seconds: int = 30
     max_retries: int = 3
-    additional_params: Optional[Dict[str, Any]] = None
+    additional_params: dict[str, Any] | None = None
 
     def __post_init__(self):
         """Validate configuration."""
@@ -89,7 +98,7 @@ class BaseLLMProvider(ABC):
         """Check if the provider is available."""
         pass
 
-    def get_health_status(self) -> Dict[str, Any]:
+    def get_health_status(self) -> dict[str, Any]:
         """Get provider health status."""
         return {
             "provider": self.config.provider.value,
@@ -137,6 +146,7 @@ class OllamaProvider(BaseLLMProvider):
         """Check if Ollama is available."""
         try:
             import requests
+
             response = requests.get(f"{self.config.base_url}/api/tags", timeout=5)
             return response.status_code == 200
         except Exception:
@@ -259,7 +269,7 @@ class LLMProviderFactory:
     different LLM providers with proper configuration and error handling.
     """
 
-    _providers: Dict[AIProvider, type[BaseLLMProvider]] = {
+    _providers: dict[AIProvider, type[BaseLLMProvider]] = {
         AIProvider.OLLAMA: OllamaProvider,
         AIProvider.GOOGLE_GEMINI: GeminiProvider,
         AIProvider.HUGGINGFACE: HuggingFaceProvider,
@@ -300,7 +310,7 @@ class LLMProviderFactory:
         return provider_class(config)
 
     @classmethod
-    def create_from_settings(cls, provider: Optional[AIProvider] = None) -> BaseLLMProvider:
+    def create_from_settings(cls, provider: AIProvider | None = None) -> BaseLLMProvider:
         """
         Create an LLM provider from application settings.
 
@@ -322,15 +332,17 @@ class LLMProviderFactory:
         elif selected_provider == AIProvider.GROQ:
             api_key = settings.groq_api_key
         elif selected_provider == AIProvider.HUGGINGFACE:
-            api_key = settings.huggingface_api_token # Assuming this is in settings
+            api_key = settings.huggingface_api_token  # Assuming this is in settings
         elif selected_provider == AIProvider.OPENAI:
-            api_key = settings.openai_api_key # Assuming this is in settings
+            api_key = settings.openai_api_key  # Assuming this is in settings
         elif selected_provider == AIProvider.OLLAMA:
             api_key = None  # Ollama doesn't need API key
 
         # Create provider configuration
         # Choose model: prefer simple/advanced pair; fallback to legacy name
-        model_name = settings.ai_model_simple or settings.ai_model_advanced or settings.ai_model_name or ""
+        model_name = (
+            settings.ai_model_simple or settings.ai_model_advanced or settings.ai_model_name or ""
+        )
 
         config = ProviderConfig(
             provider=selected_provider,
@@ -345,7 +357,7 @@ class LLMProviderFactory:
         return cls.create_provider(config)
 
     @classmethod
-    def create_from_environment(cls, provider: Optional[AIProvider] = None) -> BaseLLMProvider:
+    def create_from_environment(cls, provider: AIProvider | None = None) -> BaseLLMProvider:
         """
         Create an LLM provider from environment variables.
 
@@ -401,12 +413,12 @@ class LLMProviderFactory:
         return cls.create_provider(config)
 
     @classmethod
-    def get_supported_providers(cls) -> List[str]:
+    def get_supported_providers(cls) -> list[str]:
         """Get list of supported AI providers."""
         return [provider.value for provider in cls._providers.keys()]
 
     @classmethod
-    def get_provider_health_status(cls) -> Dict[str, Dict[str, Any]]:
+    def get_provider_health_status(cls) -> dict[str, dict[str, Any]]:
         """Get health status for all providers."""
         health_status = {}
 
@@ -438,14 +450,11 @@ def create_llm_provider(config: ProviderConfig) -> BaseLLMProvider:
     return LLMProviderFactory.create_provider(config)
 
 
-def create_llm_provider_from_settings(provider: Optional[AIProvider] = None) -> BaseLLMProvider:
+def create_llm_provider_from_settings(provider: AIProvider | None = None) -> BaseLLMProvider:
     """Create an LLM provider from application settings."""
     return LLMProviderFactory.create_from_settings(provider)
 
 
-
-
-
-def get_provider_health_status() -> Dict[str, Dict[str, Any]]:
+def get_provider_health_status() -> dict[str, dict[str, Any]]:
     """Get health status for all available providers."""
     return LLMProviderFactory.get_provider_health_status()

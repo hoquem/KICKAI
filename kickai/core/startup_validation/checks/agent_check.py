@@ -18,10 +18,8 @@ class AgentInitializationCheck(BaseCheck):
         logger = logging.getLogger(__name__)
         try:
             # Attempt to import agent factory and config
-            from kickai.agents.agent_types import AgentContext
             from kickai.agents.configurable_agent import ConfigurableAgent
             from kickai.config.agents import get_enabled_agent_configs
-            from kickai.utils.llm_factory_simple import SimpleLLMFactory
 
             # Simulate agent instantiation for all enabled configs
             # Use default context for validation
@@ -30,17 +28,14 @@ class AgentInitializationCheck(BaseCheck):
                 "team_id": "KAI",
                 "chat_type": "main",
                 "user_role": "public",
-                "username": "user"
+                "username": "user",
             }
             configs = get_enabled_agent_configs(context)
             errors = []
             for role, config in configs.items():
                 try:
                     # Create agent using the correct constructor
-                    agent = ConfigurableAgent(
-                        agent_role=role,
-                        team_id="TEST"
-                    )
+                    agent = ConfigurableAgent(agent_role=role, team_id="TEST")
                     logger.info(f"✅ Agent {role} initialized successfully")
                 except Exception as e:
                     logger.error(f"Agent initialization failed for role {role}: {e}")

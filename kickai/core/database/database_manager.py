@@ -1,4 +1,3 @@
-from typing import Optional
 #!/usr/bin/env python3
 """
 Database Manager
@@ -19,7 +18,7 @@ class DatabaseManager(IDatabaseManager):
     """Manages database initialization and configuration."""
 
     def __init__(self):
-        self._database: Optional[DataStoreInterface] = None
+        self._database: DataStoreInterface | None = None
         self._initialized = False
 
     def initialize_database(self) -> None:
@@ -72,7 +71,7 @@ class DatabaseManager(IDatabaseManager):
         """Initialize mock data store for testing/development."""
         logger.info("🔧 DatabaseManager: Using Mock DataStore for development/testing")
         self._database = MockDataStore()
-        
+
         # Mock data will be created on-demand by MockDataStore when accessed
         logger.info("✅ DatabaseManager: Mock data store ready (on-demand initialization)")
 
@@ -80,7 +79,9 @@ class DatabaseManager(IDatabaseManager):
         """Initialize Firebase client for production."""
         logger.info("🔧 DatabaseManager: Using Firebase client for production")
         from kickai.database.firebase_client import get_firebase_client
+
         firebase_client = get_firebase_client()
         self._database = firebase_client
+
 
 # Removed _initialize_mock_data() - was redundant after removing asyncio.run()

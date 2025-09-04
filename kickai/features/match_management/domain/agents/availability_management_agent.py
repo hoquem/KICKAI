@@ -20,6 +20,7 @@ class AvailabilityManagementAgent:
 
     def __init__(self):
         from kickai.core.dependency_container import get_container
+
         container = get_container()
         self.availability_service = container.get_service(AvailabilityService)
         if not self.availability_service:

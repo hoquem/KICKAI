@@ -18,6 +18,7 @@ class AttendanceManagementAgent:
 
     def __init__(self):
         from kickai.core.dependency_container import get_container
+
         container = get_container()
         self.attendance_service = container.get_service(AttendanceService)
         if not self.attendance_service:

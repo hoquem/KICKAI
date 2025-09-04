@@ -17,12 +17,12 @@ from kickai.core.command_registry import CommandType, PermissionLevel, command
     feature="player_registration",
     examples=[
         "/update phone +447123456789",
-        "/update position midfielder", 
-        "/update email john@example.com"
+        "/update position midfielder",
+        "/update email john@example.com",
     ],
     parameters={
         "field": "Field to update (phone, position, email, etc.)",
-        "value": "New value for the field"
+        "value": "New value for the field",
     },
     help_text="""
 🔄 Update Information (Context-Aware)
@@ -63,7 +63,7 @@ async def handle_update_command(update, context, **kwargs):
 
 
 @command(
-    name="/updateplayer", 
+    name="/updateplayer",
     description="Update player information directly (any chat)",
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.PLAYER,
@@ -71,12 +71,9 @@ async def handle_update_command(update, context, **kwargs):
     examples=[
         "/updateplayer phone +447123456789",
         "/updateplayer position striker",
-        "/updateplayer email player@example.com"
+        "/updateplayer email player@example.com",
     ],
-    parameters={
-        "field": "Player field to update",
-        "value": "New value for the field"
-    },
+    parameters={"field": "Player field to update", "value": "New value for the field"},
     help_text="""
 👤 Update Player Information 
 
@@ -118,18 +115,15 @@ async def handle_updateplayer_command(update, context, **kwargs):
 @command(
     name="/updatemember",
     description="Update team member information (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND, 
+    command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.LEADERSHIP,
     feature="player_registration",
     examples=[
         "/updatemember phone +447123456789",
         "/updatemember email admin@example.com",
-        "/updatemember role Assistant Coach"
+        "/updatemember role Assistant Coach",
     ],
-    parameters={
-        "field": "Team member field to update", 
-        "value": "New value for the field"
-    },
+    parameters={"field": "Team member field to update", "value": "New value for the field"},
     help_text="""
 👔 Update Team Member Information (Leadership Only)
 
@@ -172,7 +166,7 @@ async def handle_updatemember_command(update, context, **kwargs):
 
 @command(
     name="/playerinfo",
-    description="Show your current player information", 
+    description="Show your current player information",
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.PLAYER,
     feature="player_registration",
@@ -201,7 +195,7 @@ Usage:
     """,
 )
 async def handle_playerinfo_command(update, context, **kwargs):
-    """Handle /playerinfo command.""" 
+    """Handle /playerinfo command."""
     # This will be handled by the agent system
     return None
 
@@ -210,7 +204,7 @@ async def handle_playerinfo_command(update, context, **kwargs):
     name="/memberinfo",
     description="Show your current team member information (Leadership only)",
     command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP, 
+    permission_level=PermissionLevel.LEADERSHIP,
     feature="player_registration",
     examples=["/memberinfo"],
     help_text="""
@@ -237,5 +231,5 @@ Usage:
 )
 async def handle_memberinfo_command(update, context, **kwargs):
     """Handle /memberinfo command."""
-    # This will be handled by the agent system  
+    # This will be handled by the agent system
     return None

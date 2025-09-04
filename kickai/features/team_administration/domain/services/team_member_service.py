@@ -1,4 +1,3 @@
-from typing import Optional, Set, List
 #!/usr/bin/env python3
 """
 Team Member Service
@@ -43,9 +42,9 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to create team member: {e}")
             raise
 
-    async def get_team_member_by_id(self, member_id: str, team_id: str = None) -> Optional[TeamMember]:
+    async def get_team_member_by_id(self, member_id: str, team_id: str = None) -> TeamMember | None:
         """Get a team member by ID.
-        
+
         Args:
             member_id: The member ID to search for
             team_id: Optional team ID to narrow the search for better performance
@@ -56,15 +55,19 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team member by ID {member_id}: {e}")
             return None
 
-    async def get_team_member_by_telegram_id(self, telegram_id: int, team_id: str) -> Optional[TeamMember]:
+    async def get_team_member_by_telegram_id(
+        self, telegram_id: int, team_id: str
+    ) -> TeamMember | None:
         """Get a team member by Telegram ID and team."""
         try:
-            return await self.team_member_repository.get_team_member_by_telegram_id(team_id, telegram_id)
+            return await self.team_member_repository.get_team_member_by_telegram_id(
+                team_id, telegram_id
+            )
         except Exception as e:
             self.logger.error(f"❌ Failed to get team member by Telegram ID {telegram_id}: {e}")
             return None
 
-    async def get_team_member_by_phone(self, phone: str, team_id: str) -> Optional[TeamMember]:
+    async def get_team_member_by_phone(self, phone: str, team_id: str) -> TeamMember | None:
         """Get a team member by phone number and team."""
         try:
             return await self.team_member_repository.get_team_member_by_phone(phone, team_id)
@@ -72,7 +75,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team member by phone {phone}: {e}")
             return None
 
-    async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:
+    async def get_team_members_by_team(self, team_id: str) -> list[TeamMember]:
         """Get all team members for a team."""
         try:
             members = await self.team_member_repository.get_team_members(team_id)
@@ -82,11 +85,11 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team members for team {team_id}: {e}")
             return []
 
-    async def get_team_members(self, team_id: str) -> List[TeamMember]:
+    async def get_team_members(self, team_id: str) -> list[TeamMember]:
         """Get all team members for a team (alias for get_team_members_by_team)."""
         return await self.get_team_members_by_team(team_id)
 
-    async def get_team_members_by_role(self, team_id: str, role: str) -> List[TeamMember]:
+    async def get_team_members_by_role(self, team_id: str, role: str) -> list[TeamMember]:
         """Get team members by specific role."""
         try:
             all_members = await self.get_team_members_by_team(team_id)
@@ -111,7 +114,9 @@ class TeamMemberService:
     async def delete_team_member(self, member_id: str) -> bool:
         """Delete a team member."""
         try:
-            success = await self.team_member_repository.delete_team_member(member_id, "")  # team_id will be inferred from member_id
+            success = await self.team_member_repository.delete_team_member(
+                member_id, ""
+            )  # team_id will be inferred from member_id
             if success:
                 self.logger.info(f"✅ Deleted team member: {member_id}")
             return success
@@ -137,4 +142,3 @@ class TeamMemberService:
         except Exception as e:
             self.logger.error(f"❌ Failed to add role {role} to member {telegram_id}: {e}")
             return False
-
