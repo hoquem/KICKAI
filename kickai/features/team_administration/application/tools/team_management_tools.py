@@ -179,7 +179,7 @@ def _format_leadership_chat_response(
 
 @tool("list_team_members_and_players")
 async def list_team_members_and_players(
-    telegram_id: str, team_id: str, username: str, chat_type: str
+    telegram_id: str, team_id: str, telegram_username: str, chat_type: str
 ) -> str:
     """
     Retrieve complete organizational roster with all participants.
@@ -203,7 +203,7 @@ async def list_team_members_and_players(
 
     try:
         logger.info(
-            f"📋 Complete team list request from {username} ({telegram_id_int}) in team {team_id}"
+            f"📋 Complete team list request from {telegram_username} ({telegram_id_int}) in team {team_id}"
         )
 
         # Get services

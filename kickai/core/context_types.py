@@ -64,11 +64,9 @@ class StandardizedContext:
     # Core fields (always present)
     telegram_id: int
     team_id: str
-    chat_id: str
     chat_type: str
     message_text: str
-    username: str
-    telegram_name: str
+    telegram_username: str
 
     # Optional fields (populated when available)
     user_permissions: UserPermissions | None = None
@@ -104,16 +102,12 @@ class StandardizedContext:
             raise ValueError("telegram_id is required")
         if not self.team_id or not str(self.team_id).strip():
             raise ValueError("team_id is required and cannot be empty")
-        if not self.chat_id or not str(self.chat_id).strip():
-            raise ValueError("chat_id is required and cannot be empty")
         if not self.chat_type or not str(self.chat_type).strip():
             raise ValueError("chat_type is required and cannot be empty")
         if not self.message_text:
             self.message_text = ""  # Allow empty message text
-        if not self.username:
-            self.username = "unknown"
-        if not self.telegram_name:
-            self.telegram_name = self.username
+        if not self.telegram_username:
+            self.telegram_username = "unknown"
 
     @classmethod
     def create_from_telegram_message(
@@ -123,8 +117,7 @@ class StandardizedContext:
         chat_id: str,
         chat_type: str,
         message_text: str,
-        username: str,
-        telegram_name: str,
+        telegram_username: str,
         is_player: bool = False,
         is_team_member: bool = False,
         is_admin: bool = False,
@@ -147,11 +140,9 @@ class StandardizedContext:
         return cls(
             telegram_id=telegram_id,
             team_id=team_id,
-            chat_id=chat_id,
             chat_type=chat_type,
             message_text=message_text,
-            username=username,
-            telegram_name=telegram_name,
+            telegram_username=telegram_username,
             user_permissions=user_permissions,
             source=ContextSource.TELEGRAM_MESSAGE,
             **kwargs,
@@ -165,8 +156,7 @@ class StandardizedContext:
         chat_id: str,
         chat_type: str,
         command: str,
-        username: str,
-        telegram_name: str,
+        telegram_username: str,
         is_player: bool = False,
         is_team_member: bool = False,
         is_admin: bool = False,
@@ -189,8 +179,7 @@ class StandardizedContext:
             chat_id=chat_id,
             chat_type=chat_type,
             message_text=command,
-            username=username,
-            telegram_name=telegram_name,
+            telegram_username=telegram_username,
             user_permissions=user_permissions,
             source=ContextSource.COMMAND,
             **kwargs,
@@ -207,8 +196,7 @@ class StandardizedContext:
             chat_id="system",
             chat_type="system",
             message_text=operation,
-            username="system",
-            telegram_name="system",
+            telegram_username="system",
             source=ContextSource.SYSTEM,
             **kwargs,
         )
@@ -221,8 +209,7 @@ class StandardizedContext:
             "chat_id": self.chat_id,
             "chat_type": self.chat_type,
             "message_text": self.message_text,
-            "telegram_username": self.username,
-            "telegram_name": self.telegram_name,
+            "telegram_username": self.telegram_username,
             "is_registered": self.is_registered,
             "is_player": self.is_player,
             "is_team_member": self.is_team_member,
@@ -255,7 +242,7 @@ class StandardizedContext:
             "chat_id",
             "chat_type",
             "message_text",
-            "username",
+            "telegram_username",
         ]
         missing_fields = [
             field for field in required_fields if field not in data or not data[field]
@@ -281,8 +268,7 @@ class StandardizedContext:
             chat_id=data["chat_id"],
             chat_type=data["chat_type"],
             message_text=data["message_text"],
-            username=data["username"],
-            telegram_name=data.get("telegram_name", data["username"]),
+            telegram_username=data["telegram_username"],
             user_permissions=user_permissions,
             player_data=data.get("player_data"),
             team_member_data=data.get("team_member_data"),
@@ -315,7 +301,7 @@ class StandardizedContext:
     def get_context_summary(self) -> str:
         """Get a human-readable summary of the context."""
         return (
-            f"User: {self.username} (ID: {self.telegram_id}) | "
+            f"User: {self.telegram_username} (ID: {self.telegram_id}) | "
             f"Team: {self.team_id} | "
             f"Chat: {self.chat_type} ({self.chat_id}) | "
             f"Registered: {self.is_registered} | "
@@ -356,8 +342,7 @@ def create_safe_context_fallback(context_data: dict[str, Any]) -> dict[str, Any]
         "chat_id": context_data.get("chat_id", "unknown"),
         "chat_type": context_data.get("chat_type", "unknown"),
         "message_text": context_data.get("message_text", ""),
-        "username": context_data.get("username", "unknown"),
-        "telegram_name": context_data.get("telegram_name", "unknown"),
+        "telegram_username": context_data.get("telegram_username", "unknown"),
         "is_registered": False,
         "is_player": False,
         "is_team_member": False,
@@ -374,8 +359,7 @@ def create_context_from_telegram_message(
     chat_id: str,
     chat_type: str,
     message_text: str,
-    username: str,
-    telegram_name: str = "",
+    telegram_username: str,
     **kwargs,
 ) -> StandardizedContext:
     """
@@ -389,8 +373,7 @@ def create_context_from_telegram_message(
         chat_id=chat_id,
         chat_type=chat_type,
         message_text=message_text,
-        username=username,
-        telegram_name=telegram_name,
+        telegram_username=telegram_username,
         **kwargs,
     )
 
@@ -401,8 +384,7 @@ def create_context_from_command(
     chat_id: str,
     chat_type: str,
     command_text: str,
-    username: str,
-    telegram_name: str = "",
+    telegram_username: str,
     **kwargs,
 ) -> StandardizedContext:
     """
@@ -416,7 +398,6 @@ def create_context_from_command(
         chat_id=chat_id,
         chat_type=chat_type,
         command=command_text,
-        username=username,
-        telegram_name=telegram_name,
+        telegram_username=telegram_username,
         **kwargs,
     )

@@ -48,7 +48,6 @@ class ContextValidationCheck(BaseCheck):
                     chat_type="main",
                     message_text="Hello world",
                     username="testuser",
-                    telegram_name="Test User",
                     is_player=True,
                 )
                 logger.info("✅ Basic context creation passed")
@@ -84,7 +83,6 @@ class ContextValidationCheck(BaseCheck):
                     chat_type="leadership",
                     command="/addplayer",
                     username="admin",
-                    telegram_name="Admin User",
                     is_team_member=True,
                     is_admin=True,
                 )

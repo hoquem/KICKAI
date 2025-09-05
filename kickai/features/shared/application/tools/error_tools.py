@@ -12,7 +12,7 @@ from loguru import logger
 
 @tool("show_permission_error")
 async def show_permission_error(
-    username: str, chat_type: str, action: str = "perform this action"
+    telegram_username: str, chat_type: str, action: str = "perform this action"
 ) -> str:
     """Display permission denial with context-aware guidance.
 
@@ -27,21 +27,21 @@ async def show_permission_error(
     """
     try:
         # Basic parameter validation (CrewAI handles parameter passing)
-        if not username or not chat_type:
+        if not telegram_username or not chat_type:
             return "❌ Username and chat type are required"
 
         # Ensure proper types and defaults
-        username = str(username)
+        telegram_username = str(telegram_username)
         chat_type = str(chat_type).lower()
         action = str(action) if action else "perform this action"
 
-        logger.info(f"🚫 Permission denied for {username} in {chat_type} chat: {action}")
+        logger.info(f"🚫 Permission denied for {telegram_username} in {chat_type} chat: {action}")
 
         # Context-aware permission messages with improved guidance
         if chat_type == "main":
             message = f"""🚫 Permission Denied
 
-Sorry {username}, you don't have permission to {action} in the main chat.
+Sorry {telegram_username}, you don't have permission to {action} in the main chat.
 
 💡 Need Help?
 - Some commands are only available to team leadership
@@ -52,7 +52,7 @@ Sorry {username}, you don't have permission to {action} in the main chat.
         elif chat_type == "leadership":
             message = f"""🚫 Permission Denied
 
-Sorry {username}, you don't have sufficient permissions to {action}.
+Sorry {telegram_username}, you don't have sufficient permissions to {action}.
 
 💡 Need Help?
 - This action requires higher administrative privileges
@@ -63,7 +63,7 @@ Sorry {username}, you don't have sufficient permissions to {action}.
         elif chat_type == "private":
             message = f"""🚫 Permission Denied
 
-Sorry {username}, you don't have permission to {action} in private chat.
+Sorry {telegram_username}, you don't have permission to {action} in private chat.
 
 💡 Need Help?
 - Some commands are only available in team chats
@@ -74,7 +74,7 @@ Sorry {username}, you don't have permission to {action} in private chat.
         else:
             message = f"""🚫 Permission Denied
 
-Sorry {username}, you don't have permission to {action}.
+Sorry {telegram_username}, you don't have permission to {action}.
 
 💡 Need Help?
 - Try using /help to see available commands
@@ -92,7 +92,7 @@ Sorry {username}, you don't have permission to {action}.
 
 @tool("show_command_error")
 async def show_command_error(
-    username: str, chat_type: str, command: str = "unknown command"
+    telegram_username: str, chat_type: str, command: str = "unknown command"
 ) -> str:
     """Display command availability error with helpful alternatives.
 
@@ -107,15 +107,15 @@ async def show_command_error(
     """
     try:
         # Basic parameter validation (CrewAI handles parameter passing)
-        if not username or not chat_type:
+        if not telegram_username or not chat_type:
             return "❌ Username and chat type are required"
 
         # Ensure proper types and defaults with improved handling
-        username = str(username)
+        telegram_username = str(telegram_username)
         chat_type = str(chat_type).lower()
         command = str(command) if command else "unknown command"
 
-        logger.info(f"❓ Command error for {username} in {chat_type} chat: {command}")
+        logger.info(f"❓ Command error for {telegram_username} in {chat_type} chat: {command}")
 
         # Context-aware command error messages with better suggestions
         common_commands = {
@@ -136,7 +136,7 @@ async def show_command_error(
 
         message = f"""❓ Command Not Available
 
-Sorry {username}, the command {command} is not available or doesn't exist.
+Sorry {telegram_username}, the command {command} is not available or doesn't exist.
 
 💡 Suggestions:
 - Check your spelling: /help instead of /halp
@@ -158,7 +158,7 @@ Sorry {username}, the command {command} is not available or doesn't exist.
 
 @tool("show_system_error")
 async def show_system_error(
-    username: str,
+    telegram_username: str,
     chat_type: str,
     error_type: str = "system error",
     details: str = "An unexpected error occurred",
@@ -176,23 +176,23 @@ async def show_system_error(
     """
     try:
         # Basic parameter validation (CrewAI handles parameter passing)
-        if not username or not chat_type:
+        if not telegram_username or not chat_type:
             return "❌ Username and chat type are required"
 
         # Ensure proper types and defaults with sanitization
-        username = str(username)[:50]  # Limit username length for security
+        telegram_username = str(telegram_username)[:50]  # Limit username length for security
         chat_type = str(chat_type).lower()
         error_type = str(error_type)[:100] if error_type else "system error"
         details = str(details)[:500] if details else "An unexpected error occurred"
 
         logger.warning(
-            f"⚠️ System error for {username} in {chat_type} chat: {error_type} - {details}"
+            f"⚠️ System error for {telegram_username} in {chat_type} chat: {error_type} - {details}"
         )
 
         # Enhanced system error message with recovery guidance
         message = f"""⚠️ System Error
 
-Sorry {username}, a {error_type} has occurred.
+Sorry {telegram_username}, a {error_type} has occurred.
 
 📋 Details: {details}
 
@@ -221,7 +221,7 @@ We apologize for the inconvenience and are working to resolve this issue."""
 
 @tool("show_validation_error")
 async def show_validation_error(
-    username: str,
+    telegram_username: str,
     chat_type: str,
     field_name: str = "input field",
     issue: str = "validation failed",
@@ -240,11 +240,11 @@ async def show_validation_error(
     """
     try:
         # Basic parameter validation (CrewAI handles parameter passing)
-        if not username or not chat_type:
+        if not telegram_username or not chat_type:
             return "❌ Username and chat type are required"
 
         # Ensure proper types and defaults with improved security
-        username = str(username)[:50]  # Security limit
+        telegram_username = str(telegram_username)[:50]  # Security limit
         chat_type = str(chat_type).lower()
         field_name = str(field_name)[:100] if field_name else "input field"
         issue = str(issue)[:200] if issue else "validation failed"
@@ -253,13 +253,13 @@ async def show_validation_error(
         )
 
         logger.info(
-            f"⚠️ Validation error for {username} in {chat_type} chat: {field_name} - {issue}"
+            f"⚠️ Validation error for {telegram_username} in {chat_type} chat: {field_name} - {issue}"
         )
 
         # Enhanced validation error message with specific guidance
         message = f"""⚠️ Validation Error
 
-Sorry {username}, there's an issue with your {field_name}.
+Sorry {telegram_username}, there's an issue with your {field_name}.
 
 ❌ Problem: {issue}
 

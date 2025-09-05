@@ -85,7 +85,7 @@ class TaskFactory:
 
                 Team Context:
                 - Team ID: {team_id}
-                - Requesting User: {username} (Telegram ID: {telegram_id})
+                - Requesting User: {telegram_username} (Telegram ID: {telegram_id})
                 - Chat Type: {chat_type}
 
                 Required Information:
@@ -117,7 +117,7 @@ class TaskFactory:
                 Retrieve and format list of players for team: {team_id}
 
                 Context:
-                - Requesting User: {username} (Telegram ID: {telegram_id})
+                - Requesting User: {telegram_username} (Telegram ID: {telegram_id})
                 - Chat Type: {chat_type}
                 - Filter: {filter_type} (active, all, pending)
 
@@ -147,7 +147,7 @@ class TaskFactory:
                 Retrieve team member information for team: {team_id}
 
                 Context:
-                - Requesting User: {username} (Telegram ID: {telegram_id})
+                - Requesting User: {telegram_username} (Telegram ID: {telegram_id})
                 - Chat Type: {chat_type}
                 - Permission Level: {user_role}
 
@@ -176,7 +176,7 @@ class TaskFactory:
                 Get match schedule and information for team: {team_id}
 
                 Context:
-                - Requesting User: {username} (Telegram ID: {telegram_id})
+                - Requesting User: {telegram_username} (Telegram ID: {telegram_id})
                 - Time Range: {time_range} (upcoming, recent, all)
                 - Include Details: {include_details}
 
@@ -207,7 +207,7 @@ class TaskFactory:
 
                 Context:
                 - Match Date: {match_date}
-                - Requesting User: {username} (Telegram ID: {telegram_id})
+                - Requesting User: {telegram_username} (Telegram ID: {telegram_id})
                 - Team ID: {team_id}
 
                 Requirements:
@@ -236,7 +236,7 @@ class TaskFactory:
                 Provide help information for user request: {query}
 
                 Context:
-                - User: {username} (Telegram ID: {telegram_id})
+                - User: {telegram_username} (Telegram ID: {telegram_id})
                 - Chat Type: {chat_type}
                 - User Role: {user_role}
                 - Team ID: {team_id}
@@ -271,7 +271,7 @@ class TaskFactory:
                 Handle communication request: {communication_type}
 
                 Context:
-                - Sender: {username} (Telegram ID: {telegram_id})
+                - Sender: {telegram_username} (Telegram ID: {telegram_id})
                 - Team ID: {team_id}
                 - Message: {message}
                 - Recipients: {recipients}
@@ -303,7 +303,7 @@ class TaskFactory:
                 Get system status and health information
 
                 Context:
-                - Requesting User: {username} (Telegram ID: {telegram_id})
+                - Requesting User: {telegram_username} (Telegram ID: {telegram_id})
                 - Team ID: {team_id}
                 - Status Type: {status_type} (general, detailed, health)
 
@@ -371,7 +371,7 @@ class TaskFactory:
             safe_context = {
                 "team_id": context.get("team_id", "unknown"),
                 "telegram_id": context.get("telegram_id", 0),
-                "username": context.get("username", "unknown"),
+                "telegram_username": context.get("telegram_username", "unknown"),
                 "chat_type": context.get("chat_type", "main"),
                 "user_role": context.get("user_role", "public"),
                 **context,

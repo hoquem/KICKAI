@@ -41,36 +41,36 @@ class StubDetectionCheck(BaseCheck):
             except ImportError:
                 logger.info("✅ minimal_stubs.py has been successfully deleted")
 
-            # Check 2: Verify AgenticMessageRouter is using real implementation
+            # Check 2: Verify TelegramMessageAdapter is using real implementation
             try:
-                from kickai.agents.agentic_message_router import AgenticMessageRouter
+                from kickai.agents.telegram_message_adapter import TelegramMessageAdapter
 
-                router = AgenticMessageRouter(team_id="TEST")
+                router = TelegramMessageAdapter(team_id="TEST")
 
                 # Check if it has the real methods (updated to match current implementation)
                 if not hasattr(router, "route_message"):
-                    stub_detections.append("AgenticMessageRouter missing route_message method")
+                    stub_detections.append("TelegramMessageAdapter missing route_message method")
                 if not hasattr(router, "route_contact_share"):
                     stub_detections.append(
-                        "AgenticMessageRouter missing route_contact_share method"
+                        "TelegramMessageAdapter missing route_contact_share method"
                     )
                 if not hasattr(router, "_process_message"):
-                    stub_detections.append("AgenticMessageRouter missing _process_message method")
+                    stub_detections.append("TelegramMessageAdapter missing _process_message method")
                 if not hasattr(router, "_execute_crew_task"):
-                    stub_detections.append("AgenticMessageRouter missing _execute_crew_task method")
+                    stub_detections.append("TelegramMessageAdapter missing _execute_crew_task method")
                 if not hasattr(router, "get_metrics"):
-                    stub_detections.append("AgenticMessageRouter missing get_metrics method")
+                    stub_detections.append("TelegramMessageAdapter missing get_metrics method")
                 else:
                     implementation_validations.append(
-                        "AgenticMessageRouter has all required methods (route_message, route_contact_share, _process_message, _execute_crew_task, get_metrics)"
+                        "TelegramMessageAdapter has all required methods (route_message, route_contact_share, _process_message, _execute_crew_task, get_metrics)"
                     )
 
             except Exception as e:
-                stub_detections.append(f"AgenticMessageRouter validation failed: {e}")
+                stub_detections.append(f"TelegramMessageAdapter validation failed: {e}")
 
-            # Check 3: Verify TelegramBotService is using real AgenticMessageRouter
+            # Check 3: Verify TelegramBotService is using real TelegramMessageAdapter
             try:
-                # Check if it imports the real AgenticMessageRouter
+                # Check if it imports the real TelegramMessageAdapter
                 import kickai.features.communication.infrastructure.telegram_bot_service as tbs
 
                 if "SimpleMessageRouter" in tbs.__dict__:
@@ -79,7 +79,7 @@ class StubDetectionCheck(BaseCheck):
                     )
                 else:
                     implementation_validations.append(
-                        "TelegramBotService uses real AgenticMessageRouter"
+                        "TelegramBotService uses real TelegramMessageAdapter"
                     )
 
             except Exception as e:

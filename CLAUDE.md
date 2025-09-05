@@ -363,6 +363,29 @@ make dev  # or python run_bot_local.py
 3. Use Mock UI at `localhost:8001` for interactive testing
 4. `make health-check` - Validate system before commits
 
+## 🚨 CRITICAL CODING STANDARDS
+
+### Context Field Naming (MANDATORY)
+**ALWAYS use `telegram_username` - NEVER `username`**
+
+```python
+# ✅ CORRECT
+context.get('telegram_username', 'user')
+validated_context.get('telegram_username')
+
+# ❌ WRONG - DO NOT USE
+context.get('username', 'user')
+validated_context.get('username')
+```
+
+**Why**: The system uses `telegram_username` as the standard field name across all entities (Player, TeamMember, etc.). Using `username` creates inconsistency and bugs.
+
+**Context Standard Fields:**
+- `telegram_id` - User's Telegram ID (integer)
+- `telegram_username` - User's Telegram username (string) 
+- `team_id` - Team identifier (string)
+- `chat_type` - Chat context: 'main', 'leadership', 'private'
+
 ---
 
 **KICKAI v3.1** - 5-Agent CrewAI System with Hierarchical Process and Complete Clean Architecture

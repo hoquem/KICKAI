@@ -353,7 +353,7 @@ if ServiceRegistry is not None:
             self._operation_calls += 1
             return Mock(name=f"Agent_{agent_type}_{self._operation_calls}")
         
-        async def route_message(self, message: str):
+        async def process_message(self, message: str):
             self._operation_calls += 1
             return {"routed_to": "test_agent", "message": message}
 

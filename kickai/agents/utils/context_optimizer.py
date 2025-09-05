@@ -33,14 +33,14 @@ class ContextOptimizer:
             "chat_id",
             "chat_type",
             "message_text",
-            "username",
+            "telegram_username",
         },
         AgentRole.HELP_ASSISTANT: {
             "telegram_id",
             "team_id",
             "chat_type",
             "message_text",
-            "username",
+            "telegram_username",
         },
         AgentRole.PLAYER_COORDINATOR: {
             "telegram_id",
@@ -48,7 +48,7 @@ class ContextOptimizer:
             "chat_id",
             "chat_type",
             "message_text",
-            "username",
+            "telegram_username",
             "is_registered",
             "is_player",
         },
@@ -58,11 +58,11 @@ class ContextOptimizer:
             "chat_id",
             "chat_type",
             "message_text",
-            "username",
+            "telegram_username",
             "is_registered",
             "is_team_member",
         },
-        AgentRole.SQUAD_SELECTOR: {"telegram_id", "team_id", "chat_id", "message_text", "username"},
+        AgentRole.SQUAD_SELECTOR: {"telegram_id", "team_id", "chat_id", "message_text", "telegram_username"},
     }
 
     @classmethod
@@ -73,7 +73,8 @@ class ContextOptimizer:
         chat_id: str,
         chat_type: str,
         message_text: str,
-        username: str,
+        telegram_username: str = None,
+        username: str = None,
         **optional_fields,
     ) -> dict[str, Any]:
         """
@@ -81,13 +82,18 @@ class ContextOptimizer:
 
         Returns only essential fields with no duplication or nesting.
         """
+        # Use telegram_username if provided, otherwise fall back to username
+        effective_username = telegram_username or username
+        if not effective_username:
+            raise ValueError("Either telegram_username or username must be provided")
+        
         context = {
             "telegram_id": telegram_id,
             "team_id": team_id,
             "chat_id": chat_id,
             "chat_type": chat_type,
             "message_text": message_text,
-            "username": username,
+            "telegram_username": effective_username,
         }
 
         # Add optional fields if provided (but keep minimal)

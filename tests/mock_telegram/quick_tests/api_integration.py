@@ -24,7 +24,7 @@ try:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
     
     from kickai.core.dependency_container import ensure_container_initialized
-    from kickai.agents.agentic_message_router import AgenticMessageRouter
+    from kickai.agents.telegram_message_adapter import TelegramMessageAdapter
     from kickai.core.startup_validation import run_startup_validation
     
     BOT_SYSTEM_AVAILABLE = True
@@ -107,7 +107,7 @@ async def initialize_quick_test_controller():
                 )
             
             # Initialize bot message router
-            bot_message_router = AgenticMessageRouter()
+            bot_message_router = TelegramMessageAdapter()
             bot_system_validated = True
             logger.success("✅ KICKAI bot system validation passed")
         
@@ -433,11 +433,11 @@ async def execute_test_scenario(execution_id: str, scenario_name: str, options: 
 
 
 class RealBotIntegration:
-    """Real bot integration using KICKAI AgenticMessageRouter"""
+    """Real bot integration using KICKAI TelegramMessageAdapter"""
     
-    def __init__(self, message_router: AgenticMessageRouter):
+    def __init__(self, message_router: TelegramMessageAdapter):
         self.message_router = message_router
-        logger.info("🤖 RealBotIntegration initialized with AgenticMessageRouter")
+        logger.info("🤖 RealBotIntegration initialized with TelegramMessageAdapter")
     
     async def process_mock_message(self, message_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process a message through the real KICKAI bot system"""
@@ -457,8 +457,8 @@ class RealBotIntegration:
             chat_context = message_data.get("chat_context", "main_chat")
             bot_message["chat_context"] = chat_context
             
-            # Process through AgenticMessageRouter
-            response = await self.message_router.route_message(bot_message)
+            # Process through TelegramMessageAdapter
+            response = await self.message_router.process_message(bot_message)
             
             if response and hasattr(response, 'message'):
                 return {

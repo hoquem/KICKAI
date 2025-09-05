@@ -17,12 +17,11 @@ def initialize_attendance_management(config: dict[str, Any]) -> None:
     # Import and register attendance management tools from application layer
     try:
         from kickai.features.attendance_management.application.tools.attendance_tools import (
-            get_availability,
-            get_match_attendance,
-            get_player_attendance_history,
+            mark_availability_match,
+            get_availability_all,
             get_player_availability_history,
-            mark_availability,
-            record_attendance,
+            record_attendance_match,
+            get_match_attendance,
         )
 
         logger.info("✅ Attendance management tools imported successfully")

@@ -24,20 +24,20 @@ from kickai.utils.tool_validation import create_tool_response
 
 # Status mapping constants
 STATUS_MAPPING = {
-    "available": AttendanceStatus.AVAILABLE,
-    "unavailable": AttendanceStatus.UNAVAILABLE,
+    "available": AttendanceStatus.PRESENT,
+    "unavailable": AttendanceStatus.ABSENT,
     "maybe": AttendanceStatus.MAYBE,
     "tentative": AttendanceStatus.MAYBE,
 }
 
 ATTENDANCE_STATUS_MAPPING = {
-    "present": AttendanceStatus.AVAILABLE,
-    "absent": AttendanceStatus.UNAVAILABLE,
+    "present": AttendanceStatus.PRESENT,
+    "absent": AttendanceStatus.ABSENT,
 }
 
 STATUS_EMOJI = {
-    AttendanceStatus.AVAILABLE: "✅",
-    AttendanceStatus.UNAVAILABLE: "❌",
+    AttendanceStatus.PRESENT: "✅",
+    AttendanceStatus.ABSENT: "❌",
     AttendanceStatus.MAYBE: "❓",
 }
 
@@ -297,8 +297,8 @@ async def get_player_availability_history(
 
         # Calculate statistics
         total_matches = len(history)
-        available_count = len([h for h in history if h.status == AttendanceStatus.AVAILABLE])
-        unavailable_count = len([h for h in history if h.status == AttendanceStatus.UNAVAILABLE])
+        available_count = len([h for h in history if h.status == AttendanceStatus.PRESENT])
+        unavailable_count = len([h for h in history if h.status == AttendanceStatus.ABSENT])
         maybe_count = len([h for h in history if h.status == AttendanceStatus.MAYBE])
 
         availability_rate = (available_count / total_matches * 100) if total_matches > 0 else 0
@@ -400,8 +400,8 @@ async def record_attendance_match(
         )
 
         # Format response
-        status_text = "Present" if attendance_status == AttendanceStatus.AVAILABLE else "Absent"
-        status_emoji = "✅" if attendance_status == AttendanceStatus.AVAILABLE else "❌"
+        status_text = "Present" if attendance_status == AttendanceStatus.PRESENT else "Absent"
+        status_emoji = "✅" if attendance_status == AttendanceStatus.PRESENT else "❌"
 
         message = f"""📊 Attendance Recorded
 
@@ -459,8 +459,8 @@ async def get_match_attendance(telegram_id: str, team_id: str, match_id: str) ->
             )
 
         # Group records by status
-        available = [r for r in attendance_records if r.status == AttendanceStatus.AVAILABLE]
-        unavailable = [r for r in attendance_records if r.status == AttendanceStatus.UNAVAILABLE]
+        available = [r for r in attendance_records if r.status == AttendanceStatus.PRESENT]
+        unavailable = [r for r in attendance_records if r.status == AttendanceStatus.ABSENT]
         maybe = [r for r in attendance_records if r.status == AttendanceStatus.MAYBE]
 
         # Format response

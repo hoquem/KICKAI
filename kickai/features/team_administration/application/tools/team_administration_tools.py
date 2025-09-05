@@ -246,7 +246,7 @@ async def create_team(team_id: str, chat_type: str, team_name: str, admin_user_i
 
 @tool("update_member_field")
 async def update_member_field(
-    telegram_id: str, team_id: str, username: str, chat_type: str, field: str, value: str
+    telegram_id: str, team_id: str, telegram_username: str, chat_type: str, field: str, value: str
 ) -> str:
     """
     Modify specific member profile information field.
@@ -277,7 +277,7 @@ async def update_member_field(
             return "❌ Invalid telegram_id format"
 
         logger.info(
-            f"🔄 Updating team member field '{field}' for {username or 'user'} ({telegram_id_int})"
+            f"🔄 Updating team member field '{field}' for {telegram_username or 'user'} ({telegram_id_int})"
         )
 
         # Validate field
@@ -303,13 +303,13 @@ async def update_member_field(
         updated_member = await team_service.update_team_member(member)
 
         if updated_member:
-            logger.info(f"✅ Team member field '{field}' updated for {username or 'user'}")
-            return f"✅ Successfully updated {field} to '{value}' for {username or 'user'}"
+            logger.info(f"✅ Team member field '{field}' updated for {telegram_username or 'user'}")
+            return f"✅ Successfully updated {field} to '{value}' for {telegram_username or 'user'}"
         else:
             logger.error(
-                f"❌ Failed to update team member field '{field}' for {username or 'user'}"
+                f"❌ Failed to update team member field '{field}' for {telegram_username or 'user'}"
             )
-            return f"❌ Failed to update {field} for {username or 'user'}"
+            return f"❌ Failed to update {field} for {telegram_username or 'user'}"
 
     except Exception as e:
         logger.error(f"❌ Error updating team member field '{field}': {e}")
@@ -318,7 +318,7 @@ async def update_member_field(
 
 @tool("update_member_multiple_fields")
 async def update_member_multiple_fields(
-    telegram_id: str, team_id: str, username: str, chat_type: str, field_updates: dict[str, Any]
+    telegram_id: str, team_id: str, telegram_username: str, chat_type: str, field_updates: dict[str, Any]
 ) -> str:
     """
     Modify multiple member profile fields simultaneously.
@@ -347,7 +347,7 @@ async def update_member_multiple_fields(
             return "❌ Invalid telegram_id format"
 
         logger.info(
-            f"🔄 Updating multiple team member fields for {username or 'user'} ({telegram_id_int})"
+            f"🔄 Updating multiple team member fields for {telegram_username or 'user'} ({telegram_id_int})"
         )
 
         # Get service
@@ -378,13 +378,13 @@ async def update_member_multiple_fields(
         updated_member = await team_service.update_team_member(member)
 
         if updated_member:
-            logger.info(f"✅ Multiple team member fields updated for {username or 'user'}")
-            return f"✅ Successfully updated {', '.join(updated_fields)} for {username or 'user'}"
+            logger.info(f"✅ Multiple team member fields updated for {telegram_username or 'user'}")
+            return f"✅ Successfully updated {', '.join(updated_fields)} for {telegram_username or 'user'}"
         else:
             logger.error(
-                f"❌ Failed to update multiple team member fields for {username or 'user'}"
+                f"❌ Failed to update multiple team member fields for {telegram_username or 'user'}"
             )
-            return f"❌ Failed to update fields for {username or 'user'}"
+            return f"❌ Failed to update fields for {telegram_username or 'user'}"
 
     except Exception as e:
         logger.error(f"❌ Error updating multiple team member fields: {e}")
@@ -393,7 +393,7 @@ async def update_member_multiple_fields(
 
 @tool("get_member_update_help")
 async def get_member_update_help(
-    telegram_id: str, team_id: str, username: str, chat_type: str
+    telegram_id: str, team_id: str, telegram_username: str, chat_type: str
 ) -> str:
     """
     Provide guidance for member profile field modifications.
@@ -412,7 +412,7 @@ async def get_member_update_help(
         telegram_id_int = convert_telegram_id(telegram_id) if telegram_id else None
 
         logger.info(
-            f"📖 Getting team member update help for {username or 'user'} ({telegram_id_int})"
+            f"📖 Getting team member update help for {telegram_username or 'user'} ({telegram_id_int})"
         )
 
         # Provide help content directly or delegate to domain service
@@ -421,8 +421,8 @@ async def get_member_update_help(
                 get_team_member_update_help as domain_get_help,
             )
 
-            result = await domain_get_help(telegram_id_int, team_id, username, chat_type)
-            logger.info(f"✅ Team member update help retrieved for {username or 'user'}")
+            result = await domain_get_help(telegram_id_int, team_id, telegram_username, chat_type)
+            logger.info(f"✅ Team member update help retrieved for {telegram_username or 'user'}")
             return result
         except ImportError:
             # Fallback help content if domain tools are not available
@@ -456,7 +456,7 @@ Available fields for updates:
 async def update_member_info(
     telegram_id: str,
     team_id: str,
-    username: str,
+    telegram_username: str,
     chat_type: str,
     target_telegram_id: str,
     field: str,
@@ -499,7 +499,7 @@ async def update_member_info(
             return "❌ Member updates can only be performed from leadership chat"
 
         logger.info(
-            f"🔄 Leadership {username or 'admin'} updating member {target_telegram_id_int} field '{field}' to '{value}' in team {team_id}"
+            f"🔄 Leadership {telegram_username or 'admin'} updating member {target_telegram_id_int} field '{field}' to '{value}' in team {team_id}"
         )
 
         # Validate field
@@ -537,12 +537,12 @@ async def update_member_info(
 
         if updated_member:
             logger.info(
-                f"✅ Team member {target_telegram_id_int} field '{field}' updated by {username or 'admin'}"
+                f"✅ Team member {target_telegram_id_int} field '{field}' updated by {telegram_username or 'admin'}"
             )
-            return f"✅ Successfully updated {field} to '{value}' for {getattr(target_member, 'name', 'member')} by {username or 'admin'}"
+            return f"✅ Successfully updated {field} to '{value}' for {getattr(target_member, 'name', 'member')} by {telegram_username or 'admin'}"
         else:
             return f"❌ Failed to update {field} for team member. Please try again."
 
     except Exception as e:
-        logger.error(f"❌ Error updating team member field by {username or 'admin'}: {e}")
+        logger.error(f"❌ Error updating team member field by {telegram_username or 'admin'}: {e}")
         return f"❌ Error updating member information: {str(e)[:100]}{'...' if len(str(e)) > 100 else ''}"

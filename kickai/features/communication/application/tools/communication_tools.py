@@ -12,15 +12,15 @@ from crewai.tools import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
-from kickai.features.communication.domain.services.communication_service import CommunicationService
+from kickai.features.communication.domain.interfaces.communication_service_interface import ICommunicationService
 from kickai.utils.tool_validation import create_tool_response
 
 
-def _get_communication_service() -> CommunicationService:
+def _get_communication_service() -> ICommunicationService:
     """Get communication service from container with error handling."""
     try:
         container = get_container()
-        service = container.get_service(CommunicationService)
+        service = container.get_service(ICommunicationService)
         if not service:
             raise ValueError("Communication service not found in container")
         return service
@@ -99,7 +99,7 @@ def _parse_poll_options(poll_options: str) -> tuple[list[str], str]:
 
 
 @tool("send_team_message")
-async def send_team_message(team_id: str, message: str, target_chat: str = "main") -> str:
+async def send_team_message(team_id: str, message: str, target_chat: str = "main", chat_type: str = "main") -> str:
     """
     Send targeted message to specific team chat channel.
 
@@ -107,32 +107,32 @@ async def send_team_message(team_id: str, message: str, target_chat: str = "main
     with appropriate access control and channel-specific routing.
 
     Use when: Need to send targeted messages to specific team channels
-    Required: User must have appropriate chat access permissions
+    Required: User must have appropriate chat access permissions (leadership access required for leadership chat)
 
     Returns: Message delivery confirmation with channel details
     """
     try:
         # Input validation with enhanced security
         if not team_id or not team_id.strip():
-            return create_tool_response(False, "Team ID is required")
+            return "❌ Team ID is required"
 
         if not message or not message.strip():
-            return create_tool_response(False, "Message content is required")
+            return "❌ Message content is required"
 
         if not target_chat or not target_chat.strip():
-            return create_tool_response(False, "Target chat is required")
+            return "❌ Target chat is required"
 
         # Enhanced message validation for security
         if len(message) > 4000:  # Telegram message limit
-            return create_tool_response(False, "Message is too long (maximum 4000 characters)")
+            return "❌ Message is too long (maximum 4000 characters)"
 
         # Basic security check for malicious content
         if any(ord(char) < 32 and char not in ["\n", "\r", "\t"] for char in message):
-            return create_tool_response(False, "Message contains invalid characters")
+            return "❌ Message contains invalid characters"
 
         # Validate target chat with enhanced security
-        if not _validate_chat_access(target_chat, "main"):  # Simplified for now
-            return create_tool_response(False, "Invalid target chat or insufficient permissions")
+        if not _validate_chat_access(target_chat, chat_type):
+            return "❌ Invalid target chat or insufficient permissions"
 
         logger.info(f"📤 Message send request to {target_chat} chat for team {team_id}")
 
@@ -141,31 +141,28 @@ async def send_team_message(team_id: str, message: str, target_chat: str = "main
             communication_service = _get_communication_service()
         except Exception as e:
             logger.error(f"Service initialization failed: {e}")
-            return create_tool_response(False, "Communication service temporarily unavailable")
+            return "❌ Communication service temporarily unavailable"
 
         # Execute domain operation
         success = await communication_service.send_message(message, target_chat, team_id)
 
         if not success:
             logger.error(f"❌ Failed to send message to team {team_id} in {target_chat} chat")
-            return create_tool_response(False, f"Failed to send message to {target_chat} chat")
+            return f"❌ Failed to send message to {target_chat} chat"
 
         logger.info(f"✅ Message sent to {target_chat} chat for team {team_id}")
-        return create_tool_response(
-            True, "Message sent successfully", data=f"📤 Message delivered to {target_chat} chat"
-        )
+        return f"✅ Message delivered to {target_chat} chat"
 
     except Exception as e:
         logger.error(f"❌ Error sending message: {e}")
         # Avoid exposing internal error details to users
-        error_msg = "Failed to send message. Please try again or contact support."
         if "not found" in str(e).lower():
-            error_msg = "Team or chat channel not found"
+            return "❌ Team or chat channel not found"
         elif "permission" in str(e).lower() or "access" in str(e).lower():
-            error_msg = "Insufficient permissions to send message"
+            return "❌ Insufficient permissions to send message"
         elif "rate limit" in str(e).lower():
-            error_msg = "Too many messages sent. Please wait before sending another."
-        return create_tool_response(False, error_msg)
+            return "❌ Too many messages sent. Please wait before sending another."
+        return "❌ Failed to send message. Please try again or contact support."
 
 
 @tool("send_team_announcement")

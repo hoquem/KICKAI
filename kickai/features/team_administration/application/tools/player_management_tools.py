@@ -17,7 +17,7 @@ from kickai.core.dependency_container import get_container
 async def create_player(
     telegram_id: str,
     team_id: str,
-    username: str,
+    telegram_username: str,
     chat_type: str,
     player_name: str,
     phone_number: str,
@@ -52,7 +52,7 @@ async def create_player(
             return "❌ Invalid telegram_id format"
 
         logger.info(
-            f"🏃‍♂️ Creating player '{player_name}' by {username} ({telegram_id_int}) in team {team_id}"
+            f"🏃‍♂️ Creating player '{player_name}' by {telegram_username} ({telegram_id_int}) in team {team_id}"
         )
 
         # Get services from container

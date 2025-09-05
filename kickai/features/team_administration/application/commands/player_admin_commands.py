@@ -154,10 +154,10 @@ I need both a player name and phone number.
         if not is_valid_phone(phone_number):
             return ERROR_MESSAGES["INVALID_PHONE_FORMAT"].format(phone=phone_number)
 
-        # Route to CrewAI agent via AgenticMessageRouter
-        from kickai.agents.agentic_message_router import AgenticMessageRouter
+        # Route to CrewAI agent via TelegramMessageAdapter
+        from kickai.agents.telegram_message_adapter import TelegramMessageAdapter
 
-        router = AgenticMessageRouter(team_id)
+        router = TelegramMessageAdapter(team_id)
 
         # Create structured message for the agent
         agent_message_text = f"/addplayer {player_name} {phone_number}"
@@ -173,7 +173,7 @@ I need both a player name and phone number.
         )
 
         # Route to CrewAI system
-        response = await router.route_message(telegram_message)
+        response = await router.process_message(telegram_message)
 
         if response and response.success:
             return response.message

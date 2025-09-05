@@ -10,10 +10,13 @@ from enum import Enum
 
 
 class AgentRole(str, Enum):
-    """Agent roles in the optimized 5-Agent CrewAI system with native routing."""
+    """Agent roles in the 6-Agent CrewAI system with hierarchical manager."""
 
-    # Essential 5-Agent System - Native CrewAI routing (no separate NLP processor needed)
-    MESSAGE_PROCESSOR = "message_processor"  # Primary interface with native LLM routing
+    # Manager Agent - Pure delegation coordinator (no tools)
+    MANAGER_AGENT = "manager_agent"  # Hierarchical process coordinator and task router
+    
+    # Essential 5-Agent System - Worker agents with specialized tools
+    MESSAGE_PROCESSOR = "message_processor"  # Communication and system operations
     HELP_ASSISTANT = "help_assistant"  # Help system and guidance
     PLAYER_COORDINATOR = "player_coordinator"  # Player management and onboarding
     TEAM_ADMINISTRATOR = "team_administrator"  # Team member management

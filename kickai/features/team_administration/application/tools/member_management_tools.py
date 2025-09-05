@@ -15,7 +15,7 @@ from kickai.core.dependency_container import get_container
 async def create_player(
     telegram_id: str,
     team_id: str,
-    username: str,
+    telegram_username: str,
     chat_type: str,
     player_name: str,
     phone_number: str,
@@ -100,7 +100,7 @@ async def create_player(
 async def update_member_role(
     telegram_id: str,
     team_id: str,
-    username: str,
+    telegram_username: str,
     chat_type: str,
     member_identifier: str,
     new_role: str,
@@ -181,7 +181,7 @@ async def update_member_role(
 async def remove_team_member(
     telegram_id: str,
     team_id: str,
-    username: str,
+    telegram_username: str,
     chat_type: str,
     member_identifier: str,
     reason: str = "Administrative removal",
@@ -253,7 +253,7 @@ async def remove_team_member(
 async def list_members_and_players(
     telegram_id: str,
     team_id: str,
-    username: str,
+    telegram_username: str,
     chat_type: str,
     include_players: bool = True,
     status_filter: str = "all",
@@ -378,7 +378,7 @@ async def get_member_status(
     telegram_id: str,
     team_id: str,
     member_identifier: str,
-    username: str = "user",
+    telegram_username: str = "user",
     chat_type: str = "main",
 ) -> str:
     """
@@ -409,7 +409,7 @@ async def get_member_status(
             return "❌ Invalid telegram_id format"
 
         logger.info(
-            f"🔍 Member info request for '{member_identifier}' from {username} ({telegram_id_int}) in team {team_id}"
+            f"🔍 Member info request for '{member_identifier}' from {telegram_username} ({telegram_id_int}) in team {team_id}"
         )
 
         container = get_container()
@@ -486,7 +486,7 @@ async def get_member_status(
 async def update_member_by_identifier(
     telegram_id: str,
     team_id: str,
-    username: str,
+    telegram_username: str,
     chat_type: str,
     member_identifier: str,
     field_name: str,

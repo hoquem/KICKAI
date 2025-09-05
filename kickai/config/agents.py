@@ -32,6 +32,7 @@ class AgentConfig:
     max_tokens: int = 800  # Use default from settings.ai_max_tokens
     primary_entity_type: str | None = None
     entity_types: list[str] = field(default_factory=list)
+    system_template: str | None = None  # Optional system template for enhanced agent guidance
 
 
 class YAMLAgentConfigurationManager:
@@ -218,6 +219,7 @@ class YAMLAgentConfigurationManager:
             max_tokens=max_tokens,
             primary_entity_type=agent_data.get("primary_entity_type"),
             entity_types=agent_data.get("entity_types", []),
+            system_template=agent_data.get("system_template"),  # Add system_template support
         )
 
         # Cache the processed config

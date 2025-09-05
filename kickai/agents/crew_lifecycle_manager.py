@@ -107,18 +107,18 @@ class CrewLifecycleManager:
     async def get_or_create_crew(self, team_id: str) -> Any:
         """
         Get an existing crew or create a new one for the team.
-
-        CREWAI BUG WORKAROUND: Always create fresh crew to avoid manager agent tools bug.
+        
+        Implements true persistent crew architecture - one crew per team that persists
+        across all requests to maintain memory continuity and optimize performance.
         """
-        # CREWAI BUG WORKAROUND: Always create new crew to avoid "Manager agent should not have tools" bug
+        # Return existing persistent crew if available
         if team_id in self._crews:
-            logger.warning(
-                f"🔄 CrewAI bug workaround: Shutting down existing crew for team {team_id}"
-            )
-            await self._shutdown_crew(team_id)
+            existing_crew = self._crews[team_id]
+            logger.debug(f"♻️ Reusing persistent crew for team {team_id}")
+            return existing_crew
 
-        # Create new crew
-        logger.info(f"🆕 Creating new crew for team {team_id}")
+        # Create new persistent crew only if doesn't exist
+        logger.info(f"🆕 Creating new persistent crew for team {team_id}")
         return await self._create_crew(team_id)
 
     async def _create_crew(self, team_id: str) -> Any:
@@ -284,15 +284,8 @@ If the problem persists, please contact your team administrator."""
         timeout_seconds = AgentConstants.CREW_MAX_EXECUTION_TIME
 
         try:
-            # Clear manager tools before execution (workaround for CrewAI issues #1851, #909)
-            # This prevents "Manager agent should not have tools" error on crew reuse
-            if (
-                hasattr(crew, "crew")
-                and hasattr(crew.crew, "manager_agent")
-                and crew.crew.manager_agent
-            ):
-                crew.crew.manager_agent.tools = []
-                logger.debug("🧹 Cleared manager agent tools (CrewAI bug workaround)")
+            # With manager_llm: No agent tool clearing needed
+            # The manager_llm coordinates without tools, all agents remain workers
 
             # Execute CrewAI task with timeout - task description is already enhanced in crew_agents.py
             result = await asyncio.wait_for(

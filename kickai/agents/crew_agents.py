@@ -104,11 +104,9 @@ class TeamManagementSystem:
             main_llm, _ = llm_config.get_llm_for_agent(AgentRole.MESSAGE_PROCESSOR)
             self.llm = main_llm
 
-            # Manager LLM for hierarchical coordination
-            self.manager_llm = llm_config.create_manager_llm()
-
-            logger.info(f"✅ LLM initialized: {type(self.llm).__name__} (hierarchical process)")
-            logger.info(f"✅ Manager LLM initialized: {type(self.manager_llm).__name__}")
+            # Note: No longer using manager_llm - dedicated manager agent handles coordination
+            logger.info(f"✅ LLM initialized: {type(self.llm).__name__} (for worker agents)")
+            logger.info("✅ Manager coordination handled by dedicated manager agent")
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize LLM: {e!s}")
@@ -118,6 +116,7 @@ class TeamManagementSystem:
         """Initialize all agents for the team."""
         try:
             agent_roles = [
+                AgentRole.MANAGER_AGENT,  # Manager agent (no tools)
                 AgentRole.MESSAGE_PROCESSOR,
                 AgentRole.HELP_ASSISTANT,
                 AgentRole.PLAYER_COORDINATOR,
@@ -125,7 +124,7 @@ class TeamManagementSystem:
                 AgentRole.SQUAD_SELECTOR,
             ]
 
-            logger.info(f"[TEAM INIT] Creating {len(agent_roles)} worker agents")
+            logger.info(f"[TEAM INIT] Creating {len(agent_roles)} agents (1 manager + {len(agent_roles)-1} workers)")
 
             for role in agent_roles:
                 try:
@@ -230,15 +229,28 @@ class TeamManagementSystem:
         - Enables 70% faster execution after first request
         """
         try:
-            # Get all agents as worker agents with their tools
-            all_agents = [
-                agent.crew_agent
-                for role, agent in self.agents.items()
-                if hasattr(agent, "crew_agent")
-            ]
+            # Separate manager agent from worker agents
+            manager_agent = None
+            worker_agents = []
+            
+            from kickai.core.enums import AgentRole
+            
+            for role, agent in self.agents.items():
+                if hasattr(agent, "crew_agent"):
+                    if role == AgentRole.MANAGER_AGENT:
+                        manager_agent = agent.crew_agent
+                        # Ensure manager agent has no tools (critical requirement)
+                        manager_agent.tools = []
+                        logger.info("✅ Manager agent configured with empty tools list")
+                    else:
+                        worker_agents.append(agent.crew_agent)
 
-            if not all_agents:
-                raise AgentInitializationError("TeamManagementSystem", "No agents available")
+            if not manager_agent:
+                raise AgentInitializationError("TeamManagementSystem", "Manager agent not found")
+            if not worker_agents:
+                raise AgentInitializationError("TeamManagementSystem", "No worker agents available")
+                
+            logger.info(f"✅ Configured hierarchical crew: 1 manager + {len(worker_agents)} workers")
 
             # Get dynamic embedder configuration based on .env settings
             try:
@@ -249,11 +261,11 @@ class TeamManagementSystem:
                 logger.info("🔄 Proceeding without memory system (degraded mode)")
                 embedder_config = None
 
-            # Create hierarchical crew with optional memory based on embedder availability
+            # Create hierarchical crew with dedicated manager agent
             crew_config = {
-                "agents": all_agents,  # All 5 agents as worker agents with tools
+                "agents": worker_agents,  # 5 specialist worker agents
+                "manager_agent": manager_agent,  # Dedicated manager with no tools
                 "process": Process.hierarchical,  # Use hierarchical process
-                "manager_llm": self.manager_llm,  # Manager LLM for coordination
                 "verbose": True,  # Enable verbose logging as requested
                 "max_execution_time": 300,  # 5 minute timeout for safety
             }
@@ -272,10 +284,10 @@ class TeamManagementSystem:
 
             self.crew = Crew(**crew_config)
 
-            agent_count = len(all_agents)
+            total_agents = len(worker_agents) + 1  # workers + manager
             memory_status = "enabled" if embedder_config else "disabled"
             logger.info(
-                f"✅ Created persistent hierarchical crew with {agent_count} worker agents, memory {memory_status}, verbose logging on"
+                f"✅ Created persistent hierarchical crew with {total_agents} agents (1 manager + {len(worker_agents)} workers), memory {memory_status}, verbose logging on"
             )
             return True
 
@@ -352,96 +364,46 @@ class TeamManagementSystem:
             # LLM-Powered Intelligent Routing - Let the LLM understand and route naturally
             chat_type = validated_context.get("chat_type", "main")
             task_description_with_context = f"""
-🤖 INTELLIGENT TASK ROUTING
-
 USER REQUEST: "{task_description}"
+CONTEXT: telegram_id={validated_context.get('telegram_id')}, username={validated_context.get('telegram_username', 'user')}, chat_type={chat_type}, team_id={validated_context.get('team_id', self.team_id)}
 
-CONTEXT:
-- Telegram ID: {validated_context.get('telegram_id')}
-- Username: {validated_context.get('username', 'user')}
-- Chat Type: {chat_type}
-- Team ID: {validated_context.get('team_id', self.team_id)}
+🚨 TOOL AUTHORITY (ABSOLUTE):
+• Present ONLY tool output - no additions, examples, or fabrications
+• If tool returns 4 players → report exactly 4 players
+• If tool fails → "No data available" (don't compensate)
+• GEMINI: Do NOT be "helpful" by adding missing data
 
-🎯 YOUR ROLE AS MANAGER:
-You are an intelligent task router. Analyze the user's request and delegate to the most appropriate specialist agent based on:
+🎯 ROUTING GUIDANCE (Context-First):
+• MAIN/PRIVATE CHAT → player_coordinator (all operations)
+• LEADERSHIP CHAT → Context-sensitive routing:
+  - Personal status requests ("my info", "my status") → team_administrator (member context)
+  - Other player queries → player_coordinator (player context)
+  - Administrative operations → team_administrator
+  - Match operations → squad_selector
+  - Help requests → help_assistant
+  - System operations → message_processor
 
-1. **SEMANTIC UNDERSTANDING**: What does the user actually want?
-2. **AGENT EXPERTISE**: Which agent has the right tools and knowledge?
-3. **CONTEXT AWARENESS**: Consider chat type and user permissions
-4. **DATA AUTHORITY**: Agents ONLY report what tools return - no fabrication
+AVAILABLE AGENTS:
+• player_coordinator: player operations, updates, lists, registration (main/private)
+• team_administrator: member administration, roles, permissions (leadership only)
+• squad_selector: matches, squads, availability, attendance
+• help_assistant: help system, guidance, explanations
+• message_processor: system operations, communications, announcements
 
-🔑 **CRITICAL CONTEXT PASSING REQUIREMENT**:
-When delegating to ANY specialist agent, you MUST include the complete user context in your delegation message.
-Worker agents need this information to call tools properly.
+ROUTING EXAMPLES:
+• "my info" in MAIN → player_coordinator (player status)
+• "my info" in LEADERSHIP → team_administrator (member status)
+• "Update email" in MAIN → player_coordinator (player updates)
+• "Update email" in LEADERSHIP → team_administrator (member updates)
+• "List players" → player_coordinator (any chat)
+• "Help" → help_assistant
+• "Send announcement" → message_processor
 
-Required context to pass: telegram_id={validated_context.get('telegram_id')}, team_id={validated_context.get('team_id')}, username={validated_context.get('username')}, chat_type={chat_type}
-
-Example delegation: "Handle player information request for user with telegram_id={validated_context.get('telegram_id')}, team_id={validated_context.get('team_id')}, username={validated_context.get('username')}, chat_type={chat_type}"
-
-🧠 **INTELLIGENT ROUTING GUIDELINES**:
-
-⚠️ DATA AUTHORITY REMINDER: All agents MUST present ONLY what their tools return.
-They cannot add, extend, or fabricate data. If tools return empty results, agents will state "No data found".
-
-**PLAYER_COORDINATOR** - Route to when user wants:
-- Player information (their own or others')
-- Player status, availability, or history
-- Player registration or updates
-- List of players (active, all, etc.)
-- Player-related data queries
-
-**TEAM_ADMINISTRATOR** - Route to when user wants:
-- Team member management (in leadership chat)
-- Administrative operations
-- Role assignments or permissions
-- Team structure information
-- Member status or details
-
-**SQUAD_SELECTOR** - Route to when user wants:
-- Match information or creation
-- Squad selection or availability
-- Game scheduling or results
-- Attendance tracking
-- Match-related analytics
-
-**HELP_ASSISTANT** - Route to when user wants:
-- Help with commands or features
-- Guidance on how to use the system
-- Troubleshooting or error explanations
-- General assistance or explanations
-
-**MESSAGE_PROCESSOR** - Route to when user wants:
-- System operations (ping, version, status)
-- Communication tools (announcements, polls)
-- General messaging or broadcasting
-
-🎯 **CONTEXT-AWARE DECISIONS**:
-- Chat Type: {chat_type}
-- Main/Private Chat: Default to player operations unless clearly administrative
-- Leadership Chat: Can handle both player and member operations
-- Use natural language understanding to determine intent
-
-💡 **ROUTING STRATEGY**:
-1. Understand the user's true intent (not just surface-level commands)
-2. Consider the context (chat type, user role)
-3. Match intent to agent expertise
-4. Delegate to the most capable specialist
-5. Ensure the user gets the right information from the right source
-
-🚀 **EXECUTION**:
-Delegate this task to the most appropriate specialist agent. Trust your semantic understanding of the request and route intelligently based on what the user actually needs.
-
-🚨 **CRITICAL DELEGATION FORMATTING (GEMINI COMPATIBILITY)**:
-When using the delegate_work tool, ALWAYS format parameters as simple strings:
-- ✅ CORRECT: delegate_work(task='Check player status', context='User wants info', coworker='player_coordinator')
-- ❌ WRONG: delegate_work(task={{'description': 'Check player status'}}, context={{'description': 'User wants info'}})
-
-**DELEGATION PARAMETERS MUST BE SIMPLE STRINGS**:
-- task='simple task description string'
-- context='context information string'
-- coworker='agent_name_string'
-
-NEVER use dictionary objects as parameter values. Use simple key='value' format only.
+🔄 RESPONSE PROTOCOL:
+• Use tools to get data and execute operations
+• Present tool output directly without fabrication
+• Maintain formatting and structure from tool responses
+• Add helpful context only when it doesn't alter the data
 """
 
             # Create task for persistent hierarchical crew
@@ -455,12 +417,19 @@ NEVER use dictionary objects as parameter values. Use simple key='value' format 
             logger.debug(f"🔧 Dynamic task assignment for persistent crew (team {self.team_id})")
             self.crew.tasks = [task]  # ✅ EXPERT APPROVED: Correct for conversational AI
 
+            # Add delegation tracking logs
+            logger.debug(f"📤 Starting task execution: {task_description[:50]}...")
+            logger.debug(f"🎯 Expected delegation pattern: help → help_assistant, info → player_coordinator, admin → team_administrator")
+
             # Execute with async for non-blocking operation (persistent crew advantage)
             result = await self.crew.kickoff_async()
             execution_time = time.time() - start_time
 
-            # Process result
+            # Process result and track delegation behavior
             result_str = result.raw if hasattr(result, "raw") else str(result)
+            
+            # Enhanced delegation tracking
+            self._log_delegation_analysis(task_description, result_str, execution_time)
 
             # Update execution metrics
             self._update_execution_metrics(task, result_str, execution_time)
@@ -573,6 +542,60 @@ NEVER use dictionary objects as parameter values. Use simple key='value' format 
             self._metrics["failed_tasks"] += 1
             logger.warning(f"⚠️ Task failed for {self.team_id}: {execution_time:.2f}s")
 
+    def _log_delegation_analysis(self, task_description: str, result_str: str, execution_time: float) -> None:
+        """
+        Analyze and log delegation behavior to track manager response patterns.
+        
+        This helps identify when the manager is properly forwarding delegated responses
+        vs. adding conversational closures.
+        """
+        # Identify likely delegation scenarios
+        task_lower = task_description.lower()
+        delegation_indicators = {
+            "help": "help_assistant",
+            "info": "player_coordinator or team_administrator",
+            "list": "player_coordinator",
+            "addplayer": "team_administrator",
+        }
+        
+        likely_delegation = None
+        for indicator, expected_agent in delegation_indicators.items():
+            if indicator in task_lower:
+                likely_delegation = expected_agent
+                break
+        
+        if likely_delegation:
+            logger.debug(f"🔍 Delegation analysis for '{task_description[:30]}...'")
+            logger.debug(f"📋 Expected delegation: → {likely_delegation}")
+            
+            # Check for problematic manager responses
+            problematic_phrases = [
+                "let me know if you have any other questions",
+                "let me know if you need",
+                "if you need further assistance",
+                "contact support",
+                "anything else i can help"
+            ]
+            
+            result_lower = result_str.lower()
+            has_problematic_closure = any(phrase in result_lower for phrase in problematic_phrases)
+            
+            if has_problematic_closure:
+                logger.warning(f"⚠️ DELEGATION ISSUE DETECTED: Manager added conversational closure")
+                logger.warning(f"🔍 Result contains: {[p for p in problematic_phrases if p in result_lower]}")
+                logger.debug(f"📄 Full result preview: {result_str[:200]}...")
+            else:
+                logger.debug(f"✅ Clean delegation response (no problematic closures detected)")
+            
+            # Log result characteristics 
+            has_emoji = any(ord(char) > 127 for char in result_str)  # Simple emoji detection
+            has_formatting = any(marker in result_str for marker in ["==", "🏈", "🔸", "🔐"])
+            
+            logger.debug(f"📊 Response analysis: emojis={has_emoji}, formatting={has_formatting}, length={len(result_str)}")
+            
+        else:
+            logger.debug(f"ℹ️ Non-delegation task: {task_description[:30]}...")
+
     def get_execution_metrics(self) -> dict[str, any]:
         """Get execution metrics for this persistent crew system."""
         import os
@@ -651,7 +674,7 @@ NEVER use dictionary objects as parameter values. Use simple key='value' format 
                 "agents_count": len(self.agents),
                 "crew_created": self.crew is not None,
                 "llm_available": self.llm is not None,
-                "manager_llm_available": self.manager_llm is not None,
+                "manager_agent_available": AgentRole.MANAGER_AGENT in self.agents,
                 "memory_enabled": True,
                 "verbose_enabled": True,
                 "persistent_crew": True,
@@ -685,9 +708,36 @@ NEVER use dictionary objects as parameter values. Use simple key='value' format 
 
 
 # Convenience functions
-def create_team_management_system(team_id: str) -> TeamManagementSystem:
-    """Create a team management system for the specified team."""
-    return TeamManagementSystem(team_id)
+async def create_team_management_system(team_id: str) -> TeamManagementSystem:
+    """
+    DEPRECATED: Use get_team_system() instead for persistent crew management.
+    
+    This function creates new instances each time, bypassing the persistent
+    crew system. Use get_team_system() for better performance and memory continuity.
+    
+    Args:
+        team_id: The team identifier
+        
+    Returns:
+        TeamManagementSystem instance (now from persistent system)
+        
+    Example:
+        # OLD (deprecated):
+        system = create_team_management_system('TEAM_ID')
+        
+        # NEW (recommended):
+        from kickai.core.team_system_manager import get_team_system
+        system = await get_team_system('TEAM_ID')
+    """
+    import warnings
+    warnings.warn(
+        "create_team_management_system() is deprecated. "
+        "Use get_team_system() instead for persistent crew management.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    from kickai.core.team_system_manager import get_team_system
+    return await get_team_system(team_id)
 
 
 def get_agent(team_id: str, role: AgentRole) -> ConfigurableAgent | None:

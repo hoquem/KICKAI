@@ -17,7 +17,7 @@ from kickai.features.shared.domain.interfaces.help_service_interface import IHel
 
 
 @tool("show_help_commands")
-async def show_help_commands(chat_type: str, username: str = "user") -> str:
+async def show_help_commands(chat_type: str, telegram_username: str = "user") -> str:
     """
     Provide comprehensive system guidance and available features.
 
@@ -36,11 +36,11 @@ async def show_help_commands(chat_type: str, username: str = "user") -> str:
         if error_msg:
             return error_msg
 
-        username = str(username).strip() if username else "user"
-        if not username:
-            username = "user"
+        telegram_username = str(telegram_username).strip() if telegram_username else "user"
+        if not telegram_username:
+            telegram_username = "user"
 
-        logger.info(f"🔧 Help request from user '{username}' in {chat_type_enum.value} chat")
+        logger.info(f"🔧 Help request from user '{telegram_username}' in {chat_type_enum.value} chat")
 
         # Get domain service with centralized error handling
         help_service = _get_help_service()
@@ -49,16 +49,16 @@ async def show_help_commands(chat_type: str, username: str = "user") -> str:
 
         # Execute business logic with comprehensive error handling
         try:
-            help_content = help_service.generate_help_content(chat_type_enum, username)
+            help_content = help_service.generate_help_content(chat_type_enum, telegram_username)
             formatted_message = help_service.format_help_message(help_content)
 
             logger.info(
-                f"✅ Generated help message for '{username}' in {chat_type_enum.value} chat"
+                f"✅ Generated help message for '{telegram_username}' in {chat_type_enum.value} chat"
             )
             return formatted_message
 
         except Exception as e:
-            logger.warning(f"⚠️ Help content generation failed for user '{username}': {e}")
+            logger.warning(f"⚠️ Help content generation failed for user '{telegram_username}': {e}")
             return (
                 f"⚠️ Unable to generate personalized help content: {e!s}\n\n"
                 "Please try '/help' again or contact team leadership for assistance."
@@ -149,7 +149,7 @@ def _validate_chat_type(chat_type: str) -> tuple[ChatType, str | None]:
 
 
 @tool("show_help_final")
-async def show_help_final(chat_type: str, username: str = "user") -> str:
+async def show_help_final(chat_type: str, telegram_username: str = "user") -> str:
     """
     Deliver complete system assistance information.
 
@@ -163,11 +163,11 @@ async def show_help_final(chat_type: str, username: str = "user") -> str:
     Returns: Complete system help information
     """
     # Delegate to main help response tool
-    return await show_help_commands(chat_type, username)
+    return await show_help_commands(chat_type, telegram_username)
 
 
 @tool("show_help_usage")
-async def show_help_usage(command: str, username: str = "user") -> str:
+async def show_help_usage(command: str, telegram_username: str = "user") -> str:
     """
     Provide targeted assistance for specific system feature.
 
@@ -186,16 +186,16 @@ async def show_help_usage(command: str, username: str = "user") -> str:
             return "❌ Command name is required and cannot be empty"
 
         command = str(command).strip()
-        username = str(username).strip() if username else "user"
-        if not username:
-            username = "user"
+        telegram_username = str(telegram_username).strip() if telegram_username else "user"
+        if not telegram_username:
+            telegram_username = "user"
 
         # Basic command validation for security
         if len(command) > 100 or any(char in command for char in ["<", ">", "&", '"', "'"]):
-            logger.warning(f"Suspicious command format from user '{username}': {command}")
+            logger.warning(f"Suspicious command format from user '{telegram_username}': {command}")
             return "❌ Invalid command format. Please use standard command names."
 
-        logger.info(f"🔧 Command help request from '{username}' for command: '{command}'")
+        logger.info(f"🔧 Command help request from '{telegram_username}' for command: '{command}'")
 
         # Return specific command help with improved formatting
         return (
@@ -215,7 +215,7 @@ async def show_help_usage(command: str, username: str = "user") -> str:
 
 
 @tool("show_help_welcome")
-async def show_help_welcome(username: str = "user", chat_type: str = "main") -> str:
+async def show_help_welcome(telegram_username: str = "user", chat_type: str = "main") -> str:
     """
     Deliver personalized welcome message for new users.
 
@@ -230,14 +230,14 @@ async def show_help_welcome(username: str = "user", chat_type: str = "main") -> 
     """
     try:
         # Validate and sanitize inputs
-        username = str(username).strip() if username else "user"
-        if not username:
-            username = "user"
+        telegram_username = str(telegram_username).strip() if telegram_username else "user"
+        if not telegram_username:
+            telegram_username = "user"
 
         # Basic username validation for security
-        if len(username) > 100 or any(char in username for char in ["<", ">", "&", '"', "'"]):
-            logger.warning(f"Suspicious username format: {username}")
-            username = "user"
+        if len(telegram_username) > 100 or any(char in telegram_username for char in ["<", ">", "&", '"', "'"]):
+            logger.warning(f"Suspicious username format: {telegram_username}")
+            telegram_username = "user"
 
         # Normalize chat type with fallback
         try:
@@ -245,28 +245,28 @@ async def show_help_welcome(username: str = "user", chat_type: str = "main") -> 
         except ValueError:
             chat_type_enum = ChatType.MAIN
 
-        logger.info(f"🔧 Welcome message request from '{username}' in {chat_type_enum.value} chat")
+        logger.info(f"🔧 Welcome message request from '{telegram_username}' in {chat_type_enum.value} chat")
 
         # Get domain service with centralized error handling
         help_service = _get_help_service()
         if not help_service:
             # Provide fallback welcome message
             return (
-                f"🎉 Welcome to KICKAI, {username}!\n\n"
+                f"🎉 Welcome to KICKAI, {telegram_username}!\n\n"
                 f"👋 Use '/help' to get started and see available commands.\n\n"
                 f"💡 Note: Help service is temporarily unavailable, but basic functionality is active."
             )
 
         # Generate personalized welcome message with comprehensive error handling
         try:
-            welcome_content = help_service.generate_welcome_message(username, chat_type_enum)
-            logger.info(f"✅ Generated personalized welcome message for '{username}'")
+            welcome_content = help_service.generate_welcome_message(telegram_username, chat_type_enum)
+            logger.info(f"✅ Generated personalized welcome message for '{telegram_username}'")
             return welcome_content
 
         except Exception as e:
-            logger.warning(f"⚠️ Welcome message generation failed for '{username}': {e}")
+            logger.warning(f"⚠️ Welcome message generation failed for '{telegram_username}': {e}")
             return (
-                f"🎉 Welcome to KICKAI, {username}!\n\n"
+                f"🎉 Welcome to KICKAI, {telegram_username}!\n\n"
                 f"👋 Use '/help' to get started and see available commands.\n\n"
                 f"⚠️ Unable to generate personalized welcome content at this time."
             )
@@ -281,7 +281,7 @@ async def show_help_welcome(username: str = "user", chat_type: str = "main") -> 
 
 
 @tool("get_system_commands")
-async def get_system_commands(chat_type: str, username: str = "user") -> str:
+async def get_system_commands(chat_type: str, telegram_username: str = "user") -> str:
     """
     Retrieve available system features based on user permissions.
 
@@ -300,16 +300,16 @@ async def get_system_commands(chat_type: str, username: str = "user") -> str:
         if error_msg:
             return error_msg
 
-        username = str(username).strip() if username else "user"
-        if not username:
-            username = "user"
+        telegram_username = str(telegram_username).strip() if telegram_username else "user"
+        if not telegram_username:
+            telegram_username = "user"
 
         # Basic username validation for security
-        if len(username) > 100:
-            username = username[:100]
+        if len(telegram_username) > 100:
+            telegram_username = telegram_username[:100]
 
         logger.info(
-            f"🔧 Available commands request from '{username}' in {chat_type_enum.value} chat"
+            f"🔧 Available commands request from '{telegram_username}' in {chat_type_enum.value} chat"
         )
 
         # Get domain service with centralized error handling
@@ -322,9 +322,9 @@ async def get_system_commands(chat_type: str, username: str = "user") -> str:
 
         # Generate help content with comprehensive error handling
         try:
-            help_content = help_service.generate_help_content(chat_type_enum, username)
+            help_content = help_service.generate_help_content(chat_type_enum, telegram_username)
         except Exception as e:
-            logger.warning(f"⚠️ Help content generation failed for '{username}': {e}")
+            logger.warning(f"⚠️ Help content generation failed for '{telegram_username}': {e}")
             return (
                 f"⚠️ Unable to retrieve personalized command list: {e!s}\n\n"
                 f"Please try '/help' for general assistance."
@@ -351,12 +351,12 @@ async def get_system_commands(chat_type: str, username: str = "user") -> str:
             commands_text += "\n💡 Use '/help' for detailed information about each command."
 
             logger.info(
-                f"✅ Generated commands list for '{username}' ({len(help_content.commands)} commands)"
+                f"✅ Generated commands list for '{telegram_username}' ({len(help_content.commands)} commands)"
             )
             return commands_text
 
         except Exception as e:
-            logger.error(f"❌ Error formatting commands for '{username}': {e}")
+            logger.error(f"❌ Error formatting commands for '{telegram_username}': {e}")
             return (
                 f"❌ Error formatting command list: {e!s}\n\n"
                 f"Please try '/help' for general assistance."

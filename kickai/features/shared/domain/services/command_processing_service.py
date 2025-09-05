@@ -34,7 +34,6 @@ class UserContext:
     chat_id: str
     chat_type: ChatType
     telegram_username: str
-    telegram_name: str
     user_permissions: UserPermissions | None = None
     player_data: dict[str, Any] | None = None
     team_member_data: dict[str, Any] | None = None
@@ -94,7 +93,6 @@ class CommandProcessingService:
         chat_id: str,
         chat_type: ChatType,
         telegram_username: str,
-        telegram_name: str,
         **kwargs,
     ) -> CommandResponse:
         """
@@ -107,7 +105,6 @@ class CommandProcessingService:
             chat_id: Chat ID
             chat_type: Type of chat (main/leadership)
             telegram_username: Telegram username
-            telegram_name: Telegram display name
             **kwargs: Additional command-specific parameters
 
         Returns:
@@ -116,7 +113,7 @@ class CommandProcessingService:
         try:
             # Step 1: Build user context
             user_context = await self._build_user_context(
-                telegram_id, team_id, chat_id, chat_type, telegram_username, telegram_name
+                telegram_id, team_id, chat_id, chat_type, telegram_username
             )
 
             # Step 2: Validate user status and handle registration flows
@@ -155,7 +152,6 @@ class CommandProcessingService:
         chat_id: str,
         chat_type: ChatType,
         telegram_username: str,
-        telegram_name: str,
     ) -> UserContext:
         """Build complete user context with all necessary information."""
         try:
@@ -190,7 +186,6 @@ class CommandProcessingService:
                 chat_id=chat_id,
                 chat_type=chat_type,
                 telegram_username=telegram_username,
-                telegram_name=telegram_name,
                 user_permissions=user_permissions,
                 player_data=player_data,
                 team_member_data=team_member_data,
@@ -208,7 +203,6 @@ class CommandProcessingService:
                 chat_id=chat_id,
                 chat_type=chat_type,
                 telegram_username=telegram_username,
-                telegram_name=telegram_name,
                 is_registered=False,
                 is_player=False,
                 is_team_member=False,
@@ -272,7 +266,7 @@ class CommandProcessingService:
     def _format_player_registration_message(self, user_context: UserContext) -> str:
         """Format message asking user to contact leadership for player registration."""
         return (
-            f"👋 Welcome to KICKAI, {user_context.telegram_name}!\n\n"
+            f"👋 Welcome to KICKAI, {user_context.telegram_username}!\n\n"
             f"🤔 I don't see you registered as a player yet.\n\n"
             f"📞 Please contact a member of the leadership team to add you as a player to this team.\n\n"
             f"💡 Once you're registered, you'll be able to use all player commands!"
@@ -281,7 +275,7 @@ class CommandProcessingService:
     def _format_team_member_registration_message(self, user_context: UserContext) -> str:
         """Format message for team member registration."""
         return (
-            f"👋 Welcome to KICKAI Leadership, {user_context.telegram_name}!\n\n"
+            f"👋 Welcome to KICKAI Leadership, {user_context.telegram_username}!\n\n"
             f"🤔 I don't see you registered as a team member yet.\n\n"
             f"📝 Please provide your details so I can add you to the team members collection.\n\n"
             f"💡 They can use: /addmember [name] [phone] [role]"
@@ -315,7 +309,6 @@ class CommandProcessingService:
                 "telegram_id": user_context.telegram_id,
                 "team_id": user_context.team_id,
                 "username": user_context.telegram_username
-                or user_context.telegram_name
                 or "Unknown User",
                 "chat_type": chat_type,
                 "message_text": task_description,
@@ -359,7 +352,6 @@ class CommandProcessingService:
         # Build username with multiple fallbacks
         username = (
             user_context.telegram_username
-            or user_context.telegram_name
             or f"User_{user_context.telegram_id}"
             or "Unknown User"
         )

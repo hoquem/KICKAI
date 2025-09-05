@@ -644,3 +644,290 @@ async def list_matches_upcoming(telegram_id: str, team_id: str, limit: int = 10)
     except Exception as e:
         logger.error(f"❌ Error listing upcoming matches: {e}")
         return create_tool_response(False, f"Failed to list upcoming matches: {e}")
+
+
+@tool("get_availability_player_lookup")
+async def get_availability_player_lookup(
+    telegram_id: str, team_id: str, player_id: str, match_id: str | None = None
+) -> str:
+    """
+    Look up another player's availability status for matches.
+
+    Business operation to check specific player's availability submissions
+    for match planning and coordination purposes by authorized users.
+
+    Use when: Leadership needs to check another player's availability status
+    Required: User must have lookup permissions, target player must exist
+
+    Returns: Player availability status with submission details and notes
+    """
+    try:
+        # Convert telegram_id to int for domain operations
+        telegram_id_int = int(telegram_id)
+        logger.info(f"🔍 Player availability lookup for {player_id} from {telegram_id_int}")
+
+        # Validate required parameters
+        if not team_id.strip():
+            return create_tool_response(False, "Team ID is required")
+
+        if not player_id.strip():
+            return create_tool_response(False, "Player ID is required for lookup")
+
+        # Get availability service
+        availability_service = _get_availability_service()
+        if not availability_service:
+            return create_tool_response(False, "Availability service is not available")
+
+        # Get player's availability
+        try:
+            if match_id:
+                # Get availability for specific match
+                availability = await availability_service.get_player_match_availability(
+                    player_id, match_id, team_id
+                )
+                if not availability:
+                    return create_tool_response(
+                        True,
+                        "Operation completed successfully",
+                        data=f"❌ No availability recorded for player {player_id} in match {match_id}",
+                    )
+
+                # Format specific match availability
+                result_lines = [
+                    f"✅ Player Availability: {player_id}",
+                    "",
+                    f"⚙️ Match: {match_id}",
+                    f"📊 Status: {availability.availability_status}",
+                    f"📅 Submitted: {getattr(availability, 'submitted_at', 'N/A')}",
+                ]
+                if hasattr(availability, "notes") and availability.notes:
+                    result_lines.append(f"📝 Notes: {availability.notes}")
+
+                return create_tool_response(
+                    True, "Operation completed successfully", data="\n".join(result_lines)
+                )
+            else:
+                # Get latest availability
+                latest_availability = await availability_service.get_player_latest_availability(
+                    player_id, team_id
+                )
+                if not latest_availability:
+                    return create_tool_response(
+                        True,
+                        "Operation completed successfully",
+                        data=f"📊 No availability records found for player {player_id}",
+                    )
+
+                # Format latest availability
+                result_lines = [
+                    f"✅ Player Latest Availability: {player_id}",
+                    "",
+                    f"📊 Status: {latest_availability.get('status', 'unknown')}",
+                    f"📅 Date: {latest_availability.get('date', 'N/A')}",
+                    f"⚙️ Match: {latest_availability.get('match_id', 'N/A')}",
+                ]
+                if latest_availability.get("notes"):
+                    result_lines.append(f"📝 Notes: {latest_availability.get('notes')}")
+
+                return create_tool_response(
+                    True, "Operation completed successfully", data="\n".join(result_lines)
+                )
+
+        except Exception as e:
+            return create_tool_response(False, f"Could not retrieve availability for player {player_id}: {e}")
+
+    except Exception as e:
+        logger.error(f"❌ Error looking up player availability: {e}")
+        return create_tool_response(False, f"Failed to lookup player availability: {e}")
+
+
+@tool("get_attendance_player_history_self")
+async def get_attendance_player_history_self(
+    telegram_id: str, team_id: str, limit: int = 10
+) -> str:
+    """
+    Display current user's personal attendance history for matches.
+
+    Business operation to show player's own attendance records and patterns
+    for personal tracking and accountability purposes.
+
+    Use when: Player wants to review their own attendance history
+    Required: User must be registered player in team
+
+    Returns: Personal attendance history with match details and statistics
+    """
+    try:
+        # Convert telegram_id to int for domain operations  
+        telegram_id_int = int(telegram_id)
+        logger.info(f"📊 Self attendance history from player {telegram_id_int}")
+
+        # Validate required parameters
+        if not team_id.strip():
+            return create_tool_response(False, "Team ID is required")
+
+        # Validate limit parameter
+        if limit < 1 or limit > 50:
+            limit = 10  # Reset to default
+
+        # Get attendance service - check if available in match_management
+        try:
+            from kickai.features.match_management.domain.interfaces.attendance_service_interface import (
+                IAttendanceService,
+            )
+            container = get_container()
+            attendance_service = container.get_service(IAttendanceService)
+        except Exception:
+            attendance_service = None
+
+        if not attendance_service:
+            return create_tool_response(False, "Attendance service is not available")
+
+        # Get player's attendance history
+        player_id = str(telegram_id_int)
+        try:
+            history = await attendance_service.get_player_attendance_history(
+                player_id, team_id, limit=limit
+            )
+            
+            if not history:
+                return create_tool_response(
+                    True,
+                    "Operation completed successfully", 
+                    data="📊 No attendance records found"
+                )
+
+            # Format history
+            result_lines = [
+                f"📊 Your Attendance History ({len(history)} records)",
+                ""
+            ]
+
+            for i, record in enumerate(history, 1):
+                status_emoji = "✅" if getattr(record, 'status', '') == 'present' else "❌" 
+                result_lines.extend([
+                    f"{i}. {status_emoji} Match: {getattr(record, 'match_id', 'N/A')}",
+                    f"   📅 Date: {getattr(record, 'recorded_at', 'N/A')}",
+                    f"   📊 Status: {getattr(record, 'status', 'unknown')}"
+                ])
+                if hasattr(record, 'notes') and record.notes:
+                    result_lines.append(f"   📝 Notes: {record.notes}")
+                result_lines.append("")
+
+            # Calculate statistics
+            total_matches = len(history)
+            present_count = len([h for h in history if getattr(h, 'status', '') == 'present'])
+            attendance_rate = (present_count / total_matches * 100) if total_matches > 0 else 0
+            
+            result_lines.extend([
+                f"📈 Attendance Statistics:",
+                f"   ✅ Present: {present_count}/{total_matches}",
+                f"   📊 Attendance Rate: {attendance_rate:.1f}%"
+            ])
+
+            return create_tool_response(
+                True, "Operation completed successfully", data="\n".join(result_lines)
+            )
+
+        except Exception as e:
+            return create_tool_response(False, f"Could not retrieve attendance history: {e}")
+
+    except Exception as e:
+        logger.error(f"❌ Error getting attendance history: {e}")
+        return create_tool_response(False, f"Failed to get attendance history: {e}")
+
+
+@tool("get_attendance_player_history_lookup")
+async def get_attendance_player_history_lookup(
+    telegram_id: str, team_id: str, player_id: str, limit: int = 10
+) -> str:
+    """
+    Look up another player's attendance history for matches.
+
+    Business operation to review specific player's attendance records and patterns
+    for leadership evaluation and team management purposes.
+
+    Use when: Leadership needs to review a player's attendance patterns
+    Required: User must have lookup permissions, target player must exist
+
+    Returns: Player attendance history with match details and statistics
+    """
+    try:
+        # Convert telegram_id to int for domain operations
+        telegram_id_int = int(telegram_id)
+        logger.info(f"🔍 Player attendance history lookup for {player_id} from {telegram_id_int}")
+
+        # Validate required parameters
+        if not team_id.strip():
+            return create_tool_response(False, "Team ID is required")
+
+        if not player_id.strip():
+            return create_tool_response(False, "Player ID is required for lookup")
+
+        # Validate limit parameter
+        if limit < 1 or limit > 50:
+            limit = 10  # Reset to default
+
+        # Get attendance service
+        try:
+            from kickai.features.match_management.domain.interfaces.attendance_service_interface import (
+                IAttendanceService,
+            )
+            container = get_container()
+            attendance_service = container.get_service(IAttendanceService)
+        except Exception:
+            attendance_service = None
+
+        if not attendance_service:
+            return create_tool_response(False, "Attendance service is not available")
+
+        # Get player's attendance history
+        try:
+            history = await attendance_service.get_player_attendance_history(
+                player_id, team_id, limit=limit
+            )
+            
+            if not history:
+                return create_tool_response(
+                    True,
+                    "Operation completed successfully",
+                    data=f"📊 No attendance records found for player {player_id}"
+                )
+
+            # Format history
+            result_lines = [
+                f"📊 Attendance History: {player_id} ({len(history)} records)",
+                ""
+            ]
+
+            for i, record in enumerate(history, 1):
+                status_emoji = "✅" if getattr(record, 'status', '') == 'present' else "❌"
+                result_lines.extend([
+                    f"{i}. {status_emoji} Match: {getattr(record, 'match_id', 'N/A')}",
+                    f"   📅 Date: {getattr(record, 'recorded_at', 'N/A')}",
+                    f"   📊 Status: {getattr(record, 'status', 'unknown')}"
+                ])
+                if hasattr(record, 'notes') and record.notes:
+                    result_lines.append(f"   📝 Notes: {record.notes}")
+                result_lines.append("")
+
+            # Calculate statistics
+            total_matches = len(history)
+            present_count = len([h for h in history if getattr(h, 'status', '') == 'present'])
+            attendance_rate = (present_count / total_matches * 100) if total_matches > 0 else 0
+            
+            result_lines.extend([
+                f"📈 Attendance Statistics for {player_id}:",
+                f"   ✅ Present: {present_count}/{total_matches}",
+                f"   📊 Attendance Rate: {attendance_rate:.1f}%"
+            ])
+
+            return create_tool_response(
+                True, "Operation completed successfully", data="\n".join(result_lines)
+            )
+
+        except Exception as e:
+            return create_tool_response(False, f"Could not retrieve attendance history for {player_id}: {e}")
+
+    except Exception as e:
+        logger.error(f"❌ Error looking up attendance history: {e}")
+        return create_tool_response(False, f"Failed to lookup attendance history: {e}")

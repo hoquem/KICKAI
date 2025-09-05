@@ -271,7 +271,6 @@ async def handle_update_command_wrapper(update, context, **kwargs):
             chat_type=kwargs.get("chat_type", ChatType.MAIN),
             message_text=message_text,
             username=update.effective_user.username or update.effective_user.first_name,
-            telegram_name=update.effective_user.first_name,
             is_registered=True,  # Assuming registered users can use /update
             is_player=kwargs.get("chat_type") == ChatType.MAIN,
             is_team_member=kwargs.get("chat_type") == ChatType.LEADERSHIP,

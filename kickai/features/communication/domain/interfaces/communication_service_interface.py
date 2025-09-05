@@ -8,29 +8,56 @@ Defines the contract for communication services in the KICKAI system.
 from abc import ABC, abstractmethod
 from typing import Any
 
+from kickai.core.enums import ChatType
+
 
 class ICommunicationService(ABC):
     """Interface for communication service operations."""
 
     @abstractmethod
     async def send_message(
-        self,
-        chat_id: str,
-        message: str,
-        parse_mode: str | None = None,
-        reply_markup: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+        self, message: str, chat_type: str | ChatType, team_id: str, telegram_id: int | None = None
+    ) -> bool:
         """
-        Send a message to a chat.
+        Send a message to a specific chat type.
 
         Args:
-            chat_id: Target chat identifier
-            message: Message content to send
-            parse_mode: Message parsing mode (HTML, Markdown, etc.)
-            reply_markup: Optional reply markup for interactive messages
+            message: The message to send
+            chat_type: The chat type (ChatType enum or string)
+            team_id: The team ID
+            telegram_id: Optional Telegram user ID
 
         Returns:
-            Dictionary containing send result and message info
+            bool: True if message sent successfully, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    async def send_announcement(self, announcement: str, team_id: str) -> bool:
+        """
+        Send an announcement to the team.
+
+        Args:
+            announcement: The announcement message
+            team_id: The team ID
+
+        Returns:
+            bool: True if announcement sent successfully, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    async def send_poll(self, question: str, options: str, team_id: str) -> bool:
+        """
+        Send a poll to the team.
+
+        Args:
+            question: The poll question
+            options: Comma-separated poll options
+            team_id: The team ID
+
+        Returns:
+            bool: True if poll sent successfully, False otherwise
         """
         pass
 

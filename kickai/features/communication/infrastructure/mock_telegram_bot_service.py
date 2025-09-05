@@ -110,7 +110,7 @@ class MockBot:
         return MockMessage(text, str(chat_id), "bot", "mock_bot")
 
 
-# MockAgenticMessageRouter removed - use real AgenticMessageRouter instead
+# MockTelegramMessageAdapter removed - use real TelegramMessageAdapter instead
 
 
 class MockTelegramBotService(TelegramBotServiceInterface):
@@ -195,12 +195,12 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         self.error_count = 0
 
         # Initialize real agentic router
-        from kickai.agents.agentic_message_router import AgenticMessageRouter
+        from kickai.agents.telegram_message_adapter import TelegramMessageAdapter
 
-        self.agentic_router = AgenticMessageRouter(team_id=team_id, crewai_system=crewai_system)
+        self.message_adapter = TelegramMessageAdapter(team_id=team_id)
 
         # Set chat IDs for proper chat type determination
-        self.agentic_router.set_chat_ids(main_chat_id, leadership_chat_id)
+        self.message_adapter.set_chat_ids(main_chat_id, leadership_chat_id)
 
         # Mock application
         self.app = Mock()
@@ -367,7 +367,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
 
             # Convert to TelegramMessage and route through agentic system
             message = self._convert_telegram_update_to_message(update)
-            response = await self.agentic_router.route_message(message)
+            response = await self.message_adapter.process_message(message)
 
             # Send response
             await self._send_response(update, response)
@@ -397,7 +397,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
 
             # Convert to TelegramMessage and route through agentic system
             message = self._convert_telegram_update_to_message(update, command_name)
-            response = await self.agentic_router.route_message(message)
+            response = await self.message_adapter.process_message(message)
 
             # Send response
             await self._send_response(update, response)
@@ -483,14 +483,14 @@ class MockTelegramBotService(TelegramBotServiceInterface):
 
     def get_agentic_responses(self) -> list[AgentResponse]:
         """Get all agentic router responses for testing."""
-        # Real AgenticMessageRouter doesn't store responses, so return empty list
+        # Real TelegramMessageAdapter doesn't store responses, so return empty list
         return []
 
     def clear_message_history(self):
         """Clear message history for testing."""
         self.sent_messages.clear()
         self.received_messages.clear()
-        # Real AgenticMessageRouter doesn't store responses/routed_messages
+        # Real TelegramMessageAdapter doesn't store responses/routed_messages
         self.error_count = 0
 
     def is_running(self) -> bool:
@@ -550,7 +550,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         message = self._convert_telegram_update_to_message(update)
         # Add contact phone to message for routing
         message.contact_phone = phone
-        response = await self.agentic_router.route_contact_share(message)
+        response = await self.message_adapter.process_contact_share(message)
 
         # Send response
         await self._send_response(update, response)

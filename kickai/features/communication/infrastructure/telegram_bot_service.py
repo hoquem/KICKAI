@@ -7,8 +7,9 @@ from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 # Local imports
-from kickai.agents.agentic_message_router import AgenticMessageRouter
+from kickai.agents.telegram_message_adapter import TelegramMessageAdapter
 from kickai.core.enums import ChatType
+from kickai.core.team_system_manager import get_message_adapter
 from kickai.features.communication.domain.interfaces.telegram_bot_service_interface import (
     TelegramBotServiceInterface,
 )
@@ -91,16 +92,27 @@ class TelegramBotService(TelegramBotServiceInterface):
                 "TelegramBotService: main_chat_id and leadership_chat_id must be different"
             )
 
-        # Initialize the agentic message router
-        # Initialize the real AgenticMessageRouter with lazy loading
-        self.agentic_router = AgenticMessageRouter(team_id=team_id, crewai_system=crewai_system)
-
-        # Set chat IDs for proper chat type determination
-        self.agentic_router.set_chat_ids(main_chat_id, leadership_chat_id)
+        # Initialize the telegram message adapter placeholder
+        # Will be set by async initialization
+        self.message_adapter = None
 
         self.app = Application.builder().token(self.token).build()
         self._running = False
         self._setup_handlers()
+
+    async def initialize_message_adapter(self) -> None:
+        """
+        Initialize the message adapter using the singleton pattern.
+        
+        CRITICAL FIX: This prevents crew state corruption by ensuring each team
+        uses the same TelegramMessageAdapter instance across all bot service instances.
+        """
+        if self.message_adapter is None:
+            self.message_adapter = await get_message_adapter(
+                team_id=self.team_id,
+                main_chat_id=self.main_chat_id,
+                leadership_chat_id=self.leadership_chat_id
+            )
 
     def _setup_handlers(self) -> None:
         """
@@ -253,11 +265,14 @@ class TelegramBotService(TelegramBotServiceInterface):
     ):
         """Handle natural language messages through agentic system ONLY."""
         try:
+            # Ensure message adapter is initialized
+            await self.initialize_message_adapter()
+            
             # Convert to domain message
-            message = self.agentic_router.convert_telegram_update_to_message(update)
+            message = self.message_adapter.convert_telegram_update_to_message(update)
 
             # Route through agentic system (NO direct processing)
-            response = await self.agentic_router.route_message(message)
+            response = await self.message_adapter.process_message(message)
 
             # Send response
             await self._send_response(update, response)
@@ -271,6 +286,9 @@ class TelegramBotService(TelegramBotServiceInterface):
     async def _handle_contact_share(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle contact sharing for phone number linking."""
         try:
+            # Ensure message adapter is initialized
+            await self.initialize_message_adapter()
+            
             logger.info(f"📱 Contact shared by user {update.effective_user.id}")
 
             # Extract contact information
@@ -287,14 +305,14 @@ class TelegramBotService(TelegramBotServiceInterface):
                 return
 
             # Convert to domain message with special handling for contact sharing
-            message = self.agentic_router.convert_telegram_update_to_message(update)
+            message = self.message_adapter.convert_telegram_update_to_message(update)
 
             # Add contact information to the message
             message.contact_phone = phone_number
             message.contact_user_id = str(user_id)
 
             # Route through agentic system
-            response = await self.agentic_router.route_contact_share(message)
+            response = await self.message_adapter.process_contact_share(message)
 
             # Send response
             await self._send_response(update, response)
@@ -308,6 +326,9 @@ class TelegramBotService(TelegramBotServiceInterface):
     async def _handle_new_chat_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle new chat members joining via invite links."""
         try:
+            # Ensure message adapter is initialized
+            await self.initialize_message_adapter()
+            
             logger.info(f"👥 New chat members event detected in chat {update.effective_chat.id}")
 
             # Validate the update has new chat members
@@ -340,7 +361,7 @@ class TelegramBotService(TelegramBotServiceInterface):
                     logger.info(f"ℹ️ No invite link found for member {member.id} - standard join")
 
                 # Convert to domain message and route through agentic system
-                message = self.agentic_router.convert_telegram_update_to_message(update)
+                message = self.message_adapter.convert_telegram_update_to_message(update)
 
                 # Add new chat members context
                 message.new_chat_members = [
@@ -356,7 +377,7 @@ class TelegramBotService(TelegramBotServiceInterface):
                 ]
 
                 # Route through agentic system
-                response = await self.agentic_router.route_message(message)
+                response = await self.message_adapter.process_message(message)
 
                 # Send welcome response
                 await self._send_response(update, response)
@@ -508,11 +529,14 @@ class TelegramBotService(TelegramBotServiceInterface):
     ):
         """Handle registered commands through agentic system ONLY."""
         try:
+            # Ensure message adapter is initialized
+            await self.initialize_message_adapter()
+            
             # Convert to domain message
-            message = self.agentic_router.convert_telegram_update_to_message(update, command_name)
+            message = self.message_adapter.convert_telegram_update_to_message(update, command_name)
 
             # Route through agentic system (NO direct processing)
-            response = await self.agentic_router.route_message(message)
+            response = await self.message_adapter.process_message(message)
 
             # Send response
             await self._send_response(update, response)

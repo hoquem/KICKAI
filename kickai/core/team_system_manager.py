@@ -55,16 +55,16 @@ class TeamSystemMetrics:
 
 class TeamSystemManager:
     """
-    Manages persistent TeamManagementSystem instances per team.
+    Manages persistent TeamManagementSystem and TelegramMessageAdapter instances per team.
 
     This manager ensures optimal resource utilization by maintaining
-    singleton instances of TeamManagementSystem per team, enabling
-    memory continuity and preventing resource waste from repeated
-    crew creation.
+    singleton instances of both TeamManagementSystem and TelegramMessageAdapter
+    per team, preventing crew state corruption from multiple adapter instances.
 
     Features:
-    - Singleton pattern per team ID
+    - Singleton pattern per team ID for both systems and adapters
     - Thread-safe creation and access
+    - Prevents crew state corruption from multiple adapters
     - Comprehensive metrics and monitoring
     - Graceful error handling and recovery
     """
@@ -72,6 +72,7 @@ class TeamSystemManager:
     def __init__(self):
         """Initialize the team system manager."""
         self._team_systems: dict[str, Any] = {}  # TeamManagementSystem instances
+        self._message_adapters: dict[str, Any] = {}  # TelegramMessageAdapter instances  
         self._system_locks: dict[str, asyncio.Lock] = {}
         self._creation_lock = asyncio.Lock()
         self._created_at = datetime.now()
@@ -146,6 +147,65 @@ class TeamSystemManager:
                     f"TeamManagementSystem creation failed for {team_id}: {e}"
                 ) from e
 
+    async def get_message_adapter(self, team_id: str, main_chat_id: str = None, leadership_chat_id: str = None) -> Any:
+        """
+        Get or create TelegramMessageAdapter for the specified team.
+
+        CRITICAL FIX: This prevents crew state corruption by ensuring each team
+        has exactly ONE TelegramMessageAdapter instance that persists across all
+        requests, matching the persistent crew pattern.
+
+        Args:
+            team_id: Unique identifier for the team
+            main_chat_id: Main chat ID (only used on first creation)
+            leadership_chat_id: Leadership chat ID (only used on first creation)
+
+        Returns:
+            Persistent TelegramMessageAdapter instance for the team
+
+        Raises:
+            ValueError: If team_id is invalid or empty
+            RuntimeError: If adapter creation fails
+        """
+        if not team_id or not isinstance(team_id, str):
+            raise ValueError(f"Invalid team_id: {team_id}")
+
+        # Check if adapter already exists (fast path)
+        if team_id in self._message_adapters:
+            logger.debug(f"♻️ Reusing existing message adapter for {team_id}")
+            return self._message_adapters[team_id]
+
+        # Create new adapter with proper locking (slow path)
+        async with self._creation_lock:
+            # Double-check after acquiring lock (race condition protection)
+            if team_id in self._message_adapters:
+                return self._message_adapters[team_id]
+
+            try:
+                logger.info(f"🏗️ Creating persistent message adapter for {team_id}")
+
+                # Lazy import to avoid circular dependency
+                from kickai.agents.telegram_message_adapter import TelegramMessageAdapter
+
+                # Create the message adapter
+                message_adapter = TelegramMessageAdapter(team_id)
+
+                # Set chat IDs if provided
+                if main_chat_id and leadership_chat_id:
+                    message_adapter.set_chat_ids(main_chat_id, leadership_chat_id)
+
+                # Store the adapter
+                self._message_adapters[team_id] = message_adapter
+
+                logger.info(f"✅ Persistent message adapter created successfully for {team_id}")
+                return message_adapter
+
+            except Exception as e:
+                logger.error(f"❌ Failed to create message adapter for {team_id}: {e}")
+                raise RuntimeError(
+                    f"TelegramMessageAdapter creation failed for {team_id}: {e}"
+                ) from e
+
     def get_system_metrics(self) -> dict[str, Any]:
         """
         Get comprehensive metrics for all managed team systems.
@@ -185,6 +245,8 @@ class TeamSystemManager:
                 "total_tasks_executed": total_tasks,
                 "team_health": team_health,
                 "persistent_crews": True,
+                "persistent_adapters": True,
+                "total_adapters": len(self._message_adapters),
                 "memory_enabled": True,
                 "verbose_enabled": True,
             }
@@ -214,7 +276,7 @@ class TeamSystemManager:
 
     async def shutdown_team_system(self, team_id: str) -> bool:
         """
-        Gracefully shutdown a specific team system.
+        Gracefully shutdown a specific team system and its adapter.
 
         Args:
             team_id: Team identifier
@@ -223,15 +285,16 @@ class TeamSystemManager:
             True if shutdown successful, False otherwise
         """
         try:
-            if team_id not in self._team_systems:
-                logger.warning(f"⚠️ No team system found for {team_id} to shutdown")
+            if team_id not in self._team_systems and team_id not in self._message_adapters:
+                logger.warning(f"⚠️ No team system or adapter found for {team_id} to shutdown")
                 return False
 
             # Remove from active systems
             system = self._team_systems.pop(team_id, None)
+            adapter = self._message_adapters.pop(team_id, None)
             self._system_locks.pop(team_id, None)
 
-            logger.info(f"🔄 Team system for {team_id} shutdown successfully")
+            logger.info(f"🔄 Team system and adapter for {team_id} shutdown successfully")
             return True
 
         except Exception as e:
@@ -317,6 +380,26 @@ async def get_team_system(team_id: str) -> Any:  # Returns TeamManagementSystem
     """
     manager = await get_team_system_manager()
     return await manager.get_team_system(team_id)
+
+
+async def get_message_adapter(team_id: str, main_chat_id: str = None, leadership_chat_id: str = None) -> Any:
+    """
+    Primary entry point for getting persistent telegram message adapters.
+
+    CRITICAL FIX: This prevents crew state corruption by ensuring each team
+    has exactly ONE TelegramMessageAdapter instance that persists across all
+    requests and shares the same persistent crew.
+
+    Args:
+        team_id: Unique team identifier
+        main_chat_id: Main chat ID (only used on first creation)
+        leadership_chat_id: Leadership chat ID (only used on first creation)
+
+    Returns:
+        Persistent TelegramMessageAdapter instance for the team
+    """
+    manager = await get_team_system_manager()
+    return await manager.get_message_adapter(team_id, main_chat_id, leadership_chat_id)
 
 
 def get_team_system_sync(team_id: str) -> Any | None:

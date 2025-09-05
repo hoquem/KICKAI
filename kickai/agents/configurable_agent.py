@@ -95,22 +95,36 @@ class ConfigurableAgent:
 
         # Create agent with optimized configuration and memory
         settings = get_settings()
+        
+        # Manager agent needs delegation enabled for hierarchical process
+        # Worker agents should have delegation disabled to focus on their tools
+        is_manager = self.agent_role == AgentRole.MANAGER_AGENT
+        allow_delegation = is_manager
 
-        agent = Agent(
-            role=self.config.role,
-            goal=self.config.goal,
-            backstory=self.config.backstory,
-            tools=tools,
-            llm=self.llm,
-            function_calling_llm=self.tool_llm,  # Use tool_llm for function calling
-            verbose=True,
-            max_iter=self.config.max_iterations,
-            memory=agent_memory,  # Enable entity-specific memory
-            allow_delegation=False,  # Sequential process - no delegation needed
-        )
+        # Prepare agent creation parameters
+        agent_params = {
+            "role": self.config.role,
+            "goal": self.config.goal,
+            "backstory": self.config.backstory,
+            "tools": tools,
+            "llm": self.llm,
+            "function_calling_llm": self.tool_llm,  # Use tool_llm for function calling
+            "verbose": True,
+            "max_iter": self.config.max_iterations,
+            "memory": agent_memory,  # Enable entity-specific memory
+            "allow_delegation": allow_delegation,  # Manager delegates, workers don't
+        }
+        
+        # Add system_template if configured for this agent
+        if hasattr(self.config, 'system_template') and self.config.system_template:
+            agent_params["system_template"] = self.config.system_template
+            logger.debug(f"🎯 Added system_template for {self.agent_role.value}")
 
+        agent = Agent(**agent_params)
+
+        delegation_mode = "manager with delegation" if allow_delegation else "worker without delegation"
         logger.debug(
-            f"🔧 Created CrewAI agent for {self.agent_role.value} with {len(tools)} tools (sequential process)"
+            f"🔧 Created CrewAI agent for {self.agent_role.value} with {len(tools)} tools ({delegation_mode})"
         )
         return agent
 
@@ -118,7 +132,7 @@ class ConfigurableAgent:
         """
         Get tools for this agent using direct assignment (CrewAI best practice).
 
-        Now applies context injection using the existing context_wrapper.py
+        Context is passed via Task.config instead of wrapper injection.
         """
         tools = []
 
@@ -167,34 +181,6 @@ class ConfigurableAgent:
             logger.error(f"❌ Error loading tools for {self.agent_role.value}: {e}")
             return []
 
-    def _apply_context_injection_to_tools(self, tools: list[Any]) -> list[Any]:
-        """
-        Apply context injection to tools using the existing context_wrapper.py
-        """
-        try:
-            # Create default execution context for this agent
-            # This will be updated dynamically when tasks are executed
-            default_context = {
-                "telegram_id": 0,  # Will be updated per task
-                "team_id": self.team_id,
-                "username": "user",  # Will be updated per task
-                "chat_type": "main",  # Will be updated per task
-            }
-
-            # Apply context injection using existing wrapper
-            from kickai.agents.context_wrapper import apply_context_injection_to_agent_tools
-
-            wrapped_tools = apply_context_injection_to_agent_tools(tools, default_context)
-
-            logger.info(
-                f"🎯 Applied context injection to {len(tools)} tools for {self.agent_role.value}"
-            )
-            return wrapped_tools
-
-        except Exception as e:
-            logger.error(f"❌ Error applying context injection for {self.agent_role.value}: {e}")
-            # Return original tools if context injection fails
-            return tools
 
     # Delegation methods removed - not needed for sequential process
 

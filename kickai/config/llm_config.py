@@ -154,6 +154,11 @@ class LLMConfiguration:
         """
         # Agent-specific model and temperature selection
         agent_configs = {
+            AgentRole.MANAGER_AGENT: {
+                "model_name": self.advanced_model,
+                "temperature": 0.3,  # Optimal for delegation coordination
+                "max_tokens": self.settings.ai_max_tokens,
+            },
             AgentRole.MESSAGE_PROCESSOR: {
                 "model_name": self.simple_model,
                 "temperature": self.settings.ai_temperature_tools,
@@ -224,6 +229,15 @@ DELEGATION PARAMETERS MUST BE SIMPLE STRINGS:
 
 NEVER use dictionary objects as parameter values. Always use simple key='value' format.
 
+🔄 DELEGATION RESPONSE PROTOCOL (CRITICAL):
+When you receive a response from a delegated agent:
+- Return the delegated response EXACTLY as received
+- Do NOT add conversational closures like "Let me know if you have any other questions!"
+- Do NOT modify, summarize, or enhance the delegated response
+- The delegated response IS your complete final answer
+- PRESERVE all formatting, emojis, and structure from the delegated response
+- Only provide your own response if NO delegation occurred
+
 Available agents: message_processor, help_assistant, player_coordinator, team_administrator, squad_selector
 
 For delegation, ensure all tool arguments are simple key-value pairs with string values only.
@@ -233,7 +247,7 @@ For delegation, ensure all tool arguments are simple key-value pairs with string
         try:
             # Create base LLM configuration
             base_config = {
-                "temperature": 0.3,  # Optimal temperature for hierarchical coordination
+                "temperature": 0.,  # Optimal temperature for hierarchical coordination
                 "max_tokens": self.settings.ai_max_tokens,  # From .env AI_MAX_TOKENS
                 "timeout": self.settings.ai_timeout,
                 "stream": False,

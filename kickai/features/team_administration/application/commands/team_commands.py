@@ -13,7 +13,7 @@ from kickai.core.command_registry import CommandType, PermissionLevel, command
 from kickai.core.enums import ChatType
 from kickai.core.types import TelegramMessage
 
-# AgenticMessageRouter import moved to function level to avoid circular imports
+# TelegramMessageAdapter import moved to function level to avoid circular imports
 from kickai.utils.constants import (
     ERROR_MESSAGES,
     PLAYER_MIN_NAME_LENGTH,
@@ -122,10 +122,10 @@ async def handle_addmember_command(update, context, **kwargs):
         if not is_valid_phone(phone_number):
             return ERROR_MESSAGES["INVALID_PHONE_FORMAT"].format(phone=phone_number)
 
-        # Route to CrewAI agent via AgenticMessageRouter
-        from kickai.agents.agentic_message_router import AgenticMessageRouter
+        # Route to CrewAI agent via TelegramMessageAdapter
+        from kickai.agents.telegram_message_adapter import TelegramMessageAdapter
 
-        router = AgenticMessageRouter(team_id)
+        router = TelegramMessageAdapter(team_id)
 
         # Create structured message for the agent
         agent_message_text = f"/addmember {member_name} {phone_number}"
@@ -141,7 +141,7 @@ async def handle_addmember_command(update, context, **kwargs):
         )
 
         # Route to CrewAI system
-        response = await router.route_message(telegram_message)
+        response = await router.process_message(telegram_message)
 
         if response and response.success:
             return response.message

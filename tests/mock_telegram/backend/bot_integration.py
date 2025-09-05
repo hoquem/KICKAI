@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 try:
     # Local imports
     from kickai.core.types import AgentResponse, TelegramMessage
-    from kickai.agents.agentic_message_router import AgenticMessageRouter
+    from kickai.agents.telegram_message_adapter import TelegramMessageAdapter
     from kickai.core.enums import ChatType
     BOT_INTEGRATION_AVAILABLE = True
     logger.info("✅ Real bot components imported successfully")
@@ -74,7 +74,7 @@ async def process_mock_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
     This function:
     1. Ensures dependency container is initialized
     2. Converts mock message to TelegramMessage format
-    3. Routes through real AgenticMessageRouter with Groq LLM
+    3. Routes through real TelegramMessageAdapter with Groq LLM
     4. Returns formatted response from real agents
     
     Args:
@@ -95,7 +95,7 @@ async def process_mock_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
         telegram_message = await _create_telegram_message(message_data)
         team_id = await _get_available_team_id()
         router = await _create_router(team_id)
-        response = await router.route_message(telegram_message)
+        response = await router.process_message(telegram_message)
         
         # Format and return response
         formatted_text = await _format_response(response)
@@ -161,24 +161,24 @@ async def _ensure_dependencies_initialized() -> None:
         await initialize_container()
 
 
-async def _create_router(team_id: str) -> AgenticMessageRouter:
+async def _create_router(team_id: str) -> TelegramMessageAdapter:
     """
-    Create and configure AgenticMessageRouter.
+    Create and configure TelegramMessageAdapter.
     
     Args:
         team_id: Team ID for the router
         
     Returns:
-        Configured AgenticMessageRouter instance
+        Configured TelegramMessageAdapter instance
         
     Raises:
         Exception: When router creation fails
     """
-    logger.info(f"🔧 Creating AgenticMessageRouter with team_id={team_id}")
+    logger.info(f"🔧 Creating TelegramMessageAdapter with team_id={team_id}")
     
-    router = AgenticMessageRouter(team_id)
+    router = TelegramMessageAdapter(team_id)
     router.set_chat_ids(main_chat_id=MOCK_MAIN_CHAT_ID, leadership_chat_id=MOCK_LEADERSHIP_CHAT_ID)
-    logger.info("✅ AgenticMessageRouter created successfully")
+    logger.info("✅ TelegramMessageAdapter created successfully")
     
     return router
 
@@ -324,7 +324,7 @@ async def check_bot_integration_health() -> Dict[str, Any]:
     try:
         # Test basic imports
         from kickai.core.dependency_container import get_container
-        from kickai.agents.agentic_message_router import AgenticMessageRouter
+        from kickai.agents.telegram_message_adapter import TelegramMessageAdapter
         
         # Check container
         container = get_container()
@@ -332,7 +332,7 @@ async def check_bot_integration_health() -> Dict[str, Any]:
         
         # Test router creation with dynamic team_id
         team_id = await _get_available_team_id()
-        router = AgenticMessageRouter(team_id)
+        router = TelegramMessageAdapter(team_id)
         router_status = "healthy"
         
         # Test LLM configuration
