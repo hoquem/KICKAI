@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -18,7 +18,7 @@ class MultiBotManager:
     """
 
     def __init__(self, data_store: Any, team_service: Any):
-        logger.debug("DEBUG: MultiBotManager.__init__ called")
+        logger.debug("DEBUG: MultiBotManager._init_ called")
         self.data_store = data_store
         self.team_service = team_service
         self.bots: dict[str, Any] = {}
@@ -27,7 +27,7 @@ class MultiBotManager:
         self.crew_lifecycle_manager = get_crew_lifecycle_manager()
         self._running = False
         self.logger = logging.getLogger(__name__)
-        logger.debug("DEBUG: MultiBotManager.__init__ completed")
+        logger.debug("DEBUG: MultiBotManager._init_ completed")
 
     async def initialize(self) -> None:
         """Initialize the multi-bot manager."""
@@ -346,11 +346,11 @@ class MultiBotManager:
         """Return True if bots are running."""
         return self._running
 
-    def get_bot(self, team_id: str) -> Optional[Any]:
+    def get_bot(self, team_id: str) -> Any | None:
         """Get the bot instance for a given team ID."""
         return self.bots.get(team_id)
 
-    def get_crewai_system(self, team_id: str) -> Optional[Any]:
+    def get_crewai_system(self, team_id: str) -> Any | None:
         """Get the CrewAI system for a given team ID."""
         return self.crewai_systems.get(team_id)
 

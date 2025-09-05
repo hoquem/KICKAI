@@ -2,7 +2,7 @@ from .attendance import AttendanceStatus, MatchAttendance
 from .availability import Availability, AvailabilityStatus
 from .match import Match, MatchResult, MatchStatus
 
-__all__ = [
+_all_ = [
     "Match",
     "MatchStatus",
     "MatchResult",

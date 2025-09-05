@@ -1,4 +1,3 @@
-from typing import Optional, Set
 #!/usr/bin/env python3
 """
 Player Entity
@@ -15,8 +14,6 @@ from enum import Enum
 from kickai.core.enums import PlayerPosition
 
 
-
-
 class OnboardingStatus(Enum):
     """Player onboarding status enumeration."""
 
@@ -29,6 +26,7 @@ class OnboardingStatus(Enum):
 
 class PlayerRole(Enum):
     """Minimal role enum for tests."""
+
     PLAYER = "player"
     CAPTAIN = "captain"
     GOALKEEPER = "goalkeeper"
@@ -45,57 +43,66 @@ class Player:
     """
 
     # Core identification fields
-    telegram_id: Optional[int] = None  # Telegram user ID (integer) - for linking to Telegram
-    player_id: Optional[str] = None    # Player identifier (M001MH format) - unique within team
-    team_id: str = ""                  # Team identifier (KA format)
+    telegram_id: int | None = None  # Telegram user ID (integer) - for linking to Telegram
+    player_id: str | None = None  # Player identifier (M001MH format) - unique within team
+    team_id: str = ""  # Team identifier (KA format)
 
     # Personal information
-    name: Optional[str] = None
-    username: Optional[str] = None
+    name: str | None = None
+    telegram_username: str | None = None
 
     # Football-specific information
-    position: Optional[str] = None  # e.g., "Midfielder", "Forward"
+    position: str | None = None  # e.g., "Midfielder", "Forward"
 
     # Contact and personal information
-    phone_number: Optional[str] = None
-    email: Optional[str] = None
-    date_of_birth: Optional[str] = None
-    emergency_contact_name: Optional[str] = None
-    emergency_contact_phone: Optional[str] = None
-    medical_notes: Optional[str] = None
-    
+    phone_number: str | None = None
+    email: str | None = None
+    date_of_birth: str | None = None
+    emergency_contact_name: str | None = None
+    emergency_contact_phone: str | None = None
+    medical_notes: str | None = None
 
     # Status and approval
     status: str = "pending"  # pending, approved, rejected, active, inactive
 
     # Timestamps
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     # Metadata
-    source: Optional[str] = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
-    sync_version: Optional[str] = None
+    source: str | None = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
+    sync_version: str | None = None
 
-    def __post_init__(self):
+    def _post_init_(self):
         """Validate and set defaults after initialization."""
         self._validate()
         self._set_defaults()
-
 
     def _validate(self):
         """Validate player data."""
         if not self.team_id:
             raise ValueError("Team ID cannot be empty")
-        
+
         # Require either player_id or telegram_id for identification
         if not self.player_id and not self.telegram_id:
             raise ValueError("Either player_id or telegram_id must be provided")
 
         # Note: player_id format validation removed - 01JD format is valid
-            
-        # Validate telegram_id type if provided
-        if self.telegram_id is not None and not isinstance(self.telegram_id, int):
-            raise ValueError(f"telegram_id must be an integer, got {type(self.telegram_id)}")
+
+        # Validate telegram_id type if provided (allow int or convertible string for database compatibility)
+        if self.telegram_id is not None:
+            if not isinstance(self.telegram_id, (int, str)):
+                raise ValueError(
+                    f"telegram_id must be an integer or string, got {type(self.telegram_id)}"
+                )
+            # If it's a string, it should be convertible to int
+            if isinstance(self.telegram_id, str):
+                try:
+                    int(self.telegram_id)
+                except ValueError:
+                    raise ValueError(
+                        f"telegram_id string '{self.telegram_id}' is not convertible to integer"
+                    )
 
         # Validate status
         valid_statuses = ["pending", "approved", "rejected", "active", "inactive"]
@@ -109,7 +116,6 @@ class Player:
                 raise ValueError(
                     f"Invalid position: {self.position}. Must be one of {valid_positions}"
                 )
-
 
     def _set_defaults(self):
         """Set default values if not provided."""
@@ -128,7 +134,7 @@ class Player:
         team_id: str,
         telegram_id: int,
         name: str = None,
-        username: str = None,
+        telegram_username: str = None,
         phone_number: str = None,
     ) -> "Player":
         """
@@ -138,7 +144,7 @@ class Player:
             team_id: The team ID
             telegram_id: The Telegram user ID
             name: Player's display name
-            username: Telegram username
+            telegram_username: Telegram @username
             phone_number: Phone number if available
 
         Returns:
@@ -151,7 +157,7 @@ class Player:
             team_id=team_id,
             telegram_id=telegram_id,  # Keep as integer
             name=display_name,
-            username=username,
+            telegram_username=telegram_username,
             phone_number=phone_number,
             source="telegram_sync",
         )
@@ -163,7 +169,7 @@ class Player:
             "telegram_id": self.telegram_id,
             "player_id": self.player_id,
             "name": self.name,
-            "username": self.username,
+            "telegram_username": self.telegram_username,
             "position": self.position,
             "phone_number": self.phone_number,
             "email": self.email,
@@ -179,19 +185,24 @@ class Player:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Player":
-        """Create from dictionary."""
+        """Create from dictionary - strict validation for inputs."""
         # Only handle telegram_id - NO OTHER OPTIONS
         telegram_id = data.get("telegram_id")
         if telegram_id is not None:
-            telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+            try:
+                telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+            except (ValueError, TypeError) as e:
+                # For input validation, reject bad data with clear error
+                raise ValueError(
+                    f"Invalid telegram_id format: {telegram_id}. Must be convertible to integer."
+                ) from e
 
-        
         return cls(
             team_id=data.get("team_id", ""),
             telegram_id=telegram_id,
             player_id=data.get("player_id"),
             name=data.get("name"),
-            username=data.get("username"),
+            telegram_username=data.get("telegram_username"),
             position=data.get("position"),
             phone_number=data.get("phone_number"),
             email=data.get("email"),
@@ -207,27 +218,41 @@ class Player:
 
     @classmethod
     def from_database_dict(cls, data: dict) -> "Player":
-        """Create from database dictionary with relaxed validation for retrieval."""
+        """Create from database dictionary with graceful handling of existing data."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         # Create player without triggering validation
-        player = cls.__new__(cls)
+        player = object.__new__(cls)
 
         # Set attributes directly
         player.team_id = data.get("team_id", "")
         # Only handle telegram_id - NO OTHER OPTIONS
         telegram_id = data.get("telegram_id")
         if telegram_id is not None:
-            telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+            original_value = telegram_id
+            original_type = type(telegram_id).__name__
+            try:
+                telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+            except (ValueError, TypeError):
+                # For database retrieval, log the issue but preserve original value as string
+                logger.warning(
+                    f"Failed to convert telegram_id '{original_value}' (type: {original_type}) to int, preserving as string. Player: {data.get('name', 'Unknown')}"
+                )
+                # Keep original value to avoid data loss - downstream code should handle gracefully
+                telegram_id = original_value
         player.telegram_id = telegram_id
         player.player_id = data.get("player_id")
         player.name = data.get("name")
-        player.username = data.get("username")
+        player.telegram_username = data.get("telegram_username")
         player.position = data.get("position")
         player.phone_number = data.get("phone_number")
         player.email = data.get("email")
         player.date_of_birth = data.get("date_of_birth")
         player.emergency_contact_name = data.get("emergency_contact_name")
         player.emergency_contact_phone = data.get("emergency_contact_phone")
-        
+
         player.medical_notes = data.get("medical_notes")
         player.status = data.get("status", "pending")
         player.source = data.get("source")
@@ -236,7 +261,9 @@ class Player:
         # Parse datetime fields
         if data.get("created_at"):
             try:
-                player.created_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
+                player.created_at = datetime.fromisoformat(
+                    data["created_at"].replace("Z", "+00:00")
+                )
             except ValueError:
                 player.created_at = None
         else:
@@ -244,7 +271,9 @@ class Player:
 
         if data.get("updated_at"):
             try:
-                player.updated_at = datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))
+                player.updated_at = datetime.fromisoformat(
+                    data["updated_at"].replace("Z", "+00:00")
+                )
             except ValueError:
                 player.updated_at = None
         else:
@@ -253,24 +282,23 @@ class Player:
         return player
 
     @staticmethod
-    def _parse_datetime(dt_value) -> Optional[datetime]:
+    def _parse_datetime(dt_value) -> datetime | None:
         """Parse datetime value handling both string and datetime objects."""
         if not dt_value:
             return None
-        
+
         # If it's already a datetime object (from Firestore), return it
         if isinstance(dt_value, datetime):
             return dt_value
-        
+
         # If it's a string, parse it
         if isinstance(dt_value, str):
             try:
                 return datetime.fromisoformat(dt_value.replace("Z", "+00:00"))
             except ValueError:
                 return None
-        
-        return None
 
+        return None
 
     def approve(self):
         """Approve the player."""
@@ -308,8 +336,8 @@ class Player:
         """Get display name for the player."""
         if self.name:
             return self.name
-        elif self.username:
-            return f"@{self.username}"
+        elif self.telegram_username:
+            return f"@{self.telegram_username}"
         elif self.telegram_id:
             return f"User {self.telegram_id}"
         elif self.player_id:

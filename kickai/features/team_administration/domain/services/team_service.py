@@ -7,7 +7,7 @@ This module provides team management functionality.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any
 
 from loguru import logger
 
@@ -24,27 +24,40 @@ class TeamCreateParams:
     description: str = ""
     status: TeamStatus = TeamStatus.ACTIVE
     created_by: str = "system"
-    settings: Optional[Dict[str, Any]] = None
-    bot_token: Optional[str] = None
-    main_chat_id: Optional[str] = None
-    leadership_chat_id: Optional[str] = None
+    settings: dict[str, Any] | None = None
+    bot_token: str | None = None
+    main_chat_id: str | None = None
+    leadership_chat_id: str | None = None
 
 
 class TeamService:
     """Service for managing teams."""
 
-    def __init__(self, team_repository: TeamRepositoryInterface, expense_service: Optional[Any] = None):
+    def __init__(
+        self, team_repository: TeamRepositoryInterface, expense_service: Any | None = None
+    ):
         self.team_repository = team_repository
         self.logger = logger
         # Optional dependency used in tests
-        self.expense_service = expense_service or type("_NullExpenseService", (), {"get_total_expenses": staticmethod(lambda team_id: 0.0)})()
+        self.expense_service = (
+            expense_service
+            or type(
+                "_NullExpenseService", (), {"get_total_expenses": staticmethod(lambda team_id: 0.0)}
+            )()
+        )
 
     async def create_team(self, **kwargs) -> Team:
         """Create a new team (accepts kwargs for tests or TeamCreateParams via params=)."""
         if isinstance(kwargs.get("params"), TeamCreateParams):
             p = kwargs["params"]
-            name = p.name; description = p.description; status = p.status; created_by = p.created_by
-            settings = p.settings or {}; bot_token = p.bot_token; main_chat_id = p.main_chat_id; leadership_chat_id = p.leadership_chat_id
+            name = p.name
+            description = p.description
+            status = p.status
+            created_by = p.created_by
+            settings = p.settings or {}
+            bot_token = p.bot_token
+            main_chat_id = p.main_chat_id
+            leadership_chat_id = p.leadership_chat_id
         else:
             name = kwargs.get("name", "")
             description = kwargs.get("description", "")
@@ -66,24 +79,24 @@ class TeamService:
             main_chat_id=main_chat_id,
             leadership_chat_id=leadership_chat_id,
         )
-        # Some tests expect `create`, interface defines `create_team`
+        # Some tests expect create, interface defines create_team
         try:
-            return await getattr(self.team_repository, "create")(team)  # type: ignore[attr-defined]
+            return await self.team_repository.create(team)  # type: ignore[attr-defined]
         except AttributeError:
             return await self.team_repository.create_team(team)
 
-    async def get_team(self, *, team_id: str) -> Optional[Team]:
+    async def get_team(self, *, team_id: str) -> Team | None:
         """Get a team by ID (supports both get_by_id and get_team_by_id)."""
         try:
-            return await getattr(self.team_repository, "get_by_id")(team_id)  # type: ignore[attr-defined]
+            return await self.team_repository.get_by_id(team_id)  # type: ignore[attr-defined]
         except AttributeError:
             return await self.team_repository.get_team_by_id(team_id)
 
-    async def get_team_by_id(self, *, team_id: str) -> Optional[Team]:
+    async def get_team_by_id(self, *, team_id: str) -> Team | None:
         """Get a team by ID (alias for get_team)."""
         return await self.get_team(team_id=team_id)
 
-    async def get_team_by_name(self, name: str) -> Optional[Team]:
+    async def get_team_by_name(self, name: str) -> Team | None:
         """Get a team by name."""
         # This would need to be implemented in the repository
         # For now, get all teams and filter by name
@@ -93,7 +106,7 @@ class TeamService:
                 return team
         return None
 
-    async def get_all_teams(self) -> List[Team]:
+    async def get_all_teams(self) -> list[Team]:
         """Get all teams from the repository."""
         try:
             teams = await self.team_repository.list_all()
@@ -103,7 +116,7 @@ class TeamService:
             self.logger.error(f"❌ Failed to get all teams: {e}")
             return []
 
-    async def get_teams_by_status(self, status: TeamStatus) -> List[Team]:
+    async def get_teams_by_status(self, status: TeamStatus) -> list[Team]:
         """Get teams by status."""
         return await self.team_repository.get_by_status(status)
 
@@ -111,7 +124,7 @@ class TeamService:
         """Update a team with provided updates."""
         # Some tests use get_by_id instead of get_team_by_id
         try:
-            team = await getattr(self.team_repository, "get_by_id")(team_id)  # type: ignore[attr-defined]
+            team = await self.team_repository.get_by_id(team_id)  # type: ignore[attr-defined]
         except AttributeError:
             team = await self.team_repository.get_team_by_id(team_id)
         if not team:
@@ -125,7 +138,7 @@ class TeamService:
         team.updated_at = datetime.now()
 
         try:
-            return await getattr(self.team_repository, "update")(team)  # type: ignore[attr-defined]
+            return await self.team_repository.update(team)  # type: ignore[attr-defined]
         except AttributeError:
             return await self.team_repository.update_team(team)
 
@@ -138,7 +151,7 @@ class TeamService:
         team_id: str,
         user_id: str,
         role: str = "player",
-        permissions: Optional[List[str]] = None,
+        permissions: list[str] | None = None,
         name: str = "",
         phone: str = "",
     ):
@@ -170,17 +183,17 @@ class TeamService:
                 return await self.team_repository.delete_team_member(member.user_id)
         return False
 
-    async def get_team_members(self, team_id: str) -> List[TeamMember]:
+    async def get_team_members(self, team_id: str) -> list[TeamMember]:
         """Get all members of a team."""
         return await self.team_repository.get_team_members(team_id)
 
     async def get_team_member_by_telegram_id(
-        self, team_id: str, telegram_id: Union[str, int]
-    ) -> Optional[TeamMember]:
+        self, team_id: str, telegram_id: str | int
+    ) -> TeamMember | None:
         """Get a team member by Telegram ID."""
         return await self.team_repository.get_team_member_by_telegram_id(team_id, telegram_id)
 
-    async def get_team_financial_summary(self, team_id: str) -> Dict[str, Any]:
+    async def get_team_financial_summary(self, team_id: str) -> dict[str, Any]:
         """Get financial summary for a team including expenses."""
         team = await self.get_team_by_id(team_id=team_id)
         if not team:
@@ -194,6 +207,7 @@ class TeamService:
             try:
                 # Try await if coroutine
                 import inspect
+
                 if inspect.iscoroutinefunction(get_total):
                     total_expenses = await get_total(team_id)
                 else:

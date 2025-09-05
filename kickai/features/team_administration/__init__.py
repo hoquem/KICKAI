@@ -28,7 +28,7 @@ def shutdown_team_administration() -> None:
 
 
 # Export feature functions (tools are discovered by tool registry)
-__all__ = [
+_all_ = [
     "initialize_team_administration",
     "shutdown_team_administration",
 ]

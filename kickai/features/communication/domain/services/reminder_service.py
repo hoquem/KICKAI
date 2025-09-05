@@ -7,7 +7,6 @@ This module handles automated and manual reminders for player onboarding.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
 
 from kickai.core.config import Settings
 from kickai.features.communication.domain.interfaces.reminder_service_interface import (
@@ -67,7 +66,7 @@ class ReminderService(IReminderService):
             logging.error(f"Error checking and sending reminders: {e}")
             return []
 
-    async def send_automated_reminder(self, player: Player) -> Optional[ReminderMessage]:
+    async def send_automated_reminder(self, player: Player) -> ReminderMessage | None:
         """Send an automated reminder to a player."""
         try:
             reminder_number = player.reminders_sent + 1
@@ -162,7 +161,7 @@ class ReminderService(IReminderService):
 
         # Check for outstanding onboarding requirements
         outstanding_requirements = []
-        
+
         # Check if player has completed all onboarding steps
         progress = player.get_onboarding_progress()
         for step_name, step_data in progress["steps"].items():
@@ -233,9 +232,13 @@ Please complete your onboarding within 24 hours to avoid delays.
 
 Let's get you fully registered!"""
 
-    async def _generate_onboarding_reminder_message(self, player: Player, outstanding_requirements: list[str]) -> str:
+    async def _generate_onboarding_reminder_message(
+        self, player: Player, outstanding_requirements: list[str]
+    ) -> str:
         """Generate onboarding reminder message."""
-        requirements_text = "\n".join([f"• {req.replace('_', ' ').title()}" for req in outstanding_requirements])
+        requirements_text = "\n".join(
+            [f"• {req.replace('_', ' ').title()}" for req in outstanding_requirements]
+        )
 
         return f"""📋 Onboarding Reminder
 

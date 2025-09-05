@@ -7,7 +7,6 @@ across the system.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
 from typing import Optional
 
@@ -20,6 +19,7 @@ PhoneNumber = str  # Phone number in normalized format
 
 class MemberRole(Enum):
     """Standard team member roles."""
+
     TEAM_MANAGER = "team manager"
     COACH = "coach"
     ASSISTANT_COACH = "assistant coach"
@@ -37,6 +37,7 @@ class MemberRole(Enum):
 
 class MemberStatus(Enum):
     """Team member status values."""
+
     PENDING = "pending"
     ACTIVE = "active"
     INACTIVE = "inactive"
@@ -46,28 +47,31 @@ class MemberStatus(Enum):
 @dataclass
 class TeamMemberCreationRequest:
     """Request to create a new team member with type safety."""
+
     telegram_id: TelegramUserId
     team_id: TeamId
     member_name: str
     phone_number: PhoneNumber
     chat_type: str
-    role: Optional[str] = None
-    email: Optional[str] = None
+    role: str | None = None
+    email: str | None = None
 
 
 @dataclass
 class TeamMemberCreationResult:
     """Result of team member creation operation."""
+
     success: bool
-    member: Optional['TeamMember'] = None
-    invite_link: Optional[str] = None
-    error_message: Optional[str] = None
-    member_id: Optional[MemberId] = None
+    member: Optional["TeamMember"] = None
+    invite_link: str | None = None
+    error_message: str | None = None
+    member_id: MemberId | None = None
 
 
-@dataclass 
+@dataclass
 class InviteLinkCreationRequest:
     """Request to create an invite link for a team member."""
+
     team_id: TeamId
     member_name: str
     member_phone: PhoneNumber
@@ -78,16 +82,18 @@ class InviteLinkCreationRequest:
 @dataclass
 class InviteLinkCreationResult:
     """Result of invite link creation."""
+
     success: bool
-    invite_link: Optional[str] = None
-    member_id: Optional[MemberId] = None
-    expires_at: Optional[str] = None
-    error_message: Optional[str] = None
+    invite_link: str | None = None
+    member_id: MemberId | None = None
+    expires_at: str | None = None
+    error_message: str | None = None
 
 
 @dataclass
 class TeamMemberLookupRequest:
     """Request to lookup a team member."""
+
     telegram_id: TelegramUserId
     team_id: TeamId
 
@@ -95,6 +101,7 @@ class TeamMemberLookupRequest:
 @dataclass
 class TeamMemberUpdateRequest:
     """Request to update team member information."""
+
     telegram_id: TelegramUserId
     team_id: TeamId
     field: str

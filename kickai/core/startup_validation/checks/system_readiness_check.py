@@ -44,6 +44,7 @@ class SystemReadinessCheck(BaseCheck):
             # Check dependency container
             try:
                 from kickai.core.dependency_container import get_container
+
                 container = get_container()
                 if container is None:
                     readiness_checks.append("❌ Dependency container not initialized")
@@ -88,6 +89,7 @@ class SystemReadinessCheck(BaseCheck):
             # Check 3: Tool registry is populated
             try:
                 from kickai.agents.tool_registry import get_tool_registry, initialize_tool_registry
+
                 tool_registry = get_tool_registry()
 
                 # Initialize tool registry if empty
@@ -116,14 +118,16 @@ class SystemReadinessCheck(BaseCheck):
                     "team_id": "KAI",
                     "chat_type": "main",
                     "user_role": "public",
-                    "username": "user"
+                    "username": "user",
                 }
                 enabled_configs = config_manager.get_enabled_agent_configs(context)
 
                 if not enabled_configs:
                     readiness_checks.append("❌ No enabled agent configurations found")
                 else:
-                    readiness_checks.append(f"✅ {len(enabled_configs)} agent configurations available")
+                    readiness_checks.append(
+                        f"✅ {len(enabled_configs)} agent configurations available"
+                    )
 
                     # Test if we can create a simple agent
                     try:
@@ -132,7 +136,9 @@ class SystemReadinessCheck(BaseCheck):
                         if test_agent:
                             readiness_checks.append("✅ Simplified agent factory working")
                         else:
-                            readiness_checks.append("❌ Simplified agent factory failed to create agent")
+                            readiness_checks.append(
+                                "❌ Simplified agent factory failed to create agent"
+                            )
                     except Exception as e:
                         readiness_checks.append(f"❌ Simplified agent factory error: {e}")
 
@@ -163,6 +169,7 @@ class SystemReadinessCheck(BaseCheck):
             # Check 6: Database connectivity
             try:
                 from kickai.database.firebase_client import get_firebase_client
+
                 firebase_client = get_firebase_client()
                 if firebase_client is None:
                     readiness_checks.append("❌ Firebase client not available")
@@ -174,6 +181,7 @@ class SystemReadinessCheck(BaseCheck):
             # Check 7: Settings configuration
             try:
                 from kickai.core.config import get_settings
+
                 settings = get_settings()
                 if settings is None:
                     readiness_checks.append("❌ Settings not loaded")
@@ -201,7 +209,9 @@ class SystemReadinessCheck(BaseCheck):
                         else:
                             readiness_checks.append(f"❌ Team {context['team_id']} not found")
                     else:
-                        readiness_checks.append("❌ Team service not available for bot config check")
+                        readiness_checks.append(
+                            "❌ Team service not available for bot config check"
+                        )
                 except Exception as e:
                     readiness_checks.append(f"❌ Bot configuration check error: {e}")
 
@@ -217,7 +227,7 @@ class SystemReadinessCheck(BaseCheck):
                     "passed_checks": passed_checks,
                     "total_checks": len(readiness_checks),
                     "failure_count": len(failed_checks),
-                    "success_count": len(passed_checks)
+                    "success_count": len(passed_checks),
                 }
             else:
                 status = CheckStatus.PASSED
@@ -225,16 +235,13 @@ class SystemReadinessCheck(BaseCheck):
                 details = {
                     "passed_checks": passed_checks,
                     "total_checks": len(readiness_checks),
-                    "success_count": len(passed_checks)
+                    "success_count": len(passed_checks),
                 }
 
             duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
 
             return self.create_result(
-                status=status,
-                message=message,
-                details=details,
-                duration_ms=duration_ms
+                status=status, message=message, details=details, duration_ms=duration_ms
             )
 
         except Exception as e:
@@ -245,5 +252,5 @@ class SystemReadinessCheck(BaseCheck):
                 status=CheckStatus.FAILED,
                 message=f"System readiness check failed: {e!s}",
                 error=e,
-                duration_ms=duration_ms
+                duration_ms=duration_ms,
             )

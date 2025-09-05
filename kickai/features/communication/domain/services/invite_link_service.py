@@ -12,7 +12,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from loguru import logger
 from telegram.error import TelegramError
@@ -24,23 +24,18 @@ from kickai.database.interfaces import DataStoreInterface
 class InviteLinkService:
     """Service for creating and managing secure invite links."""
 
-    def __init__(self, bot_token: str = None, database: DataStoreInterface = None, team_id: str = None):
+    def __init__(self, database: DataStoreInterface, team_id: str, bot_token: str = None):
         self.database = database
         self.team_id = team_id
-        
+
         # Use team-specific collection name
-        if team_id:
-            from kickai.core.firestore_constants import get_team_specific_collection_name
-            self.collection_name = get_team_specific_collection_name(team_id, "invite_links")
-        else:
-            # Fallback to global collection (backward compatibility)
-            self.collection_name = "kickai_invite_links"
+        from kickai.core.firestore_constants import get_team_specific_collection_name
+
+        self.collection_name = get_team_specific_collection_name(team_id, "invite_links")
         self.bot_token = bot_token
         self._bot = None
 
-        # Validate database is provided
-        if self.database is None:
-            raise ValueError("Database interface is required for InviteLinkService")
+        # Database and team_id are now required parameters, so no validation needed
 
         # Get secret key from environment variable
         self._secret_key = os.getenv("KICKAI_INVITE_SECRET_KEY")
@@ -74,9 +69,10 @@ class InviteLinkService:
         try:
             # Check for mock server running on localhost:8001
             import socket
+
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(1)
-            result = sock.connect_ex(('localhost', 8001))
+            result = sock.connect_ex(("localhost", 8001))
             sock.close()
             if result == 0:
                 logger.info("🧪 Mock environment detected: localhost:8001 is available")
@@ -149,7 +145,7 @@ class InviteLinkService:
         # Base64 encode for URL safety
         return base64.urlsafe_b64encode(combined_data.encode("utf-8")).decode("utf-8")
 
-    def _validate_secure_invite_data(self, invite_data: str) -> Optional[dict]:
+    def _validate_secure_invite_data(self, invite_data: str) -> dict | None:
         """
         Validate and decode secure invite data.
 
@@ -164,13 +160,17 @@ class InviteLinkService:
         try:
             # Handle case where invite_data is already a dict (should not happen, but defensive)
             if isinstance(invite_data, dict):
-                logger.warning(f"❌ Expected string for secure invite data, got dict: {type(invite_data)}")
+                logger.warning(
+                    f"❌ Expected string for secure invite data, got dict: {type(invite_data)}"
+                )
                 return None
-            
+
             if not isinstance(invite_data, str):
-                logger.warning(f"❌ Expected string for secure invite data, got: {type(invite_data)}")
+                logger.warning(
+                    f"❌ Expected string for secure invite data, got: {type(invite_data)}"
+                )
                 return None
-            
+
             # Decode from base64
             decoded_bytes = base64.urlsafe_b64decode(invite_data.encode("utf-8"))
             combined_data = decoded_bytes.decode("utf-8")
@@ -213,7 +213,7 @@ class InviteLinkService:
         player_position: str,
         main_chat_id: str,
         player_id: str = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a secure invite link for a player to join the main chat.
 
@@ -246,7 +246,9 @@ class InviteLinkService:
             # Create invite link - prioritize mock environment detection
             if self._detect_mock_environment():
                 # Mock environment - create mock invite link (no bot token required)
-                invite_link = self._create_mock_invite_link(invite_id, "player", main_chat_id, team_id)
+                invite_link = self._create_mock_invite_link(
+                    invite_id, "player", main_chat_id, team_id
+                )
                 logger.info(f"🧪 Created mock player invite link: {invite_link}")
             else:
                 # Production environment - validate bot token and create real Telegram link
@@ -315,7 +317,7 @@ class InviteLinkService:
         member_phone: str,
         member_role: str,
         leadership_chat_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a secure invite link for a team member to join the leadership chat.
 
@@ -341,7 +343,9 @@ class InviteLinkService:
             # Create invite link - prioritize mock environment detection
             if self._detect_mock_environment():
                 # Mock environment - create mock invite link (no bot token required)
-                invite_link = self._create_mock_invite_link(invite_id, "team_member", leadership_chat_id, team_id)
+                invite_link = self._create_mock_invite_link(
+                    invite_id, "team_member", leadership_chat_id, team_id
+                )
                 logger.info(f"🧪 Created mock team member invite link: {invite_link}")
             else:
                 # Production environment - validate bot token and create real Telegram link
@@ -407,7 +411,7 @@ class InviteLinkService:
 
     async def validate_and_use_invite_link(
         self, invite_link: str, user_id: str, username: str = None, secure_data: str = None
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Validate an invite link and mark it as used.
 
@@ -442,7 +446,7 @@ class InviteLinkService:
             # Method 4: Check if invite_link is actually an invite_id directly
             if not invite_id and invite_link:
                 # Sometimes invite_link might be passed as invite_id directly
-                if len(invite_link) == 36 and invite_link.count('-') == 4:  # UUID format
+                if len(invite_link) == 36 and invite_link.count("-") == 4:  # UUID format
                     invite_id = invite_link
 
             if not invite_id:
@@ -459,7 +463,9 @@ class InviteLinkService:
 
             # Check if link is already used
             if invite_data["status"] != "active":
-                logger.warning(f"❌ Invite link already used: {invite_id} (status: {invite_data['status']})")
+                logger.warning(
+                    f"❌ Invite link already used: {invite_id} (status: {invite_data['status']})"
+                )
                 return None
 
             # Check expiration
@@ -468,9 +474,7 @@ class InviteLinkService:
                 logger.warning(f"❌ Invite link expired: {invite_id}")
                 # Mark as expired
                 await self.database.update_document(
-                    self.collection_name,
-                    invite_id,
-                    {"status": "expired"}
+                    self.collection_name, invite_id, {"status": "expired"}
                 )
                 return None
 
@@ -541,7 +545,9 @@ class InviteLinkService:
             logger.error(f"❌ Error getting active invite links: {e}")
             return []
 
-    def _create_mock_invite_link(self, invite_id: str, invite_type: str, chat_id: str, team_id: str) -> str:
+    def _create_mock_invite_link(
+        self, invite_id: str, invite_type: str, chat_id: str, team_id: str
+    ) -> str:
         """
         Create a mock invite link for testing environment.
 
@@ -558,21 +564,23 @@ class InviteLinkService:
 
         # Map real chat IDs to mock chat IDs for consistency with MockTelegramBotService
         mock_chat_id = self._map_to_mock_chat_id(chat_id, invite_type)
-        
+
         # Create comprehensive mock invite link with all necessary parameters
         mock_link = f"{mock_base_url}/?invite={invite_id}&type={invite_type}&chat={mock_chat_id}&team={team_id}&action=join"
 
-        logger.info(f"🧪 Mock invite link created: {invite_type} invite for team {team_id} -> chat {mock_chat_id}")
+        logger.info(
+            f"🧪 Mock invite link created: {invite_type} invite for team {team_id} -> chat {mock_chat_id}"
+        )
         return mock_link
 
     def _map_to_mock_chat_id(self, chat_id: str, invite_type: str) -> str:
         """
         Map real chat IDs to mock chat IDs used by MockTelegramBotService.
-        
+
         Args:
             chat_id: Real chat ID from team configuration
             invite_type: Type of invite ("player" or "team_member")
-            
+
         Returns:
             Mock chat ID compatible with mock UI
         """
@@ -622,7 +630,7 @@ class InviteLinkService:
             logger.error(f"❌ Error creating Telegram invite link: {e}")
             raise
 
-    def _extract_invite_id_from_mock_link(self, invite_link: str) -> Optional[str]:
+    def _extract_invite_id_from_mock_link(self, invite_link: str) -> str | None:
         """
         Extract invite ID from a mock invite link.
 
@@ -636,9 +644,9 @@ class InviteLinkService:
             from urllib.parse import parse_qs, urlparse
 
             parsed = urlparse(invite_link)
-            if parsed.hostname in ['localhost', '127.0.0.1'] and parsed.query:
+            if parsed.hostname in ["localhost", "127.0.0.1"] and parsed.query:
                 query_params = parse_qs(parsed.query)
-                invite_id = query_params.get('invite', [None])[0]
+                invite_id = query_params.get("invite", [None])[0]
                 if invite_id:
                     logger.info(f"🔗 Extracted invite_id from mock link: {invite_id}")
                     return invite_id
@@ -649,7 +657,7 @@ class InviteLinkService:
             logger.error(f"❌ Error extracting invite ID from mock link: {e}")
             return None
 
-    def _extract_invite_id_from_link(self, invite_link: str) -> Optional[str]:
+    def _extract_invite_id_from_link(self, invite_link: str) -> str | None:
         """
         Extract invite ID from a Telegram invite link.
 
@@ -702,4 +710,3 @@ class InviteLinkService:
         except Exception as e:
             logger.error(f"❌ Error cleaning up expired links: {e}")
             return 0
-

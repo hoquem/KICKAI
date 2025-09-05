@@ -11,9 +11,10 @@ All context operations should use this module to maintain consistency.
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional, Set, List
+from typing import Any
 
 from loguru import logger
+
 from kickai.core.enums import ChatType, PermissionLevel
 
 
@@ -34,7 +35,7 @@ class UserPermissions:
     is_team_member: bool = False
     is_admin: bool = False
     is_leadership: bool = False
-    permissions: List[PermissionLevel] = field(default_factory=list)
+    permissions: list[PermissionLevel] = field(default_factory=list)
 
     def __post_init__(self):
         """Validate permissions consistency."""
@@ -63,16 +64,14 @@ class StandardizedContext:
     # Core fields (always present)
     telegram_id: int
     team_id: str
-    chat_id: str
     chat_type: str
     message_text: str
-    username: str
-    telegram_name: str
+    telegram_username: str
 
     # Optional fields (populated when available)
-    user_permissions: Optional[UserPermissions] = None
-    player_data: Optional[Dict[str, Any]] = None
-    team_member_data: Optional[Dict[str, Any]] = None
+    user_permissions: UserPermissions | None = None
+    player_data: dict[str, Any] | None = None
+    team_member_data: dict[str, Any] | None = None
     is_registered: bool = False
     is_player: bool = False
     is_team_member: bool = False
@@ -80,7 +79,7 @@ class StandardizedContext:
     # Context metadata
     source: ContextSource = ContextSource.TELEGRAM_MESSAGE
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         """Post-initialization validation and setup."""
@@ -103,16 +102,12 @@ class StandardizedContext:
             raise ValueError("telegram_id is required")
         if not self.team_id or not str(self.team_id).strip():
             raise ValueError("team_id is required and cannot be empty")
-        if not self.chat_id or not str(self.chat_id).strip():
-            raise ValueError("chat_id is required and cannot be empty")
         if not self.chat_type or not str(self.chat_type).strip():
             raise ValueError("chat_type is required and cannot be empty")
         if not self.message_text:
             self.message_text = ""  # Allow empty message text
-        if not self.username:
-            self.username = "unknown"
-        if not self.telegram_name:
-            self.telegram_name = self.username
+        if not self.telegram_username:
+            self.telegram_username = "unknown"
 
     @classmethod
     def create_from_telegram_message(
@@ -122,17 +117,16 @@ class StandardizedContext:
         chat_id: str,
         chat_type: str,
         message_text: str,
-        username: str,
-        telegram_name: str,
+        telegram_username: str,
         is_player: bool = False,
         is_team_member: bool = False,
         is_admin: bool = False,
         is_leadership: bool = False,
-        **kwargs
+        **kwargs,
     ) -> "StandardizedContext":
         """
         Factory method to create context from Telegram message data.
-        
+
         This is the primary method for creating context from Telegram messages.
         """
         # Create user permissions
@@ -140,20 +134,18 @@ class StandardizedContext:
             is_player=is_player,
             is_team_member=is_team_member,
             is_admin=is_admin,
-            is_leadership=is_leadership
+            is_leadership=is_leadership,
         )
 
         return cls(
             telegram_id=telegram_id,
             team_id=team_id,
-            chat_id=chat_id,
             chat_type=chat_type,
             message_text=message_text,
-            username=username,
-            telegram_name=telegram_name,
+            telegram_username=telegram_username,
             user_permissions=user_permissions,
             source=ContextSource.TELEGRAM_MESSAGE,
-            **kwargs
+            **kwargs,
         )
 
     @classmethod
@@ -164,13 +156,12 @@ class StandardizedContext:
         chat_id: str,
         chat_type: str,
         command: str,
-        username: str,
-        telegram_name: str,
+        telegram_username: str,
         is_player: bool = False,
         is_team_member: bool = False,
         is_admin: bool = False,
         is_leadership: bool = False,
-        **kwargs
+        **kwargs,
     ) -> "StandardizedContext":
         """
         Factory method to create context from command data.
@@ -179,7 +170,7 @@ class StandardizedContext:
             is_player=is_player,
             is_team_member=is_team_member,
             is_admin=is_admin,
-            is_leadership=is_leadership
+            is_leadership=is_leadership,
         )
 
         return cls(
@@ -188,20 +179,14 @@ class StandardizedContext:
             chat_id=chat_id,
             chat_type=chat_type,
             message_text=command,
-            username=username,
-            telegram_name=telegram_name,
+            telegram_username=telegram_username,
             user_permissions=user_permissions,
             source=ContextSource.COMMAND,
-            **kwargs
+            **kwargs,
         )
 
     @classmethod
-    def create_system_context(
-        cls,
-        team_id: str,
-        operation: str,
-        **kwargs
-    ) -> "StandardizedContext":
+    def create_system_context(cls, team_id: str, operation: str, **kwargs) -> "StandardizedContext":
         """
         Factory method to create system-level context.
         """
@@ -211,13 +196,12 @@ class StandardizedContext:
             chat_id="system",
             chat_type="system",
             message_text=operation,
-            username="system",
-            telegram_name="system",
+            telegram_username="system",
             source=ContextSource.SYSTEM,
-            **kwargs
+            **kwargs,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert context to dictionary for serialization."""
         return {
             "telegram_id": self.telegram_id,
@@ -225,8 +209,7 @@ class StandardizedContext:
             "chat_id": self.chat_id,
             "chat_type": self.chat_type,
             "message_text": self.message_text,
-            "username": self.username,
-            "telegram_name": self.telegram_name,
+            "telegram_username": self.telegram_username,
             "is_registered": self.is_registered,
             "is_player": self.is_player,
             "is_team_member": self.is_team_member,
@@ -235,19 +218,32 @@ class StandardizedContext:
             "metadata": self.metadata,
             "user_permissions": {
                 "is_player": self.user_permissions.is_player if self.user_permissions else False,
-                "is_team_member": self.user_permissions.is_team_member if self.user_permissions else False,
+                "is_team_member": self.user_permissions.is_team_member
+                if self.user_permissions
+                else False,
                 "is_admin": self.user_permissions.is_admin if self.user_permissions else False,
-                "is_leadership": self.user_permissions.is_leadership if self.user_permissions else False,
-            } if self.user_permissions else None,
+                "is_leadership": self.user_permissions.is_leadership
+                if self.user_permissions
+                else False,
+            }
+            if self.user_permissions
+            else None,
             "player_data": self.player_data,
             "team_member_data": self.team_member_data,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "StandardizedContext":
+    def from_dict(cls, data: dict[str, Any]) -> "StandardizedContext":
         """Create context from dictionary with validation of critical fields."""
         # Validate that critical fields are present
-        required_fields = ["telegram_id", "team_id", "chat_id", "chat_type", "message_text", "username"]
+        required_fields = [
+            "telegram_id",
+            "team_id",
+            "chat_id",
+            "chat_type",
+            "message_text",
+            "telegram_username",
+        ]
         missing_fields = [
             field for field in required_fields if field not in data or not data[field]
         ]
@@ -272,8 +268,7 @@ class StandardizedContext:
             chat_id=data["chat_id"],
             chat_type=data["chat_type"],
             message_text=data["message_text"],
-            username=data["username"],
-            telegram_name=data.get("telegram_name", data["username"]),
+            telegram_username=data["telegram_username"],
             user_permissions=user_permissions,
             player_data=data.get("player_data"),
             team_member_data=data.get("team_member_data"),
@@ -288,10 +283,10 @@ class StandardizedContext:
     def validate_for_tool(self, tool_name: str) -> bool:
         """
         Validate context for tool execution.
-        
+
         Args:
             tool_name: Name of the tool for logging
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -306,7 +301,7 @@ class StandardizedContext:
     def get_context_summary(self) -> str:
         """Get a human-readable summary of the context."""
         return (
-            f"User: {self.username} (ID: {self.telegram_id}) | "
+            f"User: {self.telegram_username} (ID: {self.telegram_id}) | "
             f"Team: {self.team_id} | "
             f"Chat: {self.chat_type} ({self.chat_id}) | "
             f"Registered: {self.is_registered} | "
@@ -316,14 +311,14 @@ class StandardizedContext:
 
 
 # Global context validator for system-wide use
-def validate_context_data(context_data: Dict[str, Any], context_type: str = "standardized") -> bool:
+def validate_context_data(context_data: dict[str, Any], context_type: str = "standardized") -> bool:
     """
     Validate context data without creating an object.
-    
+
     Args:
         context_data: Data to validate
         context_type: Type of context to validate against
-        
+
     Returns:
         True if valid, False otherwise
     """
@@ -339,7 +334,7 @@ def validate_context_data(context_data: Dict[str, Any], context_type: str = "sta
         return False
 
 
-def create_safe_context_fallback(context_data: Dict[str, Any]) -> Dict[str, Any]:
+def create_safe_context_fallback(context_data: dict[str, Any]) -> dict[str, Any]:
     """Create a safe context fallback when validation fails."""
     return {
         "telegram_id": context_data.get("telegram_id", 0),
@@ -347,8 +342,7 @@ def create_safe_context_fallback(context_data: Dict[str, Any]) -> Dict[str, Any]
         "chat_id": context_data.get("chat_id", "unknown"),
         "chat_type": context_data.get("chat_type", "unknown"),
         "message_text": context_data.get("message_text", ""),
-        "username": context_data.get("username", "unknown"),
-        "telegram_name": context_data.get("telegram_name", "unknown"),
+        "telegram_username": context_data.get("telegram_username", "unknown"),
         "is_registered": False,
         "is_player": False,
         "is_team_member": False,
@@ -365,13 +359,12 @@ def create_context_from_telegram_message(
     chat_id: str,
     chat_type: str,
     message_text: str,
-    username: str,
-    telegram_name: str = "",
-    **kwargs
+    telegram_username: str,
+    **kwargs,
 ) -> StandardizedContext:
     """
     Create standardized context from Telegram message data.
-    
+
     This function provides backward compatibility with existing code.
     """
     return StandardizedContext.create_from_telegram_message(
@@ -380,9 +373,8 @@ def create_context_from_telegram_message(
         chat_id=chat_id,
         chat_type=chat_type,
         message_text=message_text,
-        username=username,
-        telegram_name=telegram_name,
-        **kwargs
+        telegram_username=telegram_username,
+        **kwargs,
     )
 
 
@@ -392,13 +384,12 @@ def create_context_from_command(
     chat_id: str,
     chat_type: str,
     command_text: str,
-    username: str,
-    telegram_name: str = "",
-    **kwargs
+    telegram_username: str,
+    **kwargs,
 ) -> StandardizedContext:
     """
     Create standardized context from command data.
-    
+
     This function provides backward compatibility with existing code.
     """
     return StandardizedContext.create_from_command(
@@ -407,7 +398,6 @@ def create_context_from_command(
         chat_id=chat_id,
         chat_type=chat_type,
         command=command_text,
-        username=username,
-        telegram_name=telegram_name,
-        **kwargs
+        telegram_username=telegram_username,
+        **kwargs,
     )

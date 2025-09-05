@@ -5,15 +5,14 @@ This module provides health checks for LLM provider connectivity and configurati
 """
 
 import asyncio
-import os
-from typing import Any, Dict
+from typing import Any
 
 from loguru import logger
 
-from kickai.core.startup_validation.checks.base_check import BaseCheck
-from kickai.core.startup_validation.reporting import CheckResult, CheckStatus, CheckCategory
 from kickai.core.config import get_settings
 from kickai.core.enums import AIProvider
+from kickai.core.startup_validation.checks.base_check import BaseCheck
+from kickai.core.startup_validation.reporting import CheckCategory, CheckResult, CheckStatus
 
 
 class LLMProviderCheck(BaseCheck):
@@ -23,7 +22,7 @@ class LLMProviderCheck(BaseCheck):
     category = CheckCategory.LLM
     description = "Validates LLM provider configuration and connectivity"
 
-    async def execute(self, context: Dict[str, Any] = None) -> CheckResult:
+    async def execute(self, context: dict[str, Any] = None) -> CheckResult:
         """Execute LLM provider health check."""
         start_time = asyncio.get_event_loop().time()
 
@@ -44,7 +43,7 @@ class LLMProviderCheck(BaseCheck):
                     message=f"API key not configured for {provider.value}",
                     details={
                         "provider": provider.value,
-                        "error": f"API key required for {provider.value} provider"
+                        "error": f"API key required for {provider.value} provider",
                     },
                     duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                 )
@@ -58,7 +57,7 @@ class LLMProviderCheck(BaseCheck):
                     message="No AI models configured",
                     details={
                         "provider": provider.value,
-                        "error": "AI_MODEL_SIMPLE or AI_MODEL_ADVANCED must be configured"
+                        "error": "AI_MODEL_SIMPLE or AI_MODEL_ADVANCED must be configured",
                     },
                     duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                 )
@@ -74,7 +73,7 @@ class LLMProviderCheck(BaseCheck):
                     details={
                         "provider": provider.value,
                         "api_key_present": bool(api_key),
-                        "error": f"Failed to connect to {provider.value} API"
+                        "error": f"Failed to connect to {provider.value} API",
                     },
                     duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                 )
@@ -90,9 +89,9 @@ class LLMProviderCheck(BaseCheck):
                     "models": {
                         "simple": config.ai_model_simple,
                         "advanced": config.ai_model_advanced,
-                        "nlp": config.ai_model_nlp
+                        "nlp": config.ai_model_nlp,
                     },
-                    "connectivity": "OK"
+                    "connectivity": "OK",
                 },
                 duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
             )
@@ -113,21 +112,19 @@ class LLMProviderCheck(BaseCheck):
         """Test connectivity for the configured provider."""
         try:
             from kickai.config.llm_config import get_llm_config
-            
+
             # Use the proper LLM configuration system
             llm_config = get_llm_config()
-            
+
             # Create a test LLM with minimal tokens
             test_llm = llm_config._create_llm(
-                temperature=0.1,
-                max_tokens=10,
-                use_case="connectivity_test"
+                temperature=0.1, max_tokens=10, use_case="connectivity_test"
             )
-            
+
             # Test with simple message using CrewAI LLM API
             response = test_llm.call("test")
             return bool(response and len(str(response).strip()) > 0)
-            
+
         except Exception as e:
             logger.error(f"{provider.value} connectivity test failed: {e}")
             return False

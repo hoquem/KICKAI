@@ -1,4 +1,3 @@
-from typing import Optional
 from dataclasses import dataclass, field
 from datetime import datetime, time
 from enum import Enum
@@ -25,7 +24,7 @@ class MatchResult:
     away_score: int
     scorers: list[str] = field(default_factory=list)  # Player IDs
     assists: list[str] = field(default_factory=list)  # Player IDs
-    notes: Optional[str] = None
+    notes: str | None = None
     recorded_by: str = ""  # Team member ID
     recorded_at: datetime = field(default_factory=datetime.utcnow)
 
@@ -62,12 +61,12 @@ class Match:
     competition: str = "League Match"
     match_id: str = ""
     status: MatchStatus = MatchStatus.SCHEDULED
-    notes: Optional[str] = None
+    notes: str | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
     created_by: str = ""  # Team member ID
     squad_size: int = 11
-    result: Optional[MatchResult] = None
+    result: MatchResult | None = None
 
     @classmethod
     def create(
@@ -78,7 +77,7 @@ class Match:
         match_time: time,
         venue: str,
         competition: str = "League Match",
-        notes: Optional[str] = None,
+        notes: str | None = None,
         created_by: str = "",
         squad_size: int = 11,
     ) -> "Match":
@@ -132,7 +131,7 @@ class Match:
         """Create match from dictionary."""
         # Convert string dates back to datetime objects
         if "date" in data and isinstance(data["date"], str):
-            data["date"] = datetime.fromisoformat(data["date"]) 
+            data["date"] = datetime.fromisoformat(data["date"])
         if "created_at" in data and isinstance(data["created_at"], str):
             data["created_at"] = datetime.fromisoformat(data["created_at"])
         if "updated_at" in data and isinstance(data["updated_at"], str):
@@ -151,7 +150,11 @@ class Match:
     @property
     def is_upcoming(self) -> bool:
         """Check if match is upcoming."""
-        return self.status in [MatchStatus.SCHEDULED, MatchStatus.AVAILABILITY_OPEN, MatchStatus.SQUAD_SELECTION]
+        return self.status in [
+            MatchStatus.SCHEDULED,
+            MatchStatus.AVAILABILITY_OPEN,
+            MatchStatus.SQUAD_SELECTION,
+        ]
 
     @property
     def is_completed(self) -> bool:

@@ -1,4 +1,3 @@
-from typing import Optional
 """
 BaseEntity for domain models.
 
@@ -12,11 +11,11 @@ from datetime import datetime
 
 @dataclass
 class BaseEntity:
-    id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
-    def __post_init__(self):
+    def _post_init_(self):
         if not self.id:
             self.id = str(uuid.uuid4())
         if not self.created_at:

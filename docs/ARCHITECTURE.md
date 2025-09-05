@@ -1,30 +1,29 @@
 # KICKAI Architecture Documentation
 
-**Version:** 6.1  
-**Status:** Production Ready with CrewAI Native Collaboration Architecture  
-**Last Updated:** January 2025  
-**Architecture:** 6-Agent CrewAI Native Collaboration System with Clean Architecture
+**Version:** 6.2  
+**Status:** Production Ready with CrewAI Native Intent-Based Routing  
+**Last Updated:** August 2025  
+**Architecture:** 5-Agent CrewAI System with Clean Tool Naming Convention
 
 ## 🎯 Overview
 
-KICKAI is an AI-powered football team management system built with **6-agent CrewAI native collaboration architecture** and clean architecture principles. The system uses CrewAI best practices for agent-to-agent collaboration with intelligent routing, ensuring context-aware responses while maintaining clean separation of concerns. All messaging uses **plain text with emojis** for maximum reliability and universal compatibility.
+KICKAI is an AI-powered football team management system built with **5-agent CrewAI native intent-based routing** and clean architecture principles. The system uses CrewAI's native semantic understanding for intelligent agent delegation, eliminating hardcoded routing patterns. All tools follow a clean naming convention using the `[action]_[entity]_[modifier]` pattern for maximum clarity. All messaging uses **plain text with emojis** for maximum reliability and universal compatibility.
 
 ## 🏗️ Core Architecture Principles
 
-### 1. **6-Agent CrewAI Native Collaboration System**
-- **MESSAGE_PROCESSOR**: Primary interface with intelligent coordination capabilities
+### 1. **5-Agent CrewAI Native Intent-Based System**
+- **MESSAGE_PROCESSOR**: Primary interface with native CrewAI semantic understanding
 - **HELP_ASSISTANT**: Specialized help system and user guidance
 - **PLAYER_COORDINATOR**: Player management and operations
 - **TEAM_ADMINISTRATOR**: Team member management and administration
 - **SQUAD_SELECTOR**: Match management, availability, and squad selection
-- **NLP_PROCESSOR**: Intelligent routing and context analysis agent
 
-### 2. **CrewAI Native Collaboration Design**
-- **Primary Agent Pattern**: MESSAGE_PROCESSOR serves as primary interface for all requests
-- **Intelligent Routing**: NLP_PROCESSOR provides context-aware analysis for agent selection
-- **Tool-Based Collaboration**: Agents collaborate through specialized tools following CrewAI best practices
-- **Multi-Agent Patterns**: Sequential, parallel, and hierarchical collaboration workflows
-- **Context-Aware Intelligence**: Chat type and intent-based routing decisions
+### 2. **CrewAI Native Intent-Based Routing**
+- **Primary Manager Pattern**: MESSAGE_PROCESSOR serves as hierarchical process manager
+- **Semantic Understanding**: Native CrewAI intelligence for context-aware agent delegation
+- **Clean Tool Naming**: All tools follow `[action]_[entity]_[modifier]` convention (75+ tools)
+- **Hierarchical Process**: CrewAI's built-in process management for agent coordination
+- **Intent Recognition**: Natural language understanding without hardcoded patterns
 
 ### 3. **Clean Architecture Layers**
 ```
@@ -36,7 +35,7 @@ KICKAI is an AI-powered football team management system built with **6-agent Cre
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Application Layer                         │
-│  (6-Agent CrewAI Native Collaboration System)              │
+│  (5-Agent CrewAI Intent-Based Routing System)              │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -161,9 +160,9 @@ By consistently applying these principles, KICKAI aims to maximize the benefits 
 ```
 KICKAI/
 ├── kickai/                        # Main source code (package structure)
-│   ├── agents/                    # AI Agent System (6 agents)
+│   ├── agents/                    # AI Agent System (5 agents)
 │   │   ├── agentic_message_router.py # Message routing (24KB, 599 lines)
-│   │   ├── crew_agents.py         # 6-agent CrewAI definitions (20KB, 488 lines)
+│   │   ├── crew_agents.py         # 5-agent CrewAI definitions with clean naming (20KB, 488 lines)
 │   │   ├── configurable_agent.py  # Configurable agent base class (19KB, 461 lines)
 │   │   ├── simplified_orchestration.py # Task orchestration (24KB, 570 lines)
 │   │   ├── behavioral_mixins.py   # Agent behavior mixins (37KB, 1141 lines)
@@ -291,7 +290,8 @@ KICKAI/
 ## 🔧 Implementation Status
 
 ### **✅ Fully Implemented**
-- **6-Agent CrewAI System**: All agents defined and configured
+- **5-Agent CrewAI System**: All agents with clean tool naming convention
+- **Clean Tool Naming**: 75+ tools following `[action]_[entity]_[modifier]` pattern
 - **Command Registry**: Unified command discovery and metadata
 - **Feature-First Architecture**: All features properly modularized
 - **Clean Architecture**: Proper layer separation maintained
@@ -312,11 +312,11 @@ KICKAI/
 
 ## 🚀 Key Features
 
-### **1. Agentic-First Processing**
-- **ALL user interactions** processed through specialized AI agents
-- **No direct processing** bypassing the agentic system
-- **Context-aware routing** based on chat type and intent
-- **Unified processing pipeline** for both commands and natural language
+### **1. Native CrewAI Intent-Based Processing**
+- **ALL user interactions** processed through MESSAGE_PROCESSOR manager
+- **Semantic routing** using CrewAI's native intelligence (no hardcoded patterns)
+- **Clean tool naming** for maximum agent understanding and clarity
+- **Hierarchical process** for complex multi-agent workflows
 
 ### **2. Intelligent System Orchestration**
 - **Task decomposition** for complex requests

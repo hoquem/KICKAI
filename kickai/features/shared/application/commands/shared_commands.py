@@ -5,12 +5,12 @@ Shared Commands Module
 This module contains shared/common commands that are available across different chat types.
 """
 
+
 from loguru import logger
 
 from kickai.core.command_registry import CommandType, PermissionLevel, command
 from kickai.core.context_types import create_context_from_telegram_message
 from kickai.core.enums import ChatType
-from typing import List, Optional
 
 # ============================================================================
 # SHARED COMMANDS
@@ -271,7 +271,6 @@ async def handle_update_command_wrapper(update, context, **kwargs):
             chat_type=kwargs.get("chat_type", ChatType.MAIN),
             message_text=message_text,
             username=update.effective_user.username or update.effective_user.first_name,
-            telegram_name=update.effective_user.first_name,
             is_registered=True,  # Assuming registered users can use /update
             is_player=kwargs.get("chat_type") == ChatType.MAIN,
             is_team_member=kwargs.get("chat_type") == ChatType.LEADERSHIP,

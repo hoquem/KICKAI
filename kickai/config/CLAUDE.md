@@ -1,6 +1,6 @@
 # CLAUDE.md - KICKAI Config Directory
 
-This file provides guidance for working with the KICKAI configuration system, which manages agent configurations, LLM providers, and system-wide settings using YAML-based configuration with template processing.
+This file provides guidance for working with the KICKAI configuration system with CrewAI semantic tool patterns, which manages agent configurations, LLM providers, and semantic tool selection using YAML-based configuration with template processing.
 
 ## Architecture Overview
 
@@ -14,23 +14,22 @@ kickai/config/
 ├── config_validator.py          # Configuration validation system (NEW)
 ├── tasks.yaml                    # Task templates and patterns
 ├── llm_config.py                # LLM provider configuration  
-├── optimized_agent_prompts.py   # Agent prompt optimization
-├── prompt_optimizer.py          # Prompt engineering utilities
 └── complexity_config.py         # System complexity settings
 ```
 
 ## Core Configuration Files
 
-### 1. command_routing.yaml - Dynamic Command Routing (NEW & CRITICAL)
-**Purpose**: Centralized command-to-agent routing configuration that eliminates hardcoded routing logic.
+### 1. command_routing.yaml - CrewAI Semantic Command Routing (DEPRECATED)
+**Purpose**: Legacy command routing - now replaced by CrewAI semantic tool selection.
 
-**Key Features (SIMPLIFIED)**:
-- **Flexible Command Routing**: Maps commands to agents with flexible slash handling
-- **Slash-Agnostic Matching**: Both `/info` and `info` work automatically
-- **Context-Aware Routing**: Different behavior based on chat type (main/leadership/private)
-- **Agent Constraints**: Performance and permission settings per agent
-- **Strict Validation**: Fail-fast validation with no silent failures
-- **No Caching**: Simplified for reliability and maintainability
+**IMPORTANT**: Command routing is now handled by CrewAI's intelligent semantic understanding. The system uses semantic tool patterns instead of hardcoded routing rules.
+
+**New Approach - CrewAI Semantic Tool Selection**:
+- **Semantic Tool Names**: `_self` vs `_by_identifier` patterns guide tool selection
+- **Intent-Based Routing**: CrewAI selects tools based on semantic understanding
+- **No Hardcoded Rules**: Trust CrewAI's intelligence over brittle routing logic
+- **Explicit Parameters**: `telegram_username` vs `username` for clarity
+- **Context Understanding**: Agent backstories guide semantic tool selection
 
 **Complete Configuration Structure**:
 ```yaml
@@ -455,7 +454,7 @@ shared_templates:
 ```yaml
 # Optimization Rules
 - Make ONLY the necessary tool call - never explore with multiple tools
-- For /info, /myinfo, /status (self): go directly to get_my_status with chat_type parameter
+- For /info, /myinfo, /status (self): go directly to get_player_self or get_member_status_self based on context
 - For specific queries: use the exact tool needed, not general commands
 - Avoid redundant tool calls that waste tokens
 ```
@@ -465,33 +464,34 @@ shared_templates:
 ### Agent-Specific Tool Assignment (Streamlined Routing)
 ```yaml
 MESSAGE_PROCESSOR:
-  tools: [send_message, get_user_status, get_available_commands, get_active_players, 
-          get_my_status, send_announcement, send_poll, ping, version]
+  tools: [send_message, get_available_commands, get_active_players, 
+          send_announcement, send_poll, ping, version]
   routing: |
-    /info|/myinfo|/status → get_my_status(telegram_id, team_id, chat_type)
-    /status [name] → get_user_status(name)
+    /info|/myinfo|/status → Delegate to player_coordinator or team_administrator for semantic tool selection
     /list → get_active_players (MAIN) | list_team_members_and_players (LEADERSHIP)
     /ping → ping | /version → version
     Communications → send_message | send_announcement | send_poll
 
 PLAYER_COORDINATOR:
-  tools: [get_my_status, get_player_status, get_all_players, get_active_players,
-          approve_player, list_team_members_and_players, send_message]
+  tools: [get_player_self, get_player_by_identifier, get_player_status_self, get_player_status_by_identifier,
+          list_players_all, list_players_active, approve_player, send_message]
   routing: |
-    Self queries → get_my_status (current user player info)
-    Specific players → get_player_status (individual details)
+    Self queries → get_player_self (current user player info)
+    Specific players → get_player_by_identifier (individual details by name/phone/ID)
+    Status queries → get_player_status_self vs get_player_status_by_identifier (semantic selection)
     Approvals → approve_player | Player registration via /addplayer command
 ```
 
 ### Optimized Tool Selection Rules
 Consolidated routing format for maximum clarity:
 ```yaml
-TOOL ROUTING FORMAT:
-command|alternative → tool_name (context/parameters)
+SEMANTIC TOOL ROUTING FORMAT:
+command|alternative → semantic_tool_selection (CrewAI powered)
 action_type → specific_tool (detailed_usage)
 
 EXAMPLES:
-/info|/myinfo|/status → get_my_status(telegram_id, team_id, chat_type)
+/info|/myinfo|/status → get_player_self (PLAYER context) | get_member_status_self (MEMBER context)
+/info [name] → get_player_by_identifier (lookup others by name/phone/ID)
 /list → get_active_players (MAIN) | list_team_members_and_players (LEADERSHIP)
 Communications → send_message | send_announcement | send_poll
 ```
@@ -514,7 +514,7 @@ AIProvider.OLLAMA      # Local models
 
 # Configuration per provider
 GROQ_CONFIG = {
-    "model": "llama3.1-8b-instant",
+    "model": "llama-3.1-8b-instant",
     "temperature": 0.1,
     "max_tokens": 800,
 }
@@ -646,8 +646,8 @@ agents:
 
 ### Model-Specific Tuning
 ```python
-# Optimized for llama3.1:8b-instruct-q4_k_m
-LLAMA_OPTIMIZATION = {
+# Optimized for small/quantized models
+SMALL_MODEL_OPTIMIZATION = {
     "temperature": 0.1,      # Lower for consistency
     "max_tokens": 800,       # Balanced for responses
     "top_p": 0.9,           # Focused responses

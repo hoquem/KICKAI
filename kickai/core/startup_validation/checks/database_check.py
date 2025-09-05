@@ -6,7 +6,6 @@ This module validates that the database connection is working properly
 and can perform basic operations.
 """
 
-import asyncio
 import time
 from dataclasses import dataclass
 
@@ -90,7 +89,7 @@ class DatabaseValidator:
                 errors=errors,
                 warnings=warnings,
                 connection_time=connection_time,
-                test_operations=test_operations
+                test_operations=test_operations,
             )
 
         except Exception as e:
@@ -100,12 +99,12 @@ class DatabaseValidator:
                 errors=[f"Database validation failed: {e}"],
                 warnings=[],
                 connection_time=0.0,
-                test_operations={}
+                test_operations={},
             )
 
     def get_validation_report(self) -> str:
         """Generate a validation report.
-        
+
         DEPRECATED: This method uses asyncio.run() and violates CrewAI async architecture.
         Use validate_database() async method directly instead.
         """

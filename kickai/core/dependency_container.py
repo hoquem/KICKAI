@@ -6,7 +6,7 @@ all service dependencies and ensures proper initialization order.
 """
 
 import os
-from typing import Any, Optional, Union
+from typing import Any
 
 from kickai.database.firebase_client import get_firebase_client
 from kickai.database.interfaces import DataStoreInterface
@@ -19,8 +19,8 @@ class DependencyContainer:
 
     def __init__(self):
         self._services: dict[type, Any] = {}
-        self._database: Optional[DataStoreInterface] = None
-        self._factory: Optional[ServiceFactory] = None
+        self._database: DataStoreInterface | None = None
+        self._factory: ServiceFactory | None = None
         self._initialized = False
 
     async def initialize(self):
@@ -45,20 +45,21 @@ class DependencyContainer:
     async def _initialize_team_config_cache(self):
         """Initialize the team config cache at startup for optimal performance."""
         try:
-            from kickai.core.team_config_cache import TeamConfigCache
             from kickai.core.logging_config import logger
-            
+            from kickai.core.team_config_cache import TeamConfigCache
+
             # Get cache instance and initialize it
             cache = TeamConfigCache()
             await cache.initialize()
-            
+
             # Register the cache as a singleton service
             self.register_service(TeamConfigCache, cache)
-            
+
             logger.info("✅ Team config cache initialized and registered")
-            
+
         except Exception as e:
             from kickai.core.logging_config import logger
+
             logger.warning(f"⚠️ Team config cache initialization failed: {e}")
             logger.info("🔄 System will fall back to database queries for team config")
             # Don't fail startup - system can work without cache
@@ -74,7 +75,7 @@ class DependencyContainer:
 
             logger.info("🔧 Using Mock DataStore for development/testing")
             self._database = MockDataStore()
-            
+
             # Mock data will be created on-demand by MockDataStore when accessed
             logger.info("✅ Mock data store ready (on-demand initialization)")
         else:
@@ -87,7 +88,7 @@ class DependencyContainer:
 
         self._services[DataStoreInterface] = self._database
 
-# Removed _initialize_mock_data() - was redundant after removing asyncio.run()
+    # Removed _initialize_mock_data() - was redundant after removing asyncio.run()
 
     def verify_services_ready(self) -> bool:
         """Verify that all required services are registered and ready."""
@@ -97,15 +98,21 @@ class DependencyContainer:
             from kickai.features.player_registration.domain.services.player_service import (
                 PlayerService,
             )
+            from kickai.features.team_administration.domain.services.team_member_management_service import (
+                TeamMemberManagementService,
+            )
             from kickai.features.team_administration.domain.services.team_member_service import (
                 TeamMemberService,
             )
             from kickai.features.team_administration.domain.services.team_service import TeamService
-            from kickai.features.team_administration.domain.services.team_member_management_service import (
-                TeamMemberManagementService,
-            )
 
-            required_services = [PlayerService, TeamMemberService, TeamService, TeamMemberManagementService, DataStoreInterface]
+            required_services = [
+                PlayerService,
+                TeamMemberService,
+                TeamService,
+                TeamMemberManagementService,
+                DataStoreInterface,
+            ]
 
             missing_services = []
             for service_class in required_services:
@@ -153,7 +160,7 @@ class DependencyContainer:
         else:
             self._services[interface] = implementation
 
-    def get_service(self, interface: Union[type, str]) -> Any:
+    def get_service(self, interface: type | str) -> Any:
         """Get a service by its interface or name."""
         # Handle string-based service lookup
         if isinstance(interface, str):
@@ -193,7 +200,7 @@ class DependencyContainer:
 
 
 # Global container instance
-_container: Optional[DependencyContainer] = None
+_container: DependencyContainer | None = None
 
 
 def get_container() -> DependencyContainer:
@@ -249,6 +256,7 @@ def ensure_container_initialized():
         container._factory.create_all_services()
         container._initialized = True
     return container
+
 
 async def ensure_container_initialized_async():
     """Ensure the container is initialized with team config cache (async version)."""

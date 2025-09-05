@@ -24,18 +24,62 @@ PHONE_ALLOWED_CHARS = set("0123456789+()-. ")
 
 # COMMAND PATTERNS
 SLASH_COMMAND_PREFIX = "/"
-CLEAR_COMMAND_NAMES = {"/help", "/ping", "/version", "/list", "/myinfo", "/info", "/status", "/addplayer", "/addmember", "help", "ping", "version", "list", "myinfo", "info", "status", "addplayer", "addmember"}
+CLEAR_COMMAND_NAMES = {
+    "/help",
+    "/ping",
+    "/version",
+    "/list",
+    "/myinfo",
+    "/info",
+    "/status",
+    "/addplayer",
+    "/addmember",
+    "help",
+    "ping",
+    "version",
+    "list",
+    "myinfo",
+    "info",
+    "status",
+    "addplayer",
+    "addmember",
+}
 
 # FOLLOWUP INDICATORS
 FOLLOWUP_INDICATORS = [
-    "yes", "no", "thanks", "ok", "sure", "please", "what about", "and", "also", "too",
-    "again", "it", "that", "this", "them", "those",
+    "yes",
+    "no",
+    "thanks",
+    "ok",
+    "sure",
+    "please",
+    "what about",
+    "and",
+    "also",
+    "too",
+    "again",
+    "it",
+    "that",
+    "this",
+    "them",
+    "those",
 ]
 
 # AMBIGUOUS REFERENCES
 AMBIGUOUS_REFS = [
-    "it", "that", "this", "them", "those", "he", "she", "they", "last", "previous",
-    "next", "current", "recent",
+    "it",
+    "that",
+    "this",
+    "them",
+    "those",
+    "he",
+    "she",
+    "they",
+    "last",
+    "previous",
+    "next",
+    "current",
+    "recent",
 ]
 
 # ERROR MESSAGES
@@ -162,7 +206,6 @@ You need to be added as a team member by the team administrator.
 If you're not part of the team leadership, please leave this chat.
 
 Need help? Contact the team administrator.""",
-    
     "WELCOME_MAIN": """👋 Welcome to KICKAI for {team_id}, {username}!
 
 🤖 KICKAI v{version} - Your AI-powered football team assistant
@@ -183,7 +226,6 @@ If you're not interested in joining the team, you can leave this chat.
 
 🤖 Need help?
 Use /help to see available commands or ask me questions!""",
-    
     "CONTACT_LINKING_SUCCESS": "✅ Successfully linked to your player record: {player_name} ({player_id})",
     "PHONE_LINKING_SUCCESS": "✅ Successfully linked to your player record: {player_name} ({player_id})\n\n🎉 Welcome to the team! You can now use all team features.",
     "PHONE_LINKING_FAILED": "❌ No player record found with that phone number.\n\n💡 What to do:\n1. Make sure you were added by team leadership using /addplayer\n2. Check that the phone number matches what was used when you were added\n3. Contact team leadership if you need help",

@@ -1,4 +1,3 @@
-from typing import Optional, Tuple
 #!/usr/bin/env python3
 """
 Security Utilities for KICKAI System
@@ -40,13 +39,13 @@ def sanitize_username(username: str) -> str:
         sanitized = html.escape(username)
 
         # Remove markdown formatting characters
-        sanitized = re.sub(r'[*_`~\[\]()#+\-|!]', '', sanitized)
+        sanitized = re.sub(r"[*_`~\[\]()#+\-|!]", "", sanitized)
 
         # Remove any remaining HTML-like patterns
-        sanitized = re.sub(r'<[^>]*>', '', sanitized)
+        sanitized = re.sub(r"<[^>]*>", "", sanitized)
 
         # Remove control characters
-        sanitized = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', sanitized)
+        sanitized = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", sanitized)
 
         # Limit length to prevent abuse
         sanitized = sanitized[:50]
@@ -62,7 +61,7 @@ def sanitize_username(username: str) -> str:
         return "Unknown User"
 
 
-def validate_telegram_update(update) -> Tuple[bool, Optional[str]]:
+def validate_telegram_update(update) -> tuple[bool, str | None]:
     """
     Validate Telegram update structure and content.
 
@@ -78,26 +77,26 @@ def validate_telegram_update(update) -> Tuple[bool, Optional[str]]:
             return False, "Update object is None or empty"
 
         # Check for required attributes
-        if not hasattr(update, 'effective_chat'):
+        if not hasattr(update, "effective_chat"):
             return False, "Update missing effective_chat attribute"
 
-        if not hasattr(update, 'effective_user'):
+        if not hasattr(update, "effective_user"):
             return False, "Update missing effective_user attribute"
 
         # Validate chat object
         chat = update.effective_chat
-        if not chat or not hasattr(chat, 'id'):
+        if not chat or not hasattr(chat, "id"):
             return False, "Invalid chat object or missing chat ID"
 
         # Validate user object
         user = update.effective_user
-        if not user or not hasattr(user, 'id'):
+        if not user or not hasattr(user, "id"):
             return False, "Invalid user object or missing user ID"
 
         # Check for message object if this is a message update
-        if hasattr(update, 'message'):
+        if hasattr(update, "message"):
             message = update.message
-            if message and not hasattr(message, 'text'):
+            if message and not hasattr(message, "text"):
                 return False, "Message object missing text attribute"
 
         return True, None
@@ -107,7 +106,7 @@ def validate_telegram_update(update) -> Tuple[bool, Optional[str]]:
         return False, f"Validation error: {e!s}"
 
 
-def validate_new_chat_members_update(update) -> Tuple[bool, Optional[str]]:
+def validate_new_chat_members_update(update) -> tuple[bool, str | None]:
     """
     Validate new chat members update specifically.
 
@@ -123,11 +122,11 @@ def validate_new_chat_members_update(update) -> Tuple[bool, Optional[str]]:
             return False, "Update object is None or empty"
 
         # Check for message object
-        if not hasattr(update, 'message') or not update.message:
+        if not hasattr(update, "message") or not update.message:
             return False, "Update missing message object"
 
         # Check for new_chat_members
-        if not hasattr(update.message, 'new_chat_members'):
+        if not hasattr(update.message, "new_chat_members"):
             return False, "Message missing new_chat_members attribute"
 
         # Validate new_chat_members - handle different possible types
@@ -141,7 +140,7 @@ def validate_new_chat_members_update(update) -> Tuple[bool, Optional[str]]:
         if not isinstance(new_members, list):
             # Try to convert to list if it's not already
             try:
-                if hasattr(new_members, '__iter__'):
+                if hasattr(new_members, "__iter__"):
                     new_members = list(new_members)
                 else:
                     return False, f"new_chat_members is not a list (type: {type(new_members)})"
@@ -157,14 +156,14 @@ def validate_new_chat_members_update(update) -> Tuple[bool, Optional[str]]:
             if not member:
                 return False, f"Member {i} is None or empty"
 
-            if not hasattr(member, 'id'):
+            if not hasattr(member, "id"):
                 return False, f"Member {i} missing ID attribute"
 
-            if not hasattr(member, 'is_bot'):
+            if not hasattr(member, "is_bot"):
                 return False, f"Member {i} missing is_bot attribute"
 
             # Additional validation for user attributes
-            if not hasattr(member, 'username') and not hasattr(member, 'first_name'):
+            if not hasattr(member, "username") and not hasattr(member, "first_name"):
                 return False, f"Member {i} missing username and first_name attributes"
 
         return True, None
@@ -192,7 +191,7 @@ def sanitize_message_text(text: str) -> str:
         text = str(text).strip()
 
         # Remove HTML tags
-        text = re.sub(r'<[^>]*>', '', text)
+        text = re.sub(r"<[^>]*>", "", text)
 
         # Escape HTML entities
         text = html.escape(text)
@@ -207,7 +206,7 @@ def sanitize_message_text(text: str) -> str:
         return ""
 
 
-def validate_chat_id(chat_id: str) -> Tuple[bool, Optional[str]]:
+def validate_chat_id(chat_id: str) -> tuple[bool, str | None]:
     """
     Validate chat ID format and content.
 
@@ -224,7 +223,7 @@ def validate_chat_id(chat_id: str) -> Tuple[bool, Optional[str]]:
         chat_id = str(chat_id).strip()
 
         # Check if it's a valid integer or string format
-        if not re.match(r'^-?\d+$', chat_id):
+        if not re.match(r"^-?\d+$", chat_id):
             return False, "Chat ID must be a valid integer"
 
         # Check reasonable bounds

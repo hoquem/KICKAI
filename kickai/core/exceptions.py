@@ -7,18 +7,18 @@ Having a clear exception hierarchy is crucial for robust error handling,
 allowing for both specific and general error catching.
 """
 
-from datetime import datetime, timezone
-from typing import Any, Union, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 
 class KickAIError(Exception):
     """
     Base exception for all KICKAI errors.
-    
+
     All custom exceptions in the application should inherit from this class.
     """
 
-    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, context: dict[str, Any] | None = None):
         super().__init__(message)
         self.message = message
         self.context = context or {}
@@ -32,7 +32,7 @@ class PlayerError(KickAIError):
 
 class PlayerAlreadyExistsError(PlayerError):
     """Raised when trying to create a player that already exists.
-    
+
     Attributes:
         phone (str): The phone number that already exists.
         team_id (str): The team ID where the player exists.
@@ -46,7 +46,7 @@ class PlayerAlreadyExistsError(PlayerError):
 class PlayerNotFoundError(PlayerError):
     """
     Raised when a player is not found.
-    
+
     Attributes:
         player_id (str): The ID of the player that was not found.
         team_id (str): The team ID where the player was searched.
@@ -60,7 +60,7 @@ class PlayerNotFoundError(PlayerError):
 class PlayerValidationError(PlayerError):
     """
     Raised when player data validation fails.
-    
+
     Attributes:
         errors (list[str]): A list of validation error messages.
     """
@@ -79,7 +79,7 @@ class TeamError(KickAIError):
 class TeamNotFoundError(TeamError):
     """
     Raised when a team is not found.
-    
+
     Attributes:
         team_id (str): The ID of the team that was not found.
     """
@@ -92,7 +92,7 @@ class TeamNotFoundError(TeamError):
 class TeamNotConfiguredError(TeamError):
     """
     Raised when a team is not properly configured.
-    
+
     Attributes:
         team_id (str): The ID of the team with missing configuration.
         missing_config (str): A description of the missing configuration.
@@ -112,7 +112,7 @@ class InviteLinkError(KickAIError):
 class InviteLinkNotFoundError(InviteLinkError):
     """
     Raised when an invite link is not found.
-    
+
     Attributes:
         invite_id (str): The ID of the invite link that was not found.
     """
@@ -125,7 +125,7 @@ class InviteLinkNotFoundError(InviteLinkError):
 class InviteLinkExpiredError(InviteLinkError):
     """
     Raised when an invite link has expired.
-    
+
     Attributes:
         invite_id (str): The ID of the expired invite link.
     """
@@ -138,7 +138,7 @@ class InviteLinkExpiredError(InviteLinkError):
 class InviteLinkAlreadyUsedError(InviteLinkError):
     """
     Raised when an invite link has already been used.
-    
+
     Attributes:
         invite_id (str): The ID of the used invite link.
     """
@@ -151,7 +151,7 @@ class InviteLinkAlreadyUsedError(InviteLinkError):
 class InviteLinkInvalidError(InviteLinkError):
     """
     Raised when an invite link is invalid for a specific reason.
-    
+
     Attributes:
         invite_link (str): The invalid invite link string.
         reason (str): The reason why the link is invalid.
@@ -171,7 +171,7 @@ class ServiceError(KickAIError):
 class ServiceNotAvailableError(ServiceError):
     """
     Raised when a required service is not available in the dependency container.
-    
+
     Attributes:
         service_name (str): The name of the service that is not available.
     """
@@ -196,7 +196,7 @@ class AgentError(KickAIError):
 class AgentInitializationError(AgentError):
     """
     Raised when agent initialization fails.
-    
+
     Attributes:
         agent_name (str): The name of the agent that failed to initialize.
         error (str): The underlying error message.
@@ -210,7 +210,7 @@ class AgentInitializationError(AgentError):
 class AgentConfigurationError(AgentError):
     """
     Raised when agent configuration is invalid.
-    
+
     Attributes:
         agent_name (str): The name of the agent with invalid configuration.
         config_error (str): A description of the configuration error.
@@ -224,7 +224,7 @@ class AgentConfigurationError(AgentError):
 class AgentExecutionError(AgentError):
     """
     Raised when agent execution fails.
-    
+
     Attributes:
         agent_name (str): The name of the agent that failed.
         task (str): The description of the task that failed.
@@ -247,9 +247,12 @@ class ToolValidationError(AgentError):
         field (str): The name of the field that failed validation.
         reason (str): The reason for the validation failure.
     """
+
     def __init__(self, tool_name: str, field: str, reason: str):
         message = f"Validation failed for tool '{tool_name}' on field '{field}': {reason}"
-        super().__init__(message, context={"tool_name": tool_name, "field": field, "reason": reason})
+        super().__init__(
+            message, context={"tool_name": tool_name, "field": field, "reason": reason}
+        )
 
 
 class AuthorizationError(KickAIError):
@@ -263,7 +266,7 @@ class AuthorizationError(KickAIError):
 class InputValidationError(KickAIError):
     """
     Raised when general input validation fails.
-    
+
     Attributes:
         field (str): The name of the field that failed validation.
         value (str): The value that was provided.
@@ -314,7 +317,7 @@ class MatchError(KickAIError):
 class MatchNotFoundError(MatchError):
     """Raised when a match is not found."""
 
-    def __init__(self, match_id: str, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, match_id: str, context: dict[str, Any] | None = None):
         message = f"Match {match_id} not found"
         super().__init__(message, {"match_id": match_id, **(context or {})})
 
@@ -330,14 +333,14 @@ class MatchValidationError(MatchError):
 class AttendanceError(KickAIError):
     """Base exception for attendance-related errors."""
 
-    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, context: dict[str, Any] | None = None):
         super().__init__(message, context)
 
 
 class AttendanceNotFoundError(AttendanceError):
     """Raised when an attendance record is not found."""
 
-    def __init__(self, attendance_id: str, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, attendance_id: str, context: dict[str, Any] | None = None):
         message = f"Attendance record {attendance_id} not found"
         super().__init__(message, context)
 
@@ -353,14 +356,14 @@ class AttendanceValidationError(AttendanceError):
 class AvailabilityError(KickAIError):
     """Base exception for availability-related errors."""
 
-    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, context: dict[str, Any] | None = None):
         super().__init__(message, context)
 
 
 class AvailabilityNotFoundError(AvailabilityError):
     """Raised when an availability record is not found."""
 
-    def __init__(self, availability_id: str, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, availability_id: str, context: dict[str, Any] | None = None):
         message = f"Availability record {availability_id} not found"
         super().__init__(message, context)
 
@@ -432,7 +435,7 @@ class DatabaseOperationError(DatabaseError):
         super().__init__(message, {"operation": operation, "error": error})
 
 
-def create_error_context(operation: str, **kwargs) -> Dict[str, Any]:
+def create_error_context(operation: str, **kwargs) -> dict[str, Any]:
     """
     Create a standardized error context.
 
@@ -445,7 +448,7 @@ def create_error_context(operation: str, **kwargs) -> Dict[str, Any]:
     """
     context = {
         "operation": operation,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         **kwargs,
     }
     return context

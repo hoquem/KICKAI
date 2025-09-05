@@ -50,27 +50,23 @@ __all__ = [
     "IRepository",
     "IQueryRepository",
     "IBulkRepository",
-
     # Player interfaces
     "IPlayerReadRepository",
     "IPlayerWriteRepository",
     "IPlayerApprovalRepository",
     "IPlayerRepository",
-
     # Team interfaces
     "ITeamConfigRepository",
     "ITeamMemberReadRepository",
     "ITeamMemberWriteRepository",
     "ITeamRepository",
-
     # User interfaces
     "IUserRegistrationRepository",
     "IUserPermissionRepository",
     "IUserRepository",
-
     # Match interfaces
     "IMatchReadRepository",
     "IMatchWriteRepository",
     "IMatchAvailabilityRepository",
-    "IMatchRepository"
+    "IMatchRepository",
 ]

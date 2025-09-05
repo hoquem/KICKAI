@@ -1,4 +1,3 @@
-from typing import Optional
 from abc import ABC, abstractmethod
 
 from kickai.features.attendance_management.domain.entities.attendance import (
@@ -16,7 +15,7 @@ class AttendanceRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, attendance_id: str) -> Optional[Attendance]:
+    async def get_by_id(self, attendance_id: str) -> Attendance | None:
         """Get attendance record by ID."""
         pass
 
@@ -38,7 +37,7 @@ class AttendanceRepositoryInterface(ABC):
     @abstractmethod
     async def get_by_player_and_match(
         self, player_id: str, match_id: str, team_id: str
-    ) -> Optional[Attendance]:
+    ) -> Attendance | None:
         """Get attendance record for a specific player and match."""
         pass
 
@@ -58,6 +57,6 @@ class AttendanceRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_player_stats(self, player_id: str, team_id: str, year: Optional[int] = None) -> dict:
+    async def get_player_stats(self, player_id: str, team_id: str, year: int | None = None) -> dict:
         """Get attendance statistics for a player."""
         pass

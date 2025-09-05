@@ -5,20 +5,18 @@ Welcome message builder utilities.
 Provides standardized welcome message creation for the KICKAI system.
 """
 
-from typing import Optional
 from loguru import logger
 
-from kickai.core.enums import ChatType
 from kickai.agents.config.message_router_config import (
     SUCCESS_MESSAGES,
-    ERROR_MESSAGES,
 )
+from kickai.core.enums import ChatType
 
 
 class WelcomeMessageBuilder:
     """
     Standardized welcome message creation.
-    
+
     Builds appropriate welcome messages based on user context and chat type.
     """
 
@@ -47,7 +45,7 @@ class WelcomeMessageBuilder:
                 return SUCCESS_MESSAGES["WELCOME_MAIN"].format(
                     team_id=team_id, username=username, version=BOT_VERSION
                 )
-                
+
         except Exception as e:
             logger.error(f"❌ Error in get_unregistered_user_message: {e}")
             # Fallback to simple welcome message
@@ -116,10 +114,12 @@ class WelcomeMessageBuilder:
             if chat_type == ChatType.MAIN:
                 return SUCCESS_MESSAGES["REGULAR_MEMBER_WELCOME_MAIN"].format(username=username)
             elif chat_type == ChatType.LEADERSHIP:
-                return SUCCESS_MESSAGES["REGULAR_MEMBER_WELCOME_LEADERSHIP"].format(username=username)
+                return SUCCESS_MESSAGES["REGULAR_MEMBER_WELCOME_LEADERSHIP"].format(
+                    username=username
+                )
             else:
                 return SUCCESS_MESSAGES["REGULAR_MEMBER_WELCOME_DEFAULT"].format(username=username)
-                
+
         except Exception as e:
             logger.error(f"❌ Error in get_regular_member_welcome: {e}")
             # Fallback to simple welcome message
@@ -139,14 +139,14 @@ class WelcomeMessageBuilder:
         try:
             # ALL business logic here
             return SUCCESS_MESSAGES["TEAM_MEMBER_WELCOME"].format(member_name=member_name)
-            
+
         except Exception as e:
             logger.error(f"❌ Error in get_team_member_welcome: {e}")
             # Fallback to simple welcome message
             return f"👋 Welcome to the leadership team, {member_name}!"
 
     @staticmethod
-    def get_unrecognized_command_message(command: str, chat_type: ChatType) -> str:
+    async def get_unrecognized_command_message(command: str, chat_type: ChatType) -> str:
         """
         Get dynamic help message for unrecognized commands.
 
@@ -162,15 +162,15 @@ class WelcomeMessageBuilder:
             from kickai.features.shared.domain.tools.help_tools import help_response
 
             # Use dynamic help tailored to chat context; preserve emojis and formatting
-            # Convert telegram_id to string for the help tool (which expects string)
-            telegram_id_str = "0"  # Default for unregistered users
-            return help_response(
-                chat_type=chat_type.value,
-                telegram_id=telegram_id_str,
+            # Convert telegram_id to int for the help tool (which expects int)
+            telegram_id_int = 0  # Default for unregistered users
+            return await help_response(
+                telegram_id=telegram_id_int,
                 team_id="",  # Will be filled by the calling context
                 username="user",
+                chat_type=chat_type.value,
             )
-            
+
         except Exception as e:
             logger.error(f"❌ Error in get_unrecognized_command_message: {e}")
             # Minimal safe fallback

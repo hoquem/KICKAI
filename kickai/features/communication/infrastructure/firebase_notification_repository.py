@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 from kickai.core.firestore_constants import COLLECTION_NOTIFICATIONS
 
@@ -14,7 +14,7 @@ class FirebaseNotificationRepository:
         # TODO: Implement Firestore logic
         return notification.get("id", "mock_notification_id")
 
-    async def get_by_id(self, notification_id: str) -> Optional[Dict[str, Any]]:
+    async def get_by_id(self, notification_id: str) -> dict[str, Any] | None:
         # TODO: Implement Firestore logic
         return None
 

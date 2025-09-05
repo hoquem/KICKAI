@@ -1,6 +1,5 @@
-from typing import List, Optional
 import logging
-from datetime import datetime, time
+from datetime import datetime
 
 from kickai.core.exceptions import MatchError, MatchNotFoundError, create_error_context
 from kickai.features.match_management.domain.entities.match import Match, MatchResult, MatchStatus
@@ -28,7 +27,7 @@ class MatchService(IMatchService):
         time: str,
         location: str,
         competition: str = "League Match",
-        notes: Optional[str] = None,
+        notes: str | None = None,
         created_by: str = "",
         squad_size: int = 11,
     ) -> Match:
@@ -37,14 +36,20 @@ class MatchService(IMatchService):
             # Validate match date (must be at least 7 days in the future)
             now = datetime.utcnow()
             if date <= now:
-                raise MatchError("Match date must be in the future", create_error_context("create_match"))
+                raise MatchError(
+                    "Match date must be in the future", create_error_context("create_match")
+                )
 
             # Validate match time (between 9:00 AM and 8:00 PM)
             from datetime import time as dtime
+
             hh, mm = (time.split(":") + ["0"])[:2]
             mt = dtime(int(hh), int(mm))
             if mt < dtime(9, 0) or mt > dtime(20, 0):
-                raise MatchError("Match time must be between 9:00 AM and 8:00 PM", create_error_context("create_match"))
+                raise MatchError(
+                    "Match time must be between 9:00 AM and 8:00 PM",
+                    create_error_context("create_match"),
+                )
 
             # Validate venue
             if not location or not location.strip():
@@ -54,6 +59,7 @@ class MatchService(IMatchService):
             match_id = self.id_generator.generate_match_id(team_id, opponent, date)
 
             from datetime import time as dtime
+
             hh, mm = (time.split(":") + ["0"])[:2]
             match_time_obj = dtime(int(hh), int(mm))
             match = Match.create(
@@ -78,7 +84,7 @@ class MatchService(IMatchService):
             logger.error(f"Failed to create match: {e}")
             raise MatchError(f"Failed to create match: {e!s}", create_error_context("create_match"))
 
-    async def get_match(self, match_id: str) -> Optional[Match]:
+    async def get_match(self, match_id: str) -> Match | None:
         """Retrieves a match by its ID."""
         try:
             match = await self.match_repository.get_by_id(match_id)
@@ -88,10 +94,7 @@ class MatchService(IMatchService):
             raise MatchError(f"Failed to get match: {e!s}", create_error_context("get_match"))
 
     async def list_matches(
-        self,
-        team_id: str,
-        status: Optional[MatchStatus] = None,
-        limit: int = 10
+        self, team_id: str, status: MatchStatus | None = None, limit: int = 10
     ) -> list[Match]:
         """List matches for a team with optional status filter."""
         try:
@@ -109,7 +112,7 @@ class MatchService(IMatchService):
         """Get upcoming matches for a team."""
         try:
             # Repository mock in tests expects a single-arg call
-            if hasattr(self.match_repository.get_upcoming_matches, "__call__"):
+            if hasattr(self.match_repository.get_upcoming_matches, "_call_"):
                 try:
                     matches = await self.match_repository.get_upcoming_matches(team_id)  # type: ignore[arg-type]
                 except TypeError:
@@ -119,7 +122,10 @@ class MatchService(IMatchService):
             return matches
         except Exception as e:
             logger.error(f"Failed to get upcoming matches for team {team_id}: {e}")
-            raise MatchError(f"Failed to get upcoming matches: {e!s}", create_error_context("get_upcoming_matches"))
+            raise MatchError(
+                f"Failed to get upcoming matches: {e!s}",
+                create_error_context("get_upcoming_matches"),
+            )
 
     async def get_past_matches(self, team_id: str, limit: int = 10) -> list[Match]:
         """Get past matches for a team."""
@@ -128,7 +134,9 @@ class MatchService(IMatchService):
             return matches
         except Exception as e:
             logger.error(f"Failed to get past matches for team {team_id}: {e}")
-            raise MatchError(f"Failed to get past matches: {e!s}", create_error_context("get_past_matches"))
+            raise MatchError(
+                f"Failed to get past matches: {e!s}", create_error_context("get_past_matches")
+            )
 
     async def update_match(self, match_id: str, **updates) -> Match:
         """Updates an existing match."""
@@ -164,7 +172,9 @@ class MatchService(IMatchService):
         """Convenience method used in tests to update status directly."""
         match = await self.get_match(match_id)
         if not match:
-            raise MatchNotFoundError(f"Match not found: {match_id}", create_error_context("update_match_status"))
+            raise MatchNotFoundError(
+                f"Match not found: {match_id}", create_error_context("update_match_status")
+            )
         match.status = new_status
         updated_match = await self.match_repository.update(match)
         return updated_match
@@ -174,10 +184,10 @@ class MatchService(IMatchService):
         match_id: str,
         home_score: int,
         away_score: int,
-        scorers: Optional[List[str]] = None,
-        assists: Optional[List[str]] = None,
-        notes: Optional[str] = None,
-        recorded_by: str = ""
+        scorers: list[str] | None = None,
+        assists: list[str] | None = None,
+        notes: str | None = None,
+        recorded_by: str = "",
     ) -> Match:
         """Record the result of a match."""
         try:
@@ -196,7 +206,7 @@ class MatchService(IMatchService):
                 assists=assists or [],
                 notes=notes,
                 recorded_by=recorded_by,
-                recorded_at=datetime.utcnow()
+                recorded_at=datetime.utcnow(),
             )
 
             # Update match with result and status
@@ -204,24 +214,30 @@ class MatchService(IMatchService):
             match.status = MatchStatus.COMPLETED
 
             updated_match = await self.match_repository.update(match)
-            logger.info(f"Match result recorded for {updated_match.match_id}: {home_score}-{away_score}")
+            logger.info(
+                f"Match result recorded for {updated_match.match_id}: {home_score}-{away_score}"
+            )
             return updated_match
         except MatchNotFoundError:
             raise
         except Exception as e:
             logger.error(f"Failed to record match result for {match_id}: {e}")
-            raise MatchError(f"Failed to record match result: {e!s}", create_error_context("record_match_result"))
+            raise MatchError(
+                f"Failed to record match result: {e!s}", create_error_context("record_match_result")
+            )
 
     async def get_matches_by_date_range(
-        self,
-        team_id: str,
-        start_date: str,
-        end_date: str
+        self, team_id: str, start_date: str, end_date: str
     ) -> list[Match]:
         """Get matches within a date range."""
         try:
-            matches = await self.match_repository.get_matches_by_date_range(team_id, start_date, end_date)
+            matches = await self.match_repository.get_matches_by_date_range(
+                team_id, start_date, end_date
+            )
             return matches
         except Exception as e:
             logger.error(f"Failed to get matches in date range for team {team_id}: {e}")
-            raise MatchError(f"Failed to get matches in date range: {e!s}", create_error_context("get_matches_by_date_range"))
+            raise MatchError(
+                f"Failed to get matches in date range: {e!s}",
+                create_error_context("get_matches_by_date_range"),
+            )

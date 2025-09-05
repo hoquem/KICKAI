@@ -1,4 +1,3 @@
-from typing import Optional
 #!/usr/bin/env python3
 """
 Environment Variable Validation Check
@@ -10,8 +9,8 @@ and properly configured for the KICKAI system.
 import os
 from dataclasses import dataclass
 
-from loguru import logger
 from dotenv import load_dotenv
+from loguru import logger
 
 
 @dataclass
@@ -33,40 +32,37 @@ class EnvironmentValidator:
             "KICKAI_INVITE_SECRET_KEY",
             "AI_PROVIDER",
             "OLLAMA_BASE_URL",
-            "FIREBASE_PROJECT_ID"
+            "FIREBASE_PROJECT_ID",
         ]
 
         self.optional_vars = [
             "USE_MOCK_DATASTORE",
             "MOCK_TELEGRAM_BASE_URL",
             "MOCK_TELEGRAM_PORT",
-            "OLLAMA_MODEL"
+            "OLLAMA_MODEL",
         ]
 
         self.validation_rules = {
             "KICKAI_INVITE_SECRET_KEY": {
                 "min_length": 10,
-                "description": "Secret key for secure invite link generation"
+                "description": "Secret key for secure invite link generation",
             },
             "AI_PROVIDER": {
                 "allowed_values": ["ollama", "openai", "google", "google_gemini", "mock"],
-                "description": "AI provider for the system"
+                "description": "AI provider for the system",
             },
             "OLLAMA_BASE_URL": {
                 "pattern": r"^https?://",
-                "description": "Base URL for Ollama service"
+                "description": "Base URL for Ollama service",
             },
-            "FIREBASE_PROJECT_ID": {
-                "min_length": 5,
-                "description": "Firebase project identifier"
-            }
+            "FIREBASE_PROJECT_ID": {"min_length": 5, "description": "Firebase project identifier"},
         }
 
     def validate_environment(self) -> EnvironmentValidationResult:
         """Validate all environment variables."""
         # Load environment variables from .env file
         load_dotenv()
-        
+
         errors = []
         warnings = []
         missing_vars = []
@@ -95,7 +91,9 @@ class EnvironmentValidator:
                 if value:
                     validation_error = self._validate_variable(var_name, value)
                     if validation_error:
-                        warnings.append(f"Optional environment variable {var_name}: {validation_error}")
+                        warnings.append(
+                            f"Optional environment variable {var_name}: {validation_error}"
+                        )
 
             # Check for critical security issues
             security_issues = self._check_security_issues()
@@ -106,7 +104,7 @@ class EnvironmentValidator:
                 errors=errors,
                 warnings=warnings,
                 missing_vars=missing_vars,
-                invalid_vars=invalid_vars
+                invalid_vars=invalid_vars,
             )
 
         except Exception as e:
@@ -116,10 +114,10 @@ class EnvironmentValidator:
                 errors=[f"Environment validation failed: {e}"],
                 warnings=[],
                 missing_vars=[],
-                invalid_vars=[]
+                invalid_vars=[],
             )
 
-    def _validate_variable(self, var_name: str, value: str) -> Optional[str]:
+    def _validate_variable(self, var_name: str, value: str) -> str | None:
         """Validate a specific environment variable."""
         if var_name not in self.validation_rules:
             return None
@@ -137,6 +135,7 @@ class EnvironmentValidator:
         # Check pattern
         if "pattern" in rules:
             import re
+
             if not re.match(rules["pattern"], value):
                 return f"{var_name} must match pattern: {rules['pattern']}"
 
@@ -153,7 +152,9 @@ class EnvironmentValidator:
 
         # Check for default/development values in production
         ai_provider = os.getenv("AI_PROVIDER")
-        if ai_provider == "mock" and os.getenv("ENVIRONMENT") == "production": # Use ENVIRONMENT as defined in Settings
+        if (
+            ai_provider == "mock" and os.getenv("ENVIRONMENT") == "production"
+        ):  # Use ENVIRONMENT as defined in Settings
             issues.append("Mock AI provider should not be used in production")
 
         # Check for exposed credentials

@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Protocol, Dict
+from typing import Any, Protocol
 
 from loguru import logger
 
@@ -27,32 +27,36 @@ RETRY_DELAY_SECONDS = 60
 
 class CrewError(Exception):
     """Base exception for crew-related errors."""
+
     pass
 
 
 class CrewTimeoutError(CrewError):
     """Raised when crew execution times out."""
+
     pass
 
 
 class CrewHealthError(CrewError):
     """Raised when crew health check fails."""
+
     pass
 
 
 class CrewInitializationError(CrewError):
     """Raised when crew initialization fails."""
+
     pass
 
 
 class CrewProtocol(Protocol):
     """Protocol defining the interface for crew instances."""
-    
-    def execute_task(self, task_description: str, execution_context: Dict[str, Any]) -> str:
+
+    def execute_task(self, task_description: str, execution_context: dict[str, Any]) -> str:
         """Execute a task and return the result."""
         ...
-    
-    def health_check(self) -> Dict[str, Any]:
+
+    def health_check(self) -> dict[str, Any]:
         """Perform a health check and return status."""
         ...
 
@@ -78,8 +82,8 @@ class CrewMetrics:
     successful_requests: int
     failed_requests: int
     average_response_time: float
-    memory_usage: Dict[str, Any]
-    agent_health: Dict[str, bool]
+    memory_usage: dict[str, Any]
+    agent_health: dict[str, bool]
 
 
 class CrewLifecycleManager:
@@ -103,25 +107,18 @@ class CrewLifecycleManager:
     async def get_or_create_crew(self, team_id: str) -> Any:
         """
         Get an existing crew or create a new one for the team.
-
-        Args:
-            team_id: The team ID to get/create crew for
-
-        Returns:
-            TeamManagementSystem instance for the team
+        
+        Implements true persistent crew architecture - one crew per team that persists
+        across all requests to maintain memory continuity and optimize performance.
         """
-        # Check if crew already exists
+        # Return existing persistent crew if available
         if team_id in self._crews:
-            crew = self._crews[team_id]
-            if self._crew_status[team_id] == CrewStatus.ACTIVE:
-                logger.info(f"🔄 Reusing existing crew for team {team_id}")
-                return crew
-            elif self._crew_status[team_id] == CrewStatus.ERROR:
-                logger.warning(f"⚠️ Crew for team {team_id} in error state, recreating")
-                await self._shutdown_crew(team_id)
+            existing_crew = self._crews[team_id]
+            logger.debug(f"♻️ Reusing persistent crew for team {team_id}")
+            return existing_crew
 
-        # Create new crew
-        logger.info(f"🆕 Creating new crew for team {team_id}")
+        # Create new persistent crew only if doesn't exist
+        logger.info(f"🆕 Creating new persistent crew for team {team_id}")
         return await self._create_crew(team_id)
 
     async def _create_crew(self, team_id: str) -> Any:
@@ -186,7 +183,9 @@ class CrewLifecycleManager:
             metrics.last_activity = datetime.now()
 
             # Execute task with timeout
-            result = await self._execute_task_with_timeout(crew, team_id, task_description, execution_context)
+            result = await self._execute_task_with_timeout(
+                crew, team_id, task_description, execution_context
+            )
 
             # Update success metrics
             metrics.successful_requests += 1
@@ -209,26 +208,39 @@ class CrewLifecycleManager:
             # Always return a response, even on complete failure
             return self._generate_formatted_response(
                 title="🚨 System Error",
-                problem_summary=f"I'm experiencing technical difficulties right now. This is a system-level issue that needs attention.",
+                problem_summary="I'm experiencing technical difficulties right now. This is a system-level issue that needs attention.",
                 task_description=task_description,
                 suggestions=[
                     "Try again in a few minutes",
                     "Use basic commands like `/help` or `/info`",
-                    "Contact your team administrator if the problem persists"
+                    "Contact your team administrator if the problem persists",
                 ],
-                commands_to_show=["/help", "/info"]
+                commands_to_show=["/help", "/info"],
             )
 
-    def _generate_formatted_response(self, title: str, problem_summary: str, task_description: str, suggestions: list[str], commands_to_show: list[str]) -> str:
+    def _generate_formatted_response(
+        self,
+        title: str,
+        problem_summary: str,
+        task_description: str,
+        suggestions: list[str],
+        commands_to_show: list[str],
+    ) -> str:
         """Generates a formatted, user-friendly response for errors and fallbacks."""
-        
+
         suggestions_list = "\n".join([f"• {s}" for s in suggestions])
-        commands_list = "\n".join([f"• `{cmd}` - {desc}" for cmd, desc in {
-            "/help": "Show available commands",
-            "/info": "Show your information",
-            "/list": "List team members/players",
-            "/status": "Check status"
-        }.items() if cmd in commands_to_show])
+        commands_list = "\n".join(
+            [
+                f"• `{cmd}` - {desc}"
+                for cmd, desc in {
+                    "/help": "Show available commands",
+                    "/info": "Show your information",
+                    "/list": "List team members/players",
+                    "/status": "Check status",
+                }.items()
+                if cmd in commands_to_show
+            ]
+        )
 
         return f"""🤖 I was processing: "{task_description}"
 
@@ -244,36 +256,47 @@ class CrewLifecycleManager:
 
 If the problem persists, please contact your team administrator."""
 
-    async def _execute_task_with_timeout(self, crew: CrewProtocol, team_id: str, task_description: str, execution_context: Dict[str, Any]) -> str:
+    async def _execute_task_with_timeout(
+        self,
+        crew: CrewProtocol,
+        team_id: str,
+        task_description: str,
+        execution_context: dict[str, Any],
+    ) -> str:
         """
         Execute task with timeout handling and comprehensive error catching.
-        
+
         Args:
             crew: The crew instance to execute the task on
             team_id: The team ID
             task_description: The task description
             execution_context: The execution context
-            
+
         Returns:
             Task execution result
-            
+
         Raises:
             CrewTimeoutError: If task execution times out
             CrewError: For other crew-related errors
         """
         from kickai.core.constants.agent_constants import AgentConstants
+
         timeout_seconds = AgentConstants.CREW_MAX_EXECUTION_TIME
 
         try:
+            # With manager_llm: No agent tool clearing needed
+            # The manager_llm coordinates without tools, all agents remain workers
+
             # Execute CrewAI task with timeout - task description is already enhanced in crew_agents.py
             result = await asyncio.wait_for(
-                crew.execute_task(task_description, execution_context),
-                timeout=timeout_seconds
+                crew.execute_task(task_description, execution_context), timeout=timeout_seconds
             )
 
             # Check if result is empty or indicates failure
             if not result or result.strip() == "":
-                logger.warning(f"⚠️ Empty result from crew for team {team_id}, providing fallback response")
+                logger.warning(
+                    f"⚠️ Empty result from crew for team {team_id}, providing fallback response"
+                )
                 return self._generate_formatted_response(
                     title="🤔 I'm having trouble with this request.",
                     problem_summary="I was able to process your request, but couldn't generate a specific answer.",
@@ -281,25 +304,30 @@ If the problem persists, please contact your team administrator."""
                     suggestions=[
                         "Try rephrasing your question.",
                         "Use a more specific command like `/help` for assistance.",
-                        "Check if you're in the right chat (main vs leadership)."
+                        "Check if you're in the right chat (main vs leadership).",
                     ],
-                    commands_to_show=["/help", "/info", "/list", "/status"]
+                    commands_to_show=["/help", "/info", "/list", "/status"],
                 )
 
             return result
 
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             logger.error(f"⏰ Timeout after {timeout_seconds}s for team {team_id}")
-            raise CrewTimeoutError(f"Task execution timed out after {timeout_seconds} seconds for team {team_id}") from e
-            
+            raise CrewTimeoutError(
+                f"Task execution timed out after {timeout_seconds} seconds for team {team_id}"
+            ) from e
+
         except Exception as e:
             logger.error(f"❌ Crew execution failed for team {team_id}: {e}")
             import traceback
+
             logger.error(f"❌ Crew error traceback: {traceback.format_exc()}")
 
             # Check if it's a max iterations error
             if "Maximum iterations reached" in str(e) or "max_iter" in str(e).lower():
-                logger.warning(f"⚠️ Max iterations reached for team {team_id}, providing iteration limit response")
+                logger.warning(
+                    f"⚠️ Max iterations reached for team {team_id}, providing iteration limit response"
+                )
                 return self._generate_formatted_response(
                     title="⏱️ Processing Time Limit Reached",
                     problem_summary="I've reached the maximum number of processing steps for this request. This usually happens when the request is very complex or requires multiple tools.",
@@ -308,7 +336,7 @@ If the problem persists, please contact your team administrator."""
                         "Try breaking down your request into smaller parts.",
                         "Use specific commands instead of natural language.",
                     ],
-                    commands_to_show=["/help", "/info", "/list"]
+                    commands_to_show=["/help", "/info", "/list"],
                 )
 
             # For all other errors, raise as CrewError
@@ -324,10 +352,10 @@ If the problem persists, please contact your team administrator."""
         """Update agent health metrics."""
         health_status = crew.health_check()
         metrics.agent_health = health_status.get("agents", {})
-        
+
         # Handle memory usage - simplified TeamManagementSystem doesn't have team_memory
         try:
-            if hasattr(crew, 'team_memory') and crew.team_memory is not None:
+            if hasattr(crew, "team_memory") and crew.team_memory is not None:
                 metrics.memory_usage = {
                     "conversation_count": len(crew.team_memory._conversation_history),
                     "user_count": len(crew.team_memory._telegram_memories),
@@ -337,14 +365,14 @@ If the problem persists, please contact your team administrator."""
                 metrics.memory_usage = {
                     "conversation_count": 0,
                     "user_count": 0,
-                    "note": "Simplified system - memory tracking disabled"
+                    "note": "Simplified system - memory tracking disabled",
                 }
         except Exception as e:
             logger.warning(f"⚠️ Could not update memory metrics for team {team_id}: {e}")
             metrics.memory_usage = {
                 "conversation_count": 0,
                 "user_count": 0,
-                "error": "Memory metrics unavailable"
+                "error": "Memory metrics unavailable",
             }
 
     def _update_failure_metrics(self, team_id: str) -> None:
@@ -353,8 +381,6 @@ If the problem persists, please contact your team administrator."""
             metrics = self._crew_metrics[team_id]
             metrics.failed_requests += 1
             metrics.last_activity = datetime.now()
-
-
 
     async def _shutdown_crew(self, team_id: str):
         """Shutdown a crew for the specified team."""
@@ -374,6 +400,31 @@ If the problem persists, please contact your team administrator."""
 
         except Exception as e:
             logger.error(f"❌ Error shutting down crew for team {team_id}: {e}")
+
+    async def force_recreate_crew(self, team_id: str) -> Any:
+        """
+        Force recreation of a crew for configuration changes.
+
+        This method ensures that any cached crew is removed and a new one is created
+        with the latest configuration. Useful when the underlying crew configuration
+        has changed (e.g., manager agent fixes, tool updates, etc.).
+
+        Args:
+            team_id: The team ID to force recreate crew for
+
+        Returns:
+            Newly created TeamManagementSystem instance
+        """
+        logger.info(f"🔄 Force recreating crew for team {team_id}")
+
+        # Always shutdown existing crew regardless of status
+        if team_id in self._crews:
+            logger.info("🛑 Shutting down existing crew for configuration update")
+            await self._shutdown_crew(team_id)
+
+        # Create new crew with updated configuration
+        logger.info("🆕 Creating new crew with updated configuration")
+        return await self._create_crew(team_id)
 
     async def get_crew_status(self, team_id: str) -> CrewStatus | None:
         """Get the status of a crew for the specified team."""
@@ -458,7 +509,9 @@ If the problem persists, please contact your team administrator."""
             if metrics.last_activity < idle_threshold:
                 if self._crew_status[team_id] == CrewStatus.ACTIVE:
                     self._crew_status[team_id] = CrewStatus.IDLE
-                    logger.info(f"💤 Crew for team {team_id} is idle. Shutting down to conserve resources.")
+                    logger.info(
+                        f"💤 Crew for team {team_id} is idle. Shutting down to conserve resources."
+                    )
                     # Shut down the idle crew to free up memory and resources
                     await self._shutdown_crew(team_id)
 

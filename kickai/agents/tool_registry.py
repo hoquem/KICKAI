@@ -548,28 +548,20 @@ class ToolRegistry:
 
     def _register_essential_tools(self):
         """Register essential tools manually when auto-discovery fails."""
-        logger.info("🔧 Registering essential tools manually - using APPLICATION layer (Clean Architecture)")
+        logger.info(
+            "🔧 Registering essential tools manually - using APPLICATION layer (Clean Architecture)"
+        )
 
         # Import and register essential tools from APPLICATION layer (post-Clean Architecture migration)
         try:
             # System tools - APPLICATION LAYER
-            from kickai.features.shared.application.tools.system_tools import (
-                ping,
-                version,
-            )
-            from kickai.features.shared.application.tools.help_tools import (
-                help_response,
-                FINAL_HELP_RESPONSE,
-            )
-            from kickai.features.shared.application.tools.user_tools import get_user_status
-            
             # Communication tools - APPLICATION LAYER
             from kickai.features.communication.application.tools.communication_tools import (
                 send_announcement,
                 send_message,
                 send_poll,
             )
-            
+
             # Player tools - APPLICATION LAYER
             from kickai.features.player_registration.application.tools.player_tools import (
                 approve_player,
@@ -579,7 +571,15 @@ class ToolRegistry:
                 get_player_status,
                 list_team_members_and_players,
             )
-            
+            from kickai.features.shared.application.tools.help_tools import (
+                show_help_commands,
+                show_help_final,
+            )
+            from kickai.features.shared.application.tools.system_tools import (
+                check_system_ping,
+                check_system_version,
+            )
+
             # Team administration tools - APPLICATION LAYER
             from kickai.features.team_administration.application.tools.player_management_tools import (
                 add_player,
@@ -590,42 +590,42 @@ class ToolRegistry:
 
             # Register system tools - APPLICATION LAYER
             self.register_tool(
-                tool_id="ping",
+                tool_id="check_system_ping",
                 tool_type=ToolType.SYSTEM,
                 category=ToolCategory.CORE,
-                name="ping",
+                name="check_system_ping",
                 description="System connectivity test",
-                tool_function=ping,
+                tool_function=check_system_ping,
                 feature_module="shared",
             )
 
             self.register_tool(
-                tool_id="version",
+                tool_id="check_system_version",
                 tool_type=ToolType.SYSTEM,
                 category=ToolCategory.CORE,
-                name="version",
+                name="check_system_version",
                 description="System version information",
-                tool_function=version,
+                tool_function=check_system_version,
                 feature_module="shared",
             )
 
             self.register_tool(
-                tool_id="help_response",
+                tool_id="show_help_commands",
                 tool_type=ToolType.HELP,
                 category=ToolCategory.CORE,
-                name="help_response",
-                description="Comprehensive help response system",
-                tool_function=help_response,
+                name="show_help_commands",
+                description="Show comprehensive help and available commands",
+                tool_function=show_help_commands,
                 feature_module="shared",
             )
 
             self.register_tool(
-                tool_id="FINAL_HELP_RESPONSE",
+                tool_id="show_help_final",
                 tool_type=ToolType.HELP,
                 category=ToolCategory.CORE,
-                name="FINAL_HELP_RESPONSE",
-                description="Final help response tool for compatibility",
-                tool_function=FINAL_HELP_RESPONSE,
+                name="show_help_final",
+                description="Show final comprehensive help response",
+                tool_function=show_help_final,
                 feature_module="shared",
             )
 
@@ -660,34 +660,40 @@ class ToolRegistry:
                 feature_module="communication",
             )
 
-            # Register help tools
+            # Register additional help tools
+            from kickai.features.shared.application.tools.help_tools import (
+                get_system_commands,
+                show_help_usage,
+                show_help_welcome,
+            )
+
             self.register_tool(
-                tool_id="get_available_commands",
+                tool_id="show_help_usage",
                 tool_type=ToolType.HELP,
                 category=ToolCategory.CORE,
-                name="get_available_commands",
-                description="Get available commands for the current context",
-                tool_function=get_available_commands,
+                name="show_help_usage",
+                description="Show detailed usage help for a specific command",
+                tool_function=show_help_usage,
                 feature_module="shared",
             )
 
             self.register_tool(
-                tool_id="get_command_help",
+                tool_id="show_help_welcome",
                 tool_type=ToolType.HELP,
                 category=ToolCategory.CORE,
-                name="get_command_help",
-                description="Get help for a specific command",
-                tool_function=get_command_help,
+                name="show_help_welcome",
+                description="Show welcome message for new users",
+                tool_function=show_help_welcome,
                 feature_module="shared",
             )
 
             self.register_tool(
-                tool_id="get_welcome_message",
+                tool_id="get_system_commands",
                 tool_type=ToolType.HELP,
                 category=ToolCategory.CORE,
-                name="get_welcome_message",
-                description="Get welcome message for new users",
-                tool_function=get_welcome_message,
+                name="get_system_commands",
+                description="Get available system commands based on user context",
+                tool_function=get_system_commands,
                 feature_module="shared",
             )
 
@@ -815,20 +821,12 @@ class ToolRegistry:
                 feature_module="match_management",
             )
 
-            # Register user tools
-            self.register_tool(
-                tool_id="get_user_status",
-                tool_type=ToolType.SYSTEM,
-                category=ToolCategory.CORE,
-                name="get_user_status",
-                description="Get user status and information",
-                tool_function=get_user_status,
-                feature_module="shared",
+            # Register approve tools
+            from kickai.features.team_administration.application.tools.approve_tools import (
+                approve_user,
+                get_pending_users,
             )
 
-            # Register approve tools
-            from kickai.features.team_administration.application.tools.approve_tools import approve_user, get_pending_users
-            
             self.register_tool(
                 tool_id="approve_user",
                 tool_type=ToolType.TEAM_MANAGEMENT,

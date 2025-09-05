@@ -8,10 +8,9 @@ and testability across the agent system.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from kickai.core.enums import AgentRole
-from kickai.core.value_objects import EntityContext
 
 
 class IAgentResponse(ABC):
@@ -35,16 +34,17 @@ class IAgentOrchestrator(ABC):
 
     @abstractmethod
     async def process_message(
-        self,
-        message: str,
-        context: EntityContext
+        self, message: str, telegram_id: str, team_id: str, username: str, chat_type: str
     ) -> IAgentResponse:
         """
         Process a message using appropriate agents.
 
         Args:
             message: The user message to process
-            context: The entity context for the request
+            telegram_id: Requesting user's Telegram ID
+            team_id: Team identifier
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             Agent response with content and metadata
@@ -67,16 +67,17 @@ class IAgentRouter(ABC):
 
     @abstractmethod
     async def route_message(
-        self,
-        message: str,
-        context: EntityContext
+        self, message: str, telegram_id: str, team_id: str, username: str, chat_type: str
     ) -> IAgentResponse:
         """
         Route message to the most appropriate agent.
 
         Args:
             message: The user message
-            context: Entity context for routing decisions
+            telegram_id: Requesting user's Telegram ID
+            team_id: Team identifier
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             Response from the selected agent
@@ -85,16 +86,17 @@ class IAgentRouter(ABC):
 
     @abstractmethod
     def select_agent(
-        self,
-        message: str,
-        context: EntityContext
-    ) -> Optional[AgentRole]:
+        self, message: str, telegram_id: str, team_id: str, username: str, chat_type: str
+    ) -> AgentRole | None:
         """
         Select the most appropriate agent for a message.
 
         Args:
             message: The user message
-            context: Entity context for selection
+            telegram_id: Requesting user's Telegram ID
+            team_id: Team identifier
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             Selected agent role or None if no suitable agent
@@ -107,16 +109,17 @@ class IAgentSystem(ABC):
 
     @abstractmethod
     async def execute_task(
-        self,
-        task_description: str,
-        context: EntityContext
+        self, task_description: str, telegram_id: str, team_id: str, username: str, chat_type: str
     ) -> IAgentResponse:
         """
         Execute a task using this agent.
 
         Args:
             task_description: Description of the task to execute
-            context: Entity context for the task
+            telegram_id: Requesting user's Telegram ID
+            team_id: Team identifier
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             Agent response
@@ -148,15 +151,21 @@ class ICrewSystem(ABC):
     async def execute_with_crew(
         self,
         task_description: str,
-        context: EntityContext,
-        selected_agents: list[AgentRole] | None = None
+        telegram_id: str,
+        team_id: str,
+        username: str,
+        chat_type: str,
+        selected_agents: list[AgentRole] | None = None,
     ) -> IAgentResponse:
         """
         Execute task using CrewAI with selected agents.
 
         Args:
             task_description: Task to execute
-            context: Entity context
+            telegram_id: Requesting user's Telegram ID
+            team_id: Team identifier
+            username: Requesting user's username
+            chat_type: Chat type context
             selected_agents: Specific agents to use (optional)
 
         Returns:
@@ -170,7 +179,7 @@ class ICrewSystem(ABC):
         pass
 
     @abstractmethod
-    def get_agent_by_role(self, role: AgentRole) -> Optional[IAgentSystem]:
+    def get_agent_by_role(self, role: AgentRole) -> IAgentSystem | None:
         """Get agent instance by role."""
         pass
 
@@ -199,7 +208,7 @@ class ILifecycleManager(ABC):
         pass
 
     @abstractmethod
-    def get_agent_system(self, team_id: str) -> Optional[ICrewSystem]:
+    def get_agent_system(self, team_id: str) -> ICrewSystem | None:
         """
         Get the agent system for a team.
 
@@ -227,16 +236,17 @@ class IUserFlowHandler(ABC):
 
     @abstractmethod
     async def determine_user_flow(
-        self,
-        message: str,
-        context: EntityContext
+        self, message: str, telegram_id: str, team_id: str, username: str, chat_type: str
     ) -> str:
         """
         Determine the appropriate user flow for a message.
 
         Args:
             message: User message
-            context: Entity context
+            telegram_id: Requesting user's Telegram ID
+            team_id: Team identifier
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             User flow identifier
@@ -245,16 +255,17 @@ class IUserFlowHandler(ABC):
 
     @abstractmethod
     async def handle_unregistered_user(
-        self,
-        message: str,
-        context: EntityContext
+        self, message: str, telegram_id: str, team_id: str, username: str, chat_type: str
     ) -> IAgentResponse:
         """
         Handle messages from unregistered users.
 
         Args:
             message: User message
-            context: Entity context
+            telegram_id: Requesting user's Telegram ID
+            team_id: Team identifier
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             Response for unregistered user
@@ -269,14 +280,20 @@ class IContactHandler(ABC):
     async def handle_contact_share(
         self,
         contact_data: dict[str, Any],
-        context: EntityContext
+        telegram_id: str,
+        team_id: str,
+        username: str,
+        chat_type: str,
     ) -> IAgentResponse:
         """
         Handle contact sharing from Telegram.
 
         Args:
             contact_data: Contact information from Telegram
-            context: Entity context
+            telegram_id: Requesting user's Telegram ID
+            team_id: Team identifier
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             Response to contact sharing
@@ -284,10 +301,7 @@ class IContactHandler(ABC):
         pass
 
     @abstractmethod
-    def validate_contact_data(
-        self,
-        contact_data: dict[str, Any]
-    ) -> bool:
+    def validate_contact_data(self, contact_data: dict[str, Any]) -> bool:
         """
         Validate contact data structure.
 
@@ -305,16 +319,17 @@ class ICommandValidator(ABC):
 
     @abstractmethod
     def validate_command_for_chat(
-        self,
-        command: str,
-        context: EntityContext
+        self, command: str, telegram_id: str, team_id: str, username: str, chat_type: str
     ) -> bool:
         """
         Validate if command is allowed in the given context.
 
         Args:
             command: Command to validate
-            context: Entity context for validation
+            telegram_id: Requesting user's Telegram ID
+            team_id: Team identifier
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             True if command is valid for context
@@ -336,16 +351,17 @@ class ICommandValidator(ABC):
 
     @abstractmethod
     def get_validation_error_message(
-        self,
-        command: str,
-        context: EntityContext
+        self, command: str, telegram_id: str, team_id: str, username: str, chat_type: str
     ) -> str:
         """
         Get error message for invalid command.
 
         Args:
             command: Invalid command
-            context: Entity context
+            telegram_id: Requesting user's Telegram ID
+            team_id: Team identifier
+            username: Requesting user's username
+            chat_type: Chat type context
 
         Returns:
             Error message for user

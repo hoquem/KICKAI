@@ -6,7 +6,6 @@ This module provides the Firebase implementation of the team repository interfac
 """
 
 from datetime import datetime
-from typing import List, Optional, Union
 
 from loguru import logger
 
@@ -65,7 +64,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
     async def create(self, team: Team) -> Team:
         return await self.create_team(team)
 
-    async def get_team_by_id(self, team_id: str) -> Optional[Team]:
+    async def get_team_by_id(self, team_id: str) -> Team | None:
         """Get a team by ID."""
         try:
             doc = await self.database.get_document(
@@ -78,10 +77,10 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         except Exception:
             return None
 
-    async def get_by_id(self, team_id: str) -> Optional[Team]:
+    async def get_by_id(self, team_id: str) -> Team | None:
         return await self.get_team_by_id(team_id)
 
-    async def get_all_teams(self) -> List[Team]:
+    async def get_all_teams(self) -> list[Team]:
         """Get all teams."""
         try:
             docs = await self.database.query_documents(collection=self.collection_name)
@@ -90,7 +89,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         except Exception:
             return []
 
-    async def get_by_status(self, status: str) -> List[Team]:
+    async def get_by_status(self, status: str) -> list[Team]:
         try:
             docs = await self.database.query_documents(
                 collection=self.collection_name,
@@ -139,7 +138,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         except Exception:
             return False
 
-    async def list_all(self, limit: int = 100) -> List[Team]:
+    async def list_all(self, limit: int = 100) -> list[Team]:
         """List all teams with optional limit."""
         try:
             logger.info(f"🔍 [REPO] list_all called with limit={limit}")
@@ -157,6 +156,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         except Exception as e:
             logger.error(f"❌ [REPO] Error in list_all: {e}")
             import traceback
+
             logger.error(f"❌ [REPO] Traceback: {traceback.format_exc()}")
             return []
 
@@ -167,9 +167,14 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         # Generate member_id if not already set
         if not team_member.member_id:
             from kickai.utils.simple_id_generator import generate_simple_team_member_id
+
             existing_members = await self.get_team_members(team_member.team_id)
             existing_ids = {member.member_id for member in existing_members if member.member_id}
-            team_member.member_id = generate_simple_team_member_id(team_member.name or f"User{team_member.telegram_id}", team_member.team_id, existing_ids)
+            team_member.member_id = generate_simple_team_member_id(
+                team_member.name or f"User{team_member.telegram_id}",
+                team_member.team_id,
+                existing_ids,
+            )
 
         team_member_data = team_member.to_dict()
 
@@ -182,7 +187,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
         return team_member
 
-    async def get_team_members(self, team_id: str) -> List[TeamMember]:
+    async def get_team_members(self, team_id: str) -> list[TeamMember]:
         """Get all members of a team."""
         try:
             docs = await self.database.query_documents(
@@ -195,23 +200,24 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             logger.error(f"❌ [REPO] Error getting team members: {e}")
             return []
 
-    async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:
+    async def get_team_members_by_team(self, team_id: str) -> list[TeamMember]:
         """Get all members of a team (alias for get_team_members for compatibility)."""
         return await self.get_team_members(team_id)
 
     async def get_team_member_by_telegram_id(
-        self, team_id: str, telegram_id: Union[str, int]
-    ) -> Optional[TeamMember]:
+        self, team_id: str, telegram_id: str | int
+    ) -> TeamMember | None:
         """Get a team member by Telegram ID."""
         try:
             # Normalize telegram_id to handle both string and integer inputs
             from kickai.utils.telegram_id_converter import normalize_telegram_id_for_query
+
             normalized_telegram_id = normalize_telegram_id_for_query(telegram_id)
-            
+
             if normalized_telegram_id is None:
                 logger.warning(f"❌ Invalid telegram_id format: {telegram_id}")
                 return None
-            
+
             docs = await self.database.query_documents(
                 collection=get_team_members_collection(team_id),
                 filters=[
@@ -221,15 +227,28 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             )
 
             if docs:
-                return self._doc_to_team_member(docs[0])
-            return None
+                logger.info(
+                    f"✅ [REPO] Found {len(docs)} team member(s) for telegram_id {telegram_id}"
+                )
+                logger.debug(f"   Raw data: {docs[0]}")
+                team_member = self._doc_to_team_member(docs[0])
+                logger.info(
+                    f"   Converted to: {team_member.name} ({team_member.role}) - Admin: {team_member.is_admin}"
+                )
+                return team_member
+            else:
+                logger.warning(
+                    f"⚠️ [REPO] No team members found for telegram_id {telegram_id} in team {team_id}"
+                )
+                return None
         except Exception as e:
-            logger.error(f"❌ [REPO] Error getting team member by telegram_id: {e}")
+            logger.error(f"❌ [REPO] Error getting team member by telegram_id {telegram_id}: {e}")
+            logger.error(
+                f"   Team ID: {team_id}, Collection: {get_team_members_collection(team_id)}"
+            )
             return None
 
-    async def get_team_member_by_phone(
-        self, phone: str, team_id: str
-    ) -> Optional[TeamMember]:
+    async def get_team_member_by_phone(self, phone: str, team_id: str) -> TeamMember | None:
         """Get a team member by phone number."""
         try:
             docs = await self.database.query_documents(
@@ -247,9 +266,9 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             logger.error(f"❌ [REPO] Error getting team member by phone: {e}")
             return None
 
-    async def get_team_member_by_id(self, member_id: str, team_id: str = None) -> Optional[TeamMember]:
+    async def get_team_member_by_id(self, member_id: str, team_id: str = None) -> TeamMember | None:
         """Get a team member by their member ID.
-        
+
         Args:
             member_id: The member ID to search for
             team_id: Optional team ID to narrow the search. If not provided, searches all teams.
@@ -259,38 +278,34 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             if team_id:
                 try:
                     doc = await self.database.get_document(
-                        collection=get_team_members_collection(team_id),
-                        document_id=member_id
+                        collection=get_team_members_collection(team_id), document_id=member_id
                     )
                     if doc:
                         return self._doc_to_team_member(doc)
                 except Exception:
                     pass  # Continue to broader search
-            
+
             # If not found in specific team or no team_id provided, search all teams
             # Get list of all teams to search their member collections
             teams = await self.get_all_teams()
-            
+
             for team in teams:
                 try:
                     doc = await self.database.get_document(
-                        collection=get_team_members_collection(team.id),
-                        document_id=member_id
+                        collection=get_team_members_collection(team.id), document_id=member_id
                     )
                     if doc:
                         return self._doc_to_team_member(doc)
                 except Exception:
                     continue  # Try next team
-            
+
             return None
-            
+
         except Exception as e:
             logger.error(f"❌ [REPO] Error getting team member by ID {member_id}: {e}")
             return None
 
-    async def get_team_members_by_status(
-        self, team_id: str, status: str
-    ) -> List[TeamMember]:
+    async def get_team_members_by_status(self, team_id: str, status: str) -> list[TeamMember]:
         """Get team members by status."""
         try:
             docs = await self.database.query_documents(
@@ -350,7 +365,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         # Check settings fallback for backward compatibility
         main_chat_id = doc.get("main_chat_id") or settings.get("main_chat_id")
         leadership_chat_id = doc.get("leadership_chat_id") or settings.get("leadership_chat_id")
-        
+
         team = Team(
             id=doc.get("id"),
             name=doc.get("name"),
@@ -384,6 +399,10 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
         telegram_id = doc.get("telegram_id")
 
+        # Determine if user is admin based on roles array or is_admin field
+        roles = doc.get("roles", [])
+        is_admin = doc.get("is_admin", False) or "admin" in roles
+
         return TeamMember(
             team_id=doc.get("team_id", ""),
             telegram_id=telegram_id,
@@ -391,9 +410,9 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             name=doc.get("name"),
             username=doc.get("username"),
             role=doc.get("role", "Team Member"),
-            is_admin=doc.get("is_admin", False),
+            is_admin=is_admin,
             status=doc.get("status", "active"),
-            phone_number=doc.get("phone_number"),
+            phone_number=doc.get("phone_number") or doc.get("phone"),  # Handle both field names
             email=doc.get("email"),
             emergency_contact_name=doc.get("emergency_contact_name"),
             emergency_contact_phone=doc.get("emergency_contact_phone"),

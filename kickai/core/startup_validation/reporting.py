@@ -6,7 +6,7 @@ This module provides reporting structures for startup validation results.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 from kickai.core.enums import CheckCategory, CheckStatus
 
@@ -21,9 +21,9 @@ class CheckResult:
     category: CheckCategory
     status: CheckStatus
     message: str
-    details: Optional[Dict[str, Any]] = None
-    duration_ms: Optional[float] = None
-    error: Optional[Exception] = None
+    details: dict[str, Any] | None = None
+    duration_ms: float | None = None
+    error: Exception | None = None
 
 
 @dataclass

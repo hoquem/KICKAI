@@ -6,26 +6,26 @@ Handles user registration status checking for the KICKAI system.
 """
 
 import asyncio
-from typing import Optional
+
 from loguru import logger
 
-from kickai.core.enums import ChatType
-from kickai.core.types import UserFlowType
 from kickai.agents.config.message_router_config import (
-    DEFAULT_TIMEOUT_SECONDS,
+    DEFAULT_EXPONENTIAL_BACKOFF_FACTOR,
     DEFAULT_RETRY_ATTEMPTS,
     DEFAULT_RETRY_DELAY,
-    DEFAULT_EXPONENTIAL_BACKOFF_FACTOR,
+    DEFAULT_TIMEOUT_SECONDS,
     ERROR_MESSAGES,
-    WARNING_MESSAGES,
     LOG_MESSAGES,
+    WARNING_MESSAGES,
 )
+from kickai.core.enums import ChatType
+from kickai.core.types import UserFlowType
 
 
 class UserRegistrationChecker:
     """
     Handles user registration status checking.
-    
+
     Determines if users are registered as players or team members.
     """
 
@@ -58,6 +58,7 @@ class UserRegistrationChecker:
             # Validate that required services are available
             try:
                 from kickai.utils.dependency_utils import validate_required_services
+
                 validate_required_services("PlayerService", "TeamService")
             except RuntimeError as e:
                 logger.critical(ERROR_MESSAGES["SERVICE_UNAVAILABLE"].format(error=e))
@@ -68,6 +69,7 @@ class UserRegistrationChecker:
             for attempt in range(max_retries):
                 try:
                     from kickai.utils.dependency_utils import get_player_service, get_team_service
+
                     player_service = get_player_service()
                     team_service = get_team_service()
                     break
@@ -132,13 +134,15 @@ class UserRegistrationChecker:
                 if (is_player or is_team_member)
                 else UserFlowType.UNREGISTERED_USER
             )
-            
+
         except Exception as e:
             logger.error(f"❌ Error in check_user_registration_status: {e}")
             return UserFlowType.UNREGISTERED_USER
 
     @staticmethod
-    async def get_detailed_registration_status(telegram_id: int, team_id: str) -> tuple[bool, bool, bool]:
+    async def get_detailed_registration_status(
+        telegram_id: int, team_id: str
+    ) -> tuple[bool, bool, bool]:
         """
         Get detailed registration status for a user.
 
@@ -174,7 +178,9 @@ class UserRegistrationChecker:
 
         if team_service:
             try:
-                team_member = await team_service.get_team_member_by_telegram_id(team_id, telegram_id)
+                team_member = await team_service.get_team_member_by_telegram_id(
+                    team_id, telegram_id
+                )
                 is_team_member = team_member is not None
                 logger.debug(f"🔍 Team member check for {telegram_id}: {is_team_member}")
             except Exception as e:
@@ -238,7 +244,7 @@ class UserRegistrationChecker:
                 )
                 # This will be handled by the calling context
                 return None
-                
+
         except Exception as e:
             logger.error(f"❌ Error in check_command_availability: {e}")
             # This will be handled by the calling context

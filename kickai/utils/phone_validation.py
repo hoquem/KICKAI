@@ -8,7 +8,7 @@ using the phonenumbers library for robust international phone number handling.
 
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     import phonenumbers
@@ -33,8 +33,8 @@ class PhoneValidationResult:
     normalized_number: str
     country_code: str
     national_number: str
-    number_type: Optional[str] = None
-    error_message: Optional[str] = None
+    number_type: str | None = None
+    error_message: str | None = None
     is_mobile: bool = False
     is_fixed_line: bool = False
 
@@ -59,7 +59,7 @@ class PhoneValidator:
         if not PHONENUMBERS_AVAILABLE:
             logger.warning("⚠️ phonenumbers library not available, using fallback validation")
 
-    def validate_phone_number(self, phone: str, region: Optional[str] = None) -> PhoneValidationResult:
+    def validate_phone_number(self, phone: str, region: str | None = None) -> PhoneValidationResult:
         """
         Validate and normalize a phone number.
 
@@ -144,7 +144,7 @@ class PhoneValidator:
                 error_message=f"Validation error: {e!s}",
             )
 
-    def normalize_phone_number(self, phone: str, region: Optional[str] = None) -> str:
+    def normalize_phone_number(self, phone: str, region: str | None = None) -> str:
         """
         Normalize a phone number to international format.
 
@@ -158,7 +158,7 @@ class PhoneValidator:
         result = self.validate_phone_number(phone, region)
         return result.normalized_number if result.is_valid else ""
 
-    def get_phone_variants(self, phone: str, region: Optional[str] = None) -> List[str]:
+    def get_phone_variants(self, phone: str, region: str | None = None) -> list[str]:
         """
         Get possible variants of a phone number for flexible matching.
 
@@ -215,7 +215,7 @@ class PhoneValidator:
 
         return list(set(variants))  # Remove duplicates
 
-    def is_mobile_number(self, phone: str, region: Optional[str] = None) -> bool:
+    def is_mobile_number(self, phone: str, region: str | None = None) -> bool:
         """
         Check if a phone number is a mobile number.
 
@@ -229,7 +229,7 @@ class PhoneValidator:
         result = self.validate_phone_number(phone, region)
         return result.is_mobile
 
-    def get_country_info(self, phone: str, region: Optional[str] = None) -> Dict[str, Any]:
+    def get_country_info(self, phone: str, region: str | None = None) -> dict[str, Any]:
         """
         Get information about the country of a phone number.
 
@@ -308,13 +308,17 @@ class PhoneValidator:
                 normalized_number="",
                 country_code="",
                 national_number="",
-                error_message=ValidationConstants.PHONE_TOO_SHORT_MSG.format(min=LimitConstants.MIN_PHONE_DIGITS),
+                error_message=ValidationConstants.PHONE_TOO_SHORT_MSG.format(
+                    min=LimitConstants.MIN_PHONE_DIGITS
+                ),
             )
 
         # Basic normalization
         if phone.startswith("+"):
             normalized = phone
-            country_code = phone[:3] if phone.startswith(ValidationConstants.UK_COUNTRY_CODE) else phone[:4]
+            country_code = (
+                phone[:3] if phone.startswith(ValidationConstants.UK_COUNTRY_CODE) else phone[:4]
+            )
         else:
             # Assume UK number
             normalized = f"{ValidationConstants.UK_COUNTRY_CODE}{phone.lstrip('0')}"
@@ -393,7 +397,7 @@ def get_phone_validator() -> PhoneValidator:
     return _phone_validator
 
 
-def validate_phone_number(phone: str, region: Optional[str] = None) -> PhoneValidationResult:
+def validate_phone_number(phone: str, region: str | None = None) -> PhoneValidationResult:
     """
     Validate a phone number using the global validator.
 
@@ -408,7 +412,7 @@ def validate_phone_number(phone: str, region: Optional[str] = None) -> PhoneVali
     return validator.validate_phone_number(phone, region)
 
 
-def normalize_phone_number(phone: str, region: Optional[str] = None) -> str:
+def normalize_phone_number(phone: str, region: str | None = None) -> str:
     """
     Normalize a phone number using the global validator.
 
@@ -423,7 +427,7 @@ def normalize_phone_number(phone: str, region: Optional[str] = None) -> str:
     return validator.normalize_phone_number(phone, region)
 
 
-def get_phone_variants(phone: str, region: Optional[str] = None) -> List[str]:
+def get_phone_variants(phone: str, region: str | None = None) -> list[str]:
     """
     Get phone number variants using the global validator.
 
@@ -438,7 +442,7 @@ def get_phone_variants(phone: str, region: Optional[str] = None) -> List[str]:
     return validator.get_phone_variants(phone, region)
 
 
-def is_mobile_number(phone: str, region: Optional[str] = None) -> bool:
+def is_mobile_number(phone: str, region: str | None = None) -> bool:
     """
     Check if a phone number is a mobile number.
 

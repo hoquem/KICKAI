@@ -19,6 +19,7 @@ class MatchManagementAgent:
 
     def __init__(self):
         from kickai.core.dependency_container import get_container
+
         container = get_container()
         self.match_service = container.get_service(MatchService)
         if not self.match_service:

@@ -1,4 +1,3 @@
-from typing import Optional
 #!/usr/bin/env python3
 """
 Centralized Permission Service for KICKAI
@@ -14,9 +13,6 @@ from kickai.core.enums import ChatType, PermissionLevel
 from kickai.database.firebase_client import FirebaseClient
 
 # TeamMemberService removed - using mock service instead
-from kickai.features.team_administration.domain.services.chat_role_assignment_service import (
-    ChatRoleAssignmentService,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +25,9 @@ class PermissionContext:
     team_id: str
     chat_id: str
     chat_type: ChatType
-    username: Optional[str] = None
+    username: str | None = None
 
-    def __post_init__(self):
+    def _post_init_(self):
         if self.chat_type is None:
             self.chat_type = self._determine_chat_type()
 
@@ -61,43 +57,65 @@ class UserPermissions:
 class PermissionService:
     """Centralized service for all permission checking."""
 
-    def __init__(self, firebase_client: FirebaseClient = None):
-        self.firebase_client = firebase_client
-        if firebase_client:
-            self.chat_role_service = ChatRoleAssignmentService(firebase_client)
-        else:
-            # Use mock chat role service when firebase_client is None
-            self.chat_role_service = self._create_mock_chat_role_service()
+    def __init__(self, database):
+        """Initialize the permission service."""
+        self.database = database
 
-        # Get services from dependency container using interfaces
-        try:
-            from kickai.core.dependency_container import get_service
-            from kickai.features.player_registration.domain.interfaces.player_service_interface import (
-                IPlayerService,
-            )
-            from kickai.features.team_administration.domain.interfaces.team_service_interface import (
-                ITeamService,
-            )
-            from kickai.features.team_administration.domain.interfaces.team_member_service_interface import (
-                ITeamMemberService,
-            )
+        # Don't try to get services during initialization - they might not be ready yet
+        # Instead, lazy-load them when needed
+        self._player_service = None
+        self._team_service = None
+        self._team_member_service = None
 
-            self.player_service = get_service(IPlayerService)
-            self.team_service = get_service(ITeamService)
-            self.team_member_service = get_service(ITeamMemberService)
+        logger.info("✅ PermissionService initialized (lazy dependency loading)")
 
-        except (RuntimeError, KeyError) as e:
-            from kickai.features.system_infrastructure.domain.exceptions import (
-                PermissionServiceUnavailableError
-            )
-            logger.warning(f"⚠️ Could not get services from dependency container: {e}")
-            raise PermissionServiceUnavailableError(
-                f"Failed to initialize permission service dependencies: {e}"
-            ) from e
-            self.team_service = None
-            self.team_member_service = self._create_mock_team_member_service()
+    def _get_player_service(self):
+        """Lazy-load player service when needed."""
+        if self._player_service is None:
+            try:
+                from kickai.core.dependency_container import get_container
+                from kickai.features.player_registration.domain.interfaces.player_service_interface import (
+                    IPlayerService,
+                )
 
-        logger.info("✅ PermissionService initialized")
+                container = get_container()
+                self._player_service = container.get_service(IPlayerService)
+            except Exception as e:
+                logger.warning(f"⚠️ Could not get PlayerService: {e}")
+                self._player_service = None
+        return self._player_service
+
+    def _get_team_service(self):
+        """Lazy-load team service when needed."""
+        if self._team_service is None:
+            try:
+                from kickai.core.dependency_container import get_container
+                from kickai.features.team_administration.domain.interfaces.team_service_interface import (
+                    ITeamService,
+                )
+
+                container = get_container()
+                self._team_service = container.get_service(ITeamService)
+            except Exception as e:
+                logger.warning(f"⚠️ Could not get TeamService: {e}")
+                self._team_service = None
+        return self._team_service
+
+    def _get_team_member_service(self):
+        """Lazy-load team member service when needed."""
+        if self._team_member_service is None:
+            try:
+                from kickai.core.dependency_container import get_container
+                from kickai.features.team_administration.domain.interfaces.team_member_service_interface import (
+                    ITeamMemberService,
+                )
+
+                container = get_container()
+                self._team_member_service = container.get_service(ITeamMemberService)
+            except Exception as e:
+                logger.warning(f"⚠️ Could not get TeamMemberService: {e}")
+                self._team_member_service = None
+        return self._team_member_service
 
     def _create_mock_team_member_service(self):
         """Create a mock team member service for fallback."""
@@ -133,7 +151,7 @@ class PermissionService:
         """
         try:
             # Get team member information
-            team_member = await self.team_member_service.get_team_member_by_telegram_id(
+            team_member = await self._get_team_member_service().get_team_member_by_telegram_id(
                 telegram_id, team_id
             )
 
@@ -146,7 +164,7 @@ class PermissionService:
                 is_team_member = "team_member" in roles
 
                 # Check if this is the first user
-                is_first_user = await self.team_member_service.is_first_user(team_id)
+                is_first_user = await self._get_team_member_service().is_first_user(team_id)
 
                 return UserPermissions(
                     telegram_id=telegram_id,
@@ -177,6 +195,7 @@ class PermissionService:
 
         except (RuntimeError, AttributeError, KeyError) as e:
             from kickai.features.system_infrastructure.domain.exceptions import UserNotFoundError
+
             logger.error(f"Error getting user permissions for {telegram_id}: {e}")
             raise UserNotFoundError(telegram_id, team_id) from e
             # Return default permissions on error
@@ -236,6 +255,7 @@ class PermissionService:
 
         except (RuntimeError, AttributeError, KeyError) as e:
             from kickai.features.system_infrastructure.domain.exceptions import PermissionCheckError
+
             logger.error(f"Error checking command permissions: {e}")
             raise PermissionCheckError(f"Failed to check permissions: {e}") from e
 
@@ -369,15 +389,17 @@ Your Role: {", ".join(user_perms.roles) if user_perms.roles else "None"}"""
 
     async def is_first_user(self, team_id: str) -> bool:
         """Check if this would be the first user in the team."""
-        return await self.team_member_service.is_first_user(team_id)
+        return await self._get_team_member_service().is_first_user(team_id)
 
     async def promote_to_admin(self, telegram_id: str, team_id: str, promoted_by: str) -> bool:
         """Promote a user to admin role (only by existing admin)."""
-        return await self.team_member_service.promote_to_admin(telegram_id, team_id, promoted_by)
+        return await self._get_team_member_service().promote_to_admin(
+            telegram_id, team_id, promoted_by
+        )
 
-    async def handle_last_admin_leaving(self, team_id: str) -> Optional[str]:
+    async def handle_last_admin_leaving(self, team_id: str) -> str | None:
         """Handle when the last admin leaves - promote longest-tenured leadership member."""
-        return await self.team_member_service.handle_last_admin_leaving(team_id)
+        return await self._get_team_member_service().handle_last_admin_leaving(team_id)
 
     async def is_user_registered(self, context: PermissionContext) -> bool:
         """Check if a user is already registered in the system."""
@@ -390,7 +412,7 @@ Your Role: {", ".join(user_perms.roles) if user_perms.roles else "None"}"""
 
 
 # Global instance for easy access
-_permission_service: Optional[PermissionService] = None
+_permission_service: PermissionService | None = None
 
 
 def get_permission_service(firebase_client: FirebaseClient = None) -> PermissionService:

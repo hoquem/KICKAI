@@ -24,17 +24,18 @@ Right now, managing a football team involves:
 - ❌ Time-consuming administrative tasks
 
 **With KICKAI, it becomes:**
-- ✅ Natural conversations with AI: "Can you play Saturday?"
-- ✅ Automatic payment processing and reminders
-- ✅ AI-powered optimal squad selection
-- ✅ Complete player database with intelligent insights
+- ✅ Natural conversations with AI: "Can you play Saturday?" - CrewAI understands intent
+- ✅ Semantic tool selection: AI automatically picks the right tools for each request
+- ✅ Intelligent parameter handling: `telegram_username` vs `username` clarity
+- ✅ Self vs lookup patterns: `/myinfo` vs `/info John` handled semantically  
+- ✅ Complete automation through CrewAI semantic understanding
 - ✅ Everything automated, organized, and effortless
 
 ---
 
 ## 🏗️ **System Architecture Overview**
 
-KICKAI is built using **cutting-edge AI agent architecture** with CrewAI - think of it as having 5 specialized AI assistants working together seamlessly.
+KICKAI is built using **cutting-edge CrewAI semantic tool architecture** - think of it as having 5 specialized AI assistants with intelligent tool selection working together seamlessly through semantic understanding.
 
 ### **High-Level System Architecture**
 

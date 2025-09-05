@@ -1,4 +1,3 @@
-from typing import Optional
 import logging
 
 from kickai.core.exceptions import AvailabilityError, create_error_context
@@ -26,7 +25,7 @@ class AvailabilityService:
         match_id: str,
         player_id: str,
         status: AvailabilityStatus,
-        reason: Optional[str] = None,
+        reason: str | None = None,
     ) -> Availability:
         """Mark player availability for a match."""
         try:
@@ -38,8 +37,12 @@ class AvailabilityService:
             if existing_availability:
                 # Update existing availability
                 existing_availability.update(status, reason, player_id)
-                updated_availability = await self.availability_repository.update(existing_availability)
-                logger.info(f"Updated availability for player {player_id} in match {match_id}: {status.value}")
+                updated_availability = await self.availability_repository.update(
+                    existing_availability
+                )
+                logger.info(
+                    f"Updated availability for player {player_id} in match {match_id}: {status.value}"
+                )
                 return updated_availability
             else:
                 # Create new availability
@@ -53,26 +56,32 @@ class AvailabilityService:
                 )
 
                 created_availability = await self.availability_repository.create(availability)
-                logger.info(f"Created availability for player {player_id} in match {match_id}: {status.value}")
+                logger.info(
+                    f"Created availability for player {player_id} in match {match_id}: {status.value}"
+                )
                 return created_availability
 
         except Exception as e:
-            logger.error(f"Failed to mark availability for player {player_id} in match {match_id}: {e}")
+            logger.error(
+                f"Failed to mark availability for player {player_id} in match {match_id}: {e}"
+            )
             raise AvailabilityError(
-                f"Failed to mark availability: {e!s}",
-                create_error_context("mark_availability")
+                f"Failed to mark availability: {e!s}", create_error_context("mark_availability")
             )
 
-    async def get_availability(self, match_id: str, player_id: str) -> Optional[Availability]:
+    async def get_availability(self, match_id: str, player_id: str) -> Availability | None:
         """Get availability for a specific match and player."""
         try:
-            availability = await self.availability_repository.get_by_match_and_player(match_id, player_id)
+            availability = await self.availability_repository.get_by_match_and_player(
+                match_id, player_id
+            )
             return availability
         except Exception as e:
-            logger.error(f"Failed to get availability for player {player_id} in match {match_id}: {e}")
+            logger.error(
+                f"Failed to get availability for player {player_id} in match {match_id}: {e}"
+            )
             raise AvailabilityError(
-                f"Failed to get availability: {e!s}",
-                create_error_context("get_availability")
+                f"Failed to get availability: {e!s}", create_error_context("get_availability")
             )
 
     async def list_match_availability(self, match_id: str) -> list[Availability]:
@@ -84,7 +93,7 @@ class AvailabilityService:
             logger.error(f"Failed to get availability for match {match_id}: {e}")
             raise AvailabilityError(
                 f"Failed to get match availability: {e!s}",
-                create_error_context("list_match_availability")
+                create_error_context("list_match_availability"),
             )
 
     async def get_player_history(self, player_id: str, limit: int = 10) -> list[Availability]:
@@ -95,44 +104,48 @@ class AvailabilityService:
         except Exception as e:
             logger.error(f"Failed to get availability history for player {player_id}: {e}")
             raise AvailabilityError(
-                f"Failed to get player history: {e!s}",
-                create_error_context("get_player_history")
+                f"Failed to get player history: {e!s}", create_error_context("get_player_history")
             )
 
     async def get_available_players(self, match_id: str) -> list[Availability]:
         """Get all available players for a match."""
         try:
-            availabilities = await self.availability_repository.get_by_status(match_id, AvailabilityStatus.AVAILABLE)
+            availabilities = await self.availability_repository.get_by_status(
+                match_id, AvailabilityStatus.AVAILABLE
+            )
             return availabilities
         except Exception as e:
             logger.error(f"Failed to get available players for match {match_id}: {e}")
             raise AvailabilityError(
                 f"Failed to get available players: {e!s}",
-                create_error_context("get_available_players")
+                create_error_context("get_available_players"),
             )
 
     async def get_unavailable_players(self, match_id: str) -> list[Availability]:
         """Get all unavailable players for a match."""
         try:
-            availabilities = await self.availability_repository.get_by_status(match_id, AvailabilityStatus.UNAVAILABLE)
+            availabilities = await self.availability_repository.get_by_status(
+                match_id, AvailabilityStatus.UNAVAILABLE
+            )
             return availabilities
         except Exception as e:
             logger.error(f"Failed to get unavailable players for match {match_id}: {e}")
             raise AvailabilityError(
                 f"Failed to get unavailable players: {e!s}",
-                create_error_context("get_unavailable_players")
+                create_error_context("get_unavailable_players"),
             )
 
     async def get_maybe_players(self, match_id: str) -> list[Availability]:
         """Get all maybe players for a match."""
         try:
-            availabilities = await self.availability_repository.get_by_status(match_id, AvailabilityStatus.MAYBE)
+            availabilities = await self.availability_repository.get_by_status(
+                match_id, AvailabilityStatus.MAYBE
+            )
             return availabilities
         except Exception as e:
             logger.error(f"Failed to get maybe players for match {match_id}: {e}")
             raise AvailabilityError(
-                f"Failed to get maybe players: {e!s}",
-                create_error_context("get_maybe_players")
+                f"Failed to get maybe players: {e!s}", create_error_context("get_maybe_players")
             )
 
     async def get_pending_players(self, match_id: str) -> list[Availability]:
@@ -143,8 +156,7 @@ class AvailabilityService:
         except Exception as e:
             logger.error(f"Failed to get pending players for match {match_id}: {e}")
             raise AvailabilityError(
-                f"Failed to get pending players: {e!s}",
-                create_error_context("get_pending_players")
+                f"Failed to get pending players: {e!s}", create_error_context("get_pending_players")
             )
 
     async def get_availability_summary(self, match_id: str) -> dict:
@@ -166,7 +178,7 @@ class AvailabilityService:
             logger.error(f"Failed to get availability summary for match {match_id}: {e}")
             raise AvailabilityError(
                 f"Failed to get availability summary: {e!s}",
-                create_error_context("get_availability_summary")
+                create_error_context("get_availability_summary"),
             )
 
     async def send_availability_reminders(self, match_id: str) -> bool:
@@ -176,7 +188,9 @@ class AvailabilityService:
 
             # This would integrate with the notification system
             # For now, just log the reminder
-            logger.info(f"Sending availability reminders to {len(pending_players)} players for match {match_id}")
+            logger.info(
+                f"Sending availability reminders to {len(pending_players)} players for match {match_id}"
+            )
 
             # TODO: Implement actual notification sending
             # for availability in pending_players:

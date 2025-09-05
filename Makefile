@@ -69,6 +69,8 @@ lint:
 	. venv311/bin/activate && python -m ruff check kickai/
 	. venv311/bin/activate && python -m ruff format kickai/
 	. venv311/bin/activate && python -m mypy kickai/
+	@echo "Validating context field usage..."
+	python scripts/validate_context_fields.py
 
 # Clean up
 clean:
@@ -82,6 +84,11 @@ clean:
 	rm -rf htmlcov/
 	rm -rf .coverage
 	@echo "Cleanup complete!"
+
+# Validation commands
+validate-context:
+	@echo "Validating context field usage..."
+	python scripts/validate_context_fields.py
 
 # Environment loading
 env-dev:

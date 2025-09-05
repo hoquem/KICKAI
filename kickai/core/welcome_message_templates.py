@@ -9,7 +9,6 @@ joining different chat types. Templates can be customized per team or context.
 from dataclasses import dataclass
 
 from kickai.core.enums import ChatType
-from typing import Set
 
 
 @dataclass
@@ -70,9 +69,8 @@ DEFAULT_WELCOME_TEMPLATES = {
 • Type `/help` for command information
 • Contact team leadership for assistance
 • Check pinned messages for important updates""",
-        footer="Welcome aboard! Let's make this team amazing! ⚽🔥"
+        footer="Welcome aboard! Let's make this team amazing! ⚽🔥",
     ),
-
     ChatType.LEADERSHIP: WelcomeMessageTemplate(
         title="🎉 WELCOME TO LEADERSHIP, {username}!",
         body="👥 Welcome to the KICKAI Leadership Team! You're now part of our administrative team.",
@@ -92,9 +90,8 @@ DEFAULT_WELCOME_TEMPLATES = {
 • Training session management
 • Match scheduling and squad selection
 • Team communication and announcements""",
-        footer="Welcome to the leadership team! Let's build something great together! 👥🌟"
+        footer="Welcome to the leadership team! Let's build something great together! 👥🌟",
     ),
-
     ChatType.PRIVATE: WelcomeMessageTemplate(
         title="🎉 WELCOME, {username}!",
         body="👋 Welcome to KICKAI! You're now connected to our football management system.",
@@ -109,8 +106,8 @@ DEFAULT_WELCOME_TEMPLATES = {
         help_section="""📱 NEED HELP?
 • Use `/help` for command information
 • Contact team leadership for assistance""",
-        footer="Welcome! We're glad to have you on board! ⚽"
-    )
+        footer="Welcome! We're glad to have you on board! ⚽",
+    ),
 }
 
 
@@ -133,7 +130,9 @@ class WelcomeMessageManager:
         # Return default template
         return self.templates.get(chat_type, self.templates[ChatType.MAIN])
 
-    def set_custom_template(self, chat_type: ChatType, template: WelcomeMessageTemplate, team_id: str = None):
+    def set_custom_template(
+        self, chat_type: ChatType, template: WelcomeMessageTemplate, team_id: str = None
+    ):
         """Set a custom template for a specific chat type and team."""
         target_team = team_id or self.team_id
         if not target_team:
@@ -171,7 +170,9 @@ def get_welcome_message_manager(team_id: str = None) -> WelcomeMessageManager:
     return _welcome_message_manager
 
 
-def generate_welcome_message(username: str, chat_type: ChatType, team_id: str = None, **kwargs) -> str:
+def generate_welcome_message(
+    username: str, chat_type: ChatType, team_id: str = None, **kwargs
+) -> str:
     """Generate a welcome message using the global manager."""
     manager = get_welcome_message_manager(team_id)
     return manager.generate_welcome_message(username, chat_type, **kwargs)

@@ -8,7 +8,7 @@ dependency injection and repository wiring.
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -40,9 +40,9 @@ class ServiceFactory:
     def __init__(
         self,
         repository_factory: RepositoryFactory,
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
         max_cache_size: int = MAX_CACHE_SIZE,
-        cache_ttl: int = CACHE_TTL_SECONDS
+        cache_ttl: int = CACHE_TTL_SECONDS,
     ):
         """
         Initialize service factory.
@@ -61,7 +61,7 @@ class ServiceFactory:
         # Cache: key -> (service_instance, creation_timestamp)
         self._service_cache: dict[str, tuple[Any, float]] = {}
 
-    def _get_from_cache(self, cache_key: str) -> Optional[Any]:
+    def _get_from_cache(self, cache_key: str) -> Any | None:
         """Get service from cache if valid, otherwise return None."""
         if cache_key not in self._service_cache:
             return None
@@ -96,7 +96,8 @@ class ServiceFactory:
         """Remove expired entries from cache."""
         current_time = time.time()
         expired_keys = [
-            key for key, (_, creation_time) in self._service_cache.items()
+            key
+            for key, (_, creation_time) in self._service_cache.items()
             if current_time - creation_time > self.cache_ttl
         ]
 
@@ -112,10 +113,7 @@ class ServiceFactory:
             return
 
         # Find oldest entry by creation time
-        oldest_key = min(
-            self._service_cache.keys(),
-            key=lambda k: self._service_cache[k][1]
-        )
+        oldest_key = min(self._service_cache.keys(), key=lambda k: self._service_cache[k][1])
 
         del self._service_cache[oldest_key]
         logger.debug(f"Evicted oldest cache entry: {oldest_key}")
@@ -156,7 +154,7 @@ class ServiceFactory:
             user_repository=user_repo,
             validation_service=validation_service,
             notification_service=notification_service,
-            team_id=team_id
+            team_id=team_id,
         )
 
         # Cache the new service
@@ -201,7 +199,7 @@ class ServiceFactory:
             user_repository=user_repo,
             validation_service=validation_service,
             notification_service=notification_service,
-            team_id=team_id
+            team_id=team_id,
         )
 
         # Cache the new service
@@ -240,7 +238,7 @@ class ServiceFactory:
             user_repository=user_repo,
             player_repository=player_repo,
             team_repository=team_repo,
-            team_id=team_id
+            team_id=team_id,
         )
 
         # Cache the new service
@@ -299,10 +297,7 @@ class ServiceFactory:
             NotificationService,
         )
 
-        service = NotificationService(
-            team_id=team_id,
-            config=notification_config
-        )
+        service = NotificationService(team_id=team_id, config=notification_config)
 
         # Cache the new service
         self._put_in_cache(cache_key, service)
@@ -333,10 +328,7 @@ class ServiceFactory:
 
         from kickai.features.analytics.domain.services.analytics_service import AnalyticsService
 
-        service = AnalyticsService(
-            team_id=team_id,
-            config=analytics_config
-        )
+        service = AnalyticsService(team_id=team_id, config=analytics_config)
 
         # Cache the new service
         self._put_in_cache(cache_key, service)
@@ -354,7 +346,8 @@ class ServiceFactory:
         """Get cache statistics for monitoring."""
         current_time = time.time()
         expired_count = sum(
-            1 for _, creation_time in self._service_cache.values()
+            1
+            for _, creation_time in self._service_cache.values()
             if current_time - creation_time > self.cache_ttl
         )
 
@@ -363,7 +356,7 @@ class ServiceFactory:
             "expired_entries": expired_count,
             "max_size": self.max_cache_size,
             "ttl_seconds": self.cache_ttl,
-            "cache_utilization": len(self._service_cache) / self.max_cache_size
+            "cache_utilization": len(self._service_cache) / self.max_cache_size,
         }
 
     @classmethod
@@ -371,10 +364,7 @@ class ServiceFactory:
         """Create factory configured for testing."""
         return cls(
             repository_factory=repository_factory,
-            config={
-                "notification": {"type": "mock"},
-                "analytics": {"type": "mock"}
-            }
+            config={"notification": {"type": "mock"}, "analytics": {"type": "mock"}},
         )
 
     @classmethod
@@ -382,8 +372,5 @@ class ServiceFactory:
         """Create factory configured for production."""
         return cls(
             repository_factory=repository_factory,
-            config={
-                "notification": {"type": "telegram"},
-                "analytics": {"type": "firebase"}
-            }
+            config={"notification": {"type": "telegram"}, "analytics": {"type": "firebase"}},
         )

@@ -1,4 +1,3 @@
-from typing import Optional
 import logging
 
 from kickai.features.match_management.domain.entities.attendance import (
@@ -31,7 +30,7 @@ class FirebaseAttendanceRepository(AttendanceRepositoryInterface):
             await self.firebase_client.create_document(
                 collection=collection_name,
                 document_id=attendance.attendance_id,
-                data=attendance.to_dict()
+                data=attendance.to_dict(),
             )
             logger.info(f"Created attendance {attendance.attendance_id}")
             return attendance
@@ -39,7 +38,7 @@ class FirebaseAttendanceRepository(AttendanceRepositoryInterface):
             logger.error(f"Failed to create attendance {attendance.attendance_id}: {e}")
             raise
 
-    async def get_by_id(self, attendance_id: str) -> Optional[MatchAttendance]:
+    async def get_by_id(self, attendance_id: str) -> MatchAttendance | None:
         """Get attendance by ID."""
         try:
             # Search across all team collections
@@ -60,7 +59,9 @@ class FirebaseAttendanceRepository(AttendanceRepositoryInterface):
             logger.error(f"Failed to get attendance {attendance_id}: {e}")
             return None
 
-    async def get_by_match_and_player(self, match_id: str, player_id: str) -> Optional[MatchAttendance]:
+    async def get_by_match_and_player(
+        self, match_id: str, player_id: str
+    ) -> MatchAttendance | None:
         """Get attendance for a specific match and player."""
         try:
             # Search across all team collections
@@ -73,15 +74,16 @@ class FirebaseAttendanceRepository(AttendanceRepositoryInterface):
 
                 collection_name = self._get_collection_name(team_id)
                 docs = await self.firebase_client.query_documents(
-                    collection_name,
-                    filters={"match_id": match_id, "player_id": player_id}
+                    collection_name, filters={"match_id": match_id, "player_id": player_id}
                 )
                 if docs:
                     return MatchAttendance.from_dict(docs[0])
 
             return None
         except Exception as e:
-            logger.error(f"Failed to get attendance for match {match_id} and player {player_id}: {e}")
+            logger.error(
+                f"Failed to get attendance for match {match_id} and player {player_id}: {e}"
+            )
             return None
 
     async def get_by_match(self, match_id: str) -> list[MatchAttendance]:
@@ -98,8 +100,7 @@ class FirebaseAttendanceRepository(AttendanceRepositoryInterface):
 
                 collection_name = self._get_collection_name(team_id)
                 docs = await self.firebase_client.query_documents(
-                    collection_name,
-                    filters={"match_id": match_id}
+                    collection_name, filters={"match_id": match_id}
                 )
                 attendances = [MatchAttendance.from_dict(doc) for doc in docs]
                 all_attendances.extend(attendances)
@@ -124,8 +125,7 @@ class FirebaseAttendanceRepository(AttendanceRepositoryInterface):
 
                 collection_name = self._get_collection_name(team_id)
                 docs = await self.firebase_client.query_documents(
-                    collection_name,
-                    filters={"player_id": player_id}
+                    collection_name, filters={"player_id": player_id}
                 )
                 attendances = [MatchAttendance.from_dict(doc) for doc in docs]
                 all_attendances.extend(attendances)
@@ -133,7 +133,9 @@ class FirebaseAttendanceRepository(AttendanceRepositoryInterface):
             # Sort by recorded_at (newest first) and limit
             all_attendances.sort(key=lambda a: a.recorded_at, reverse=True)
 
-            logger.info(f"Retrieved {len(all_attendances[:limit])} attendance records for player {player_id}")
+            logger.info(
+                f"Retrieved {len(all_attendances[:limit])} attendance records for player {player_id}"
+            )
             return all_attendances[:limit]
         except Exception as e:
             logger.error(f"Failed to get attendance for player {player_id}: {e}")
@@ -144,11 +146,12 @@ class FirebaseAttendanceRepository(AttendanceRepositoryInterface):
         try:
             match_attendances = await self.get_by_match(match_id)
             filtered_attendances = [
-                attendance for attendance in match_attendances
-                if attendance.status == status
+                attendance for attendance in match_attendances if attendance.status == status
             ]
 
-            logger.info(f"Retrieved {len(filtered_attendances)} {status.value} attendance records for match {match_id}")
+            logger.info(
+                f"Retrieved {len(filtered_attendances)} {status.value} attendance records for match {match_id}"
+            )
             return filtered_attendances
         except Exception as e:
             logger.error(f"Failed to get {status.value} attendance for match {match_id}: {e}")
@@ -162,7 +165,7 @@ class FirebaseAttendanceRepository(AttendanceRepositoryInterface):
             await self.firebase_client.update_document(
                 collection=collection_name,
                 document_id=attendance.attendance_id,
-                data=attendance.to_dict()
+                data=attendance.to_dict(),
             )
             logger.info(f"Updated attendance {attendance.attendance_id}")
             return attendance
@@ -197,7 +200,9 @@ class FirebaseAttendanceRepository(AttendanceRepositoryInterface):
                 "attended": len([a for a in match_attendances if a.is_attended]),
                 "absent": len([a for a in match_attendances if a.is_absent]),
                 "late": len([a for a in match_attendances if a.is_late]),
-                "not_recorded": len([a for a in match_attendances if a.status == AttendanceStatus.NOT_RECORDED]),
+                "not_recorded": len(
+                    [a for a in match_attendances if a.status == AttendanceStatus.NOT_RECORDED]
+                ),
             }
 
             logger.info(f"Generated attendance summary for match {match_id}: {summary}")

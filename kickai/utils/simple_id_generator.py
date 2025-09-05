@@ -18,17 +18,16 @@ from datetime import datetime
 from loguru import logger
 
 from kickai.utils.constants import FALLBACK_ID_PREFIX, ID_NUMBER_FORMAT, LOG_MESSAGES, MAX_ID_NUMBER
-from typing import Set, Union
 
 
 class SimpleIDGenerator:
     """Simple ID generator for players and team members."""
 
     def __init__(self):
-        self.used_ids: Set[str] = set()
+        self.used_ids: set[str] = set()
 
     def generate_player_id(
-        self, name: str, team_id: str, existing_ids: Union[Set[str], None] = None
+        self, name: str, team_id: str, existing_ids: set[str] | None = None
     ) -> str:
         """
         Generate a simple player ID in format {Number}{Initials}.
@@ -76,7 +75,7 @@ class SimpleIDGenerator:
                 return fallback_id
 
     def generate_team_member_id(
-        self, name: str, team_id: str, existing_ids: Union[Set[str], None] = None
+        self, name: str, team_id: str, existing_ids: set[str] | None = None
     ) -> str:
         """
         Generate a simple team member ID in format M{Number}{Initials}.
@@ -107,7 +106,7 @@ class SimpleIDGenerator:
             Match ID in format MATCH_2024-01-15_KTI_ARSENAL
         """
         date_str = match_date.strftime("%Y-%m-%d")
-        opponent_clean = re.sub(r'[^A-Za-z0-9]', '', opponent.upper())
+        opponent_clean = re.sub(r"[^A-Za-z0-9]", "", opponent.upper())
         match_id = f"MATCH_{date_str}_{team_id}_{opponent_clean}"
 
         logger.info(f"Generated match ID: {match_id}")
@@ -181,13 +180,13 @@ simple_id_generator = SimpleIDGenerator()
 
 
 # Convenience functions
-def generate_simple_player_id(name: str, team_id: str, existing_ids: Union[Set[str], None] = None) -> str:
+def generate_simple_player_id(name: str, team_id: str, existing_ids: set[str] | None = None) -> str:
     """Generate a simple player ID."""
     return simple_id_generator.generate_player_id(name, team_id, existing_ids)
 
 
 def generate_simple_team_member_id(
-    name: str, team_id: str, existing_ids: Union[Set[str], None] = None
+    name: str, team_id: str, existing_ids: set[str] | None = None
 ) -> str:
     """Generate a simple team member ID."""
     return simple_id_generator.generate_team_member_id(name, team_id, existing_ids)

@@ -1,4 +1,3 @@
-from typing import List, Optional
 #!/usr/bin/env python3
 """
 Team Repository Interface
@@ -16,9 +15,9 @@ class Team:
 
     id: str
     name: str
-    description: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    description: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class TeamRepositoryInterface(ABC):
@@ -36,23 +35,23 @@ class TeamRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_team_by_id(self, team_id: str) -> Optional[Team]:
+    async def get_team_by_id(self, team_id: str) -> Team | None:
         """Get a team by ID."""
         pass
 
     # Alias used in some tests/mocks
     @abstractmethod
-    async def get_by_id(self, team_id: str) -> Optional[Team]:
+    async def get_by_id(self, team_id: str) -> Team | None:
         """Get a team by ID (alias)."""
         pass
 
     @abstractmethod
-    async def get_all_teams(self) -> List[Team]:
+    async def get_all_teams(self) -> list[Team]:
         """Get all teams."""
         pass
 
     @abstractmethod
-    async def get_by_status(self, status: str) -> List[Team]:
+    async def get_by_status(self, status: str) -> list[Team]:
         """Get teams by status (alias used in tests)."""
         pass
 
@@ -73,6 +72,6 @@ class TeamRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def list_all(self, limit: int = 100) -> List[Team]:
+    async def list_all(self, limit: int = 100) -> list[Team]:
         """List all teams with optional limit."""
         pass

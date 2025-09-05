@@ -1,4 +1,3 @@
-from typing import Optional
 """
 Phone number value object with validation and formatting using libphonenumber.
 """
@@ -50,14 +49,14 @@ class PhoneNumber:
 
             # Use object.__new__ to bypass __post_init__ validation
             instance = object.__new__(cls)
-            object.__setattr__(instance, 'value', e164_format)
+            object.__setattr__(instance, "value", e164_format)
             return instance
 
         except phonenumbers.NumberParseException as e:
             raise PlayerValidationError([f"Cannot parse phone number '{phone_str}': {e}"])
 
     @classmethod
-    def try_parse(cls, phone_str: str, region: str = "GB") -> Optional[PhoneNumber]:
+    def try_parse(cls, phone_str: str, region: str = "GB") -> PhoneNumber | None:
         """
         Try to parse phone number, return None if invalid.
 
@@ -102,7 +101,7 @@ class PhoneNumber:
         return self.formatted
 
     @property
-    def region_code(self) -> Optional[str]:
+    def region_code(self) -> str | None:
         """Return the region code for this phone number."""
         try:
             parsed = phonenumbers.parse(self.value, None)
@@ -132,7 +131,7 @@ class PhoneNumber:
                 phonenumbers.PhoneNumberType.EMERGENCY: "emergency",
                 phonenumbers.PhoneNumberType.VOICEMAIL: "voicemail",
                 phonenumbers.PhoneNumberType.SHORT_CODE: "short_code",
-                phonenumbers.PhoneNumberType.STANDARD_RATE: "standard_rate"
+                phonenumbers.PhoneNumberType.STANDARD_RATE: "standard_rate",
             }
 
             return type_map.get(number_type, "unknown")

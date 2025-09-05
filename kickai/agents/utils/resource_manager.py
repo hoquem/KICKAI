@@ -7,32 +7,32 @@ Handles rate limiting, concurrent request management, and resource cleanup.
 
 import asyncio
 import time
-from typing import Dict, Any, Optional
 from collections import defaultdict, deque
+from typing import Any
+
 from loguru import logger
 
 from kickai.agents.config.message_router_config import (
+    DEFAULT_CLEANUP_INTERVAL,
     DEFAULT_MAX_CONCURRENT,
     DEFAULT_MAX_REQUESTS_PER_MINUTE,
-    DEFAULT_CLEANUP_INTERVAL,
-    ERROR_MESSAGES,
-    WARNING_MESSAGES,
     LOG_MESSAGES,
+    WARNING_MESSAGES,
 )
 
 
 class ResourceManager:
     """
     Handles resource management and cleanup for the message router.
-    
+
     Manages rate limiting, concurrent requests, and periodic cleanup.
     """
 
     def __init__(
-        self, 
+        self,
         max_concurrent: int = DEFAULT_MAX_CONCURRENT,
         max_requests_per_minute: int = DEFAULT_MAX_REQUESTS_PER_MINUTE,
-        cleanup_interval: int = DEFAULT_CLEANUP_INTERVAL
+        cleanup_interval: int = DEFAULT_CLEANUP_INTERVAL,
     ) -> None:
         """
         Initialize the resource manager.
@@ -50,17 +50,18 @@ class ResourceManager:
 
             # Request tracking
             self.active_requests: set = set()
-            self.request_history: Dict[int, deque] = defaultdict(lambda: deque(maxlen=100))
+            self.request_history: dict[int, deque] = defaultdict(lambda: deque(maxlen=100))
             self.last_cleanup = time.time()
 
             # Semaphore for concurrent request limiting
             self._semaphore = asyncio.Semaphore(max_concurrent)
 
-            logger.info(LOG_MESSAGES["RESOURCE_MANAGER_INITIALIZED"].format(
-                max_concurrent=max_concurrent,
-                max_requests_per_minute=max_requests_per_minute
-            ))
-            
+            logger.info(
+                LOG_MESSAGES["RESOURCE_MANAGER_INITIALIZED"].format(
+                    max_concurrent=max_concurrent, max_requests_per_minute=max_requests_per_minute
+                )
+            )
+
         except Exception as e:
             logger.error(f"❌ Error in ResourceManager.__init__: {e}")
             raise
@@ -77,7 +78,7 @@ class ResourceManager:
             request_token = object()
             self.active_requests.add(request_token)
             return request_token
-            
+
         except Exception as e:
             logger.error(f"❌ Error in add_request: {e}")
             return object()
@@ -92,7 +93,7 @@ class ResourceManager:
         try:
             # ALL business logic here
             self.active_requests.discard(request_token)
-            
+
         except Exception as e:
             logger.error(f"❌ Error in remove_request: {e}")
 
@@ -117,16 +118,17 @@ class ResourceManager:
 
             # Check if user has exceeded rate limit
             if len(user_requests) >= self.max_requests_per_minute:
-                logger.warning(WARNING_MESSAGES["RATE_LIMIT_EXCEEDED"].format(
-                    telegram_id=telegram_id,
-                    request_count=len(user_requests)
-                ))
+                logger.warning(
+                    WARNING_MESSAGES["RATE_LIMIT_EXCEEDED"].format(
+                        telegram_id=telegram_id, request_count=len(user_requests)
+                    )
+                )
                 return True
 
             # Add current request
             user_requests.append(current_time)
             return False
-            
+
         except Exception as e:
             logger.error(f"❌ Error in check_rate_limit: {e}")
             # Fail safe - allow request if rate limiting fails
@@ -144,10 +146,10 @@ class ResourceManager:
             try:
                 await asyncio.wait_for(self._semaphore.acquire(), timeout=1.0)
                 return True
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(WARNING_MESSAGES["CONCURRENT_LIMIT_EXCEEDED"])
                 return False
-                
+
         except Exception as e:
             logger.error(f"❌ Error in acquire_semaphore: {e}")
             return False
@@ -159,7 +161,7 @@ class ResourceManager:
         try:
             # ALL business logic here
             self._semaphore.release()
-            
+
         except Exception as e:
             logger.error(f"❌ Error in release_semaphore: {e}")
 
@@ -176,7 +178,7 @@ class ResourceManager:
             # Clean up old request history
             for telegram_id in list(self.request_history.keys()):
                 user_requests = self.request_history[telegram_id]
-                
+
                 # Remove requests older than 5 minutes
                 while user_requests and current_time - user_requests[0] > 300:
                     user_requests.popleft()
@@ -186,15 +188,16 @@ class ResourceManager:
                     del self.request_history[telegram_id]
 
             self.last_cleanup = current_time
-            logger.debug(LOG_MESSAGES["CLEANUP_COMPLETED"].format(
-                user_count=len(self.request_history),
-                active_requests=len(self.active_requests)
-            ))
-            
+            logger.debug(
+                LOG_MESSAGES["CLEANUP_COMPLETED"].format(
+                    user_count=len(self.request_history), active_requests=len(self.active_requests)
+                )
+            )
+
         except Exception as e:
             logger.error(f"❌ Error in cleanup_old_requests: {e}")
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get current resource usage metrics.
 
@@ -204,12 +207,11 @@ class ResourceManager:
         try:
             # ALL business logic here
             current_time = time.time()
-            
+
             # Calculate average requests per user
             total_requests = sum(len(requests) for requests in self.request_history.values())
             avg_requests_per_user = (
-                total_requests / len(self.request_history) 
-                if self.request_history else 0
+                total_requests / len(self.request_history) if self.request_history else 0
             )
 
             return {
@@ -221,7 +223,7 @@ class ResourceManager:
                 "max_requests_per_minute": self.max_requests_per_minute,
                 "last_cleanup": self.last_cleanup,
             }
-            
+
         except Exception as e:
             logger.error(f"❌ Error in get_metrics: {e}")
             return {

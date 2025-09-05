@@ -40,7 +40,7 @@ VALID_TEAM_MEMBER_ROLES = [
 # Legacy role mappings for backward compatibility
 ROLE_DISPLAY_NAMES = {
     MemberRole.COACH.value: "Coach",
-    MemberRole.ASSISTANT_COACH.value: "Assistant Coach", 
+    MemberRole.ASSISTANT_COACH.value: "Assistant Coach",
     MemberRole.TEAM_MANAGER.value: "Team Manager",
     MemberRole.CLUB_ADMINISTRATOR.value: "Club Administrator",
     MemberRole.TEAM_MEMBER.value: "Team Member",
@@ -78,7 +78,6 @@ ERROR_MESSAGES = {
     "INVITE_LINK_ERROR": "Could not generate invite link - {error}",
     "TEAM_CONFIG_ERROR": "Could not generate invite link - team configuration incomplete",
     "SYSTEM_ERROR": "Could not generate invite link due to system error",
-
     # AddPlayer Command Specific Messages
     "MISSING_ARGUMENTS": "❌ Missing Arguments\n\nUsage: `/addplayer <player_name> <phone_number>`",
     "INVALID_FORMAT": "❌ Invalid Format\n\nI need both a player name and phone number.",
@@ -87,13 +86,12 @@ ERROR_MESSAGES = {
     "DUPLICATE_PHONE": "❌ Phone Number Already Registered\n\n📱 {phone} is already used by: {existing_name}",
     "PERMISSION_REQUIRED": "❌ Permission Required\n\n🔒 Adding players is a leadership function.",
     "ADDPLAYER_SYSTEM_ERROR": "❌ System Error\n\n🛠️ Failed to add player: {error}",
-
     # AddMember Command Specific Messages
-    "ADDMEMBER_MISSING_ARGUMENTS": "❌ Missing Arguments**\n\nUsage: `/addmember <name> <phone> [role]`\n\nExample: `/addmember \"Sarah Johnson\" \"+447987654321\" \"Assistant Coach\"`",
+    "ADDMEMBER_MISSING_ARGUMENTS": '❌ Missing Arguments**\n\nUsage: `/addmember <name> <phone> [role]`\n\nExample: `/addmember "Sarah Johnson" "+447987654321" "Assistant Coach"`',
     "ADDMEMBER_INVALID_FORMAT": "❌ Invalid Format\n\nI need at least a member name and phone number.",
     "INVALID_ROLE": "❌ Invalid Role\n\n📋 Valid roles are:\n• Coach\n• Assistant Coach\n• Team Manager\n• Club Administrator\n• Team Member\n\n🔍 You provided: {role}",
     "INVALID_EMAIL_FORMAT": "❌ Invalid Email\n\n📧 Please provide a valid email address.\n\n🔍 You provided: {email}",
-    "ADDMEMBER_SYSTEM_ERROR": "❌ System Error\n\n🛠️ Failed to add team member: {error}"
+    "ADDMEMBER_SYSTEM_ERROR": "❌ System Error\n\n🛠️ Failed to add team member: {error}",
 }
 
 # Success Messages
@@ -101,7 +99,6 @@ SUCCESS_MESSAGES = {
     "PLAYER_ADDED": "✅ Player {name} added successfully with ID: {player_id}",
     "MEMBER_ADDED": "✅ Team member {name} added successfully with ID: {member_id}",
     "PLAYER_APPROVED": "✅ Player {name} approved and activated successfully",
-
     # AddPlayer Command Specific Messages
     "PLAYER_ADDED_WITH_INVITE": """✅ Player Added Successfully!
 
@@ -122,7 +119,6 @@ SUCCESS_MESSAGES = {
 2. Player joins main chat via link
 3. Player uses /update to set position and details
 4. Player is ready to participate!""",
-
     # AddMember Command Specific Messages
     "MEMBER_ADDED_WITH_INVITE": """✅ Team Member Added Successfully!
 
@@ -143,7 +139,7 @@ SUCCESS_MESSAGES = {
 1. Send the invite link to {name}
 2. Member joins leadership chat via link → Status automatically becomes "Active"
 3. Member gains access to admin commands and team management features
-4. Member is ready to help manage the team!"""
+4. Member is ready to help manage the team!""",
 }
 
 # Log Messages

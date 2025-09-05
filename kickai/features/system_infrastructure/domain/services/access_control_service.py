@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Minimal AccessControlService for unit tests.
 """
@@ -15,5 +13,3 @@ class AccessControlService:
     def is_read_only_command(self, command: str) -> bool:
         command = (command or "").lower().strip()
         return command.startswith("list") or command == "help"
-
-

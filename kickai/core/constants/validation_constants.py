@@ -8,7 +8,6 @@ field lengths, patterns, and validation rules.
 import re
 from dataclasses import dataclass, field
 from re import Pattern
-from typing import List, Union
 
 
 @dataclass(frozen=True)
@@ -31,14 +30,31 @@ class ValidationConstants:
     INTERNATIONAL_PHONE_REGEX: str = r"^\+?[1-9]\d{1,14}$"
 
     # Player Position Validation
-    VALID_PLAYER_POSITIONS: List[str] = field(default_factory=lambda: [
-        "goalkeeper", "defender", "midfielder", "forward", "winger", "striker", "utility", "any"
-    ])
+    VALID_PLAYER_POSITIONS: list[str] = field(
+        default_factory=lambda: [
+            "goalkeeper",
+            "defender",
+            "midfielder",
+            "forward",
+            "winger",
+            "striker",
+            "utility",
+            "any",
+        ]
+    )
 
     # Team Member Role Validation
-    VALID_TEAM_MEMBER_ROLES: List[str] = field(default_factory=lambda: [
-        "coach", "manager", "assistant", "coordinator", "volunteer", "admin", "member"
-    ])
+    VALID_TEAM_MEMBER_ROLES: list[str] = field(
+        default_factory=lambda: [
+            "coach",
+            "manager",
+            "assistant",
+            "coordinator",
+            "volunteer",
+            "admin",
+            "member",
+        ]
+    )
 
     # Message Validation
     MIN_MESSAGE_LENGTH: int = 1
@@ -68,11 +84,15 @@ class ValidationConstants:
     # Chat ID Validation (can be negative for group chats)
     CHAT_ID_REGEX: str = r"^-?[0-9]+$"
     MIN_CHAT_ID_VALUE: int = -2147483648  # 32-bit signed integer min
-    MAX_CHAT_ID_VALUE: int = 2147483647   # 32-bit signed integer max
+    MAX_CHAT_ID_VALUE: int = 2147483647  # 32-bit signed integer max
 
     # File Validation
-    ALLOWED_IMAGE_EXTENSIONS: List[str] = field(default_factory=lambda: [".jpg", ".jpeg", ".png", ".gif", ".webp"])
-    ALLOWED_DOCUMENT_EXTENSIONS: List[str] = field(default_factory=lambda: [".pdf", ".doc", ".docx", ".txt", ".csv"])
+    ALLOWED_IMAGE_EXTENSIONS: list[str] = field(
+        default_factory=lambda: [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+    )
+    ALLOWED_DOCUMENT_EXTENSIONS: list[str] = field(
+        default_factory=lambda: [".pdf", ".doc", ".docx", ".txt", ".csv"]
+    )
     MAX_FILENAME_LENGTH: int = 255
 
     # Email Validation (optional)
@@ -85,7 +105,7 @@ class ValidationConstants:
 
     # Date/Time Validation
     DATE_REGEX: str = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"  # YYYY-MM-DD
-    TIME_REGEX: str = r"^[0-9]{2}:[0-9]{2}$"           # HH:MM
+    TIME_REGEX: str = r"^[0-9]{2}:[0-9]{2}$"  # HH:MM
     DATETIME_REGEX: str = r"^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$"  # YYYY-MM-DD HH:MM
 
     # Numeric Validation
@@ -157,7 +177,7 @@ class ValidationConstants:
         return role.lower() in cls.VALID_TEAM_MEMBER_ROLES
 
     @classmethod
-    def get_position_suggestions(cls, partial: str) -> List[str]:
+    def get_position_suggestions(cls, partial: str) -> list[str]:
         """
         Get position suggestions for partial input.
 
@@ -168,13 +188,10 @@ class ValidationConstants:
             List of matching positions
         """
         partial_lower = partial.lower()
-        return [
-            pos for pos in cls.VALID_PLAYER_POSITIONS
-            if pos.startswith(partial_lower)
-        ]
+        return [pos for pos in cls.VALID_PLAYER_POSITIONS if pos.startswith(partial_lower)]
 
     @classmethod
-    def get_role_suggestions(cls, partial: str) -> List[str]:
+    def get_role_suggestions(cls, partial: str) -> list[str]:
         """
         Get role suggestions for partial input.
 
@@ -185,10 +202,7 @@ class ValidationConstants:
             List of matching roles
         """
         partial_lower = partial.lower()
-        return [
-            role for role in cls.VALID_TEAM_MEMBER_ROLES
-            if role.startswith(partial_lower)
-        ]
+        return [role for role in cls.VALID_TEAM_MEMBER_ROLES if role.startswith(partial_lower)]
 
     @classmethod
     def get_validation_error_message(cls, field: str, value: str, error_type: str) -> str:

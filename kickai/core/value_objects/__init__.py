@@ -5,10 +5,8 @@ This module contains immutable value objects that represent domain concepts
 with strong typing and validation.
 """
 
-from .entity_context import EntityContext
 from .identifiers import ChatId, MessageId, PlayerId, TeamId, UserId
 from .phone_number import PhoneNumber
-from .user_registration import UserRegistration
 
 __all__ = [
     "UserId",
@@ -16,7 +14,5 @@ __all__ = [
     "ChatId",
     "PlayerId",
     "MessageId",
-    "EntityContext",
     "PhoneNumber",
-    "UserRegistration",
 ]

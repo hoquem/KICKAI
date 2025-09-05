@@ -1,4 +1,3 @@
-from typing import Optional
 from abc import ABC, abstractmethod
 
 from kickai.features.match_management.domain.entities.availability import (
@@ -16,12 +15,12 @@ class AvailabilityRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, availability_id: str) -> Optional[Availability]:
+    async def get_by_id(self, availability_id: str) -> Availability | None:
         """Get availability by ID."""
         pass
 
     @abstractmethod
-    async def get_by_match_and_player(self, match_id: str, player_id: str) -> Optional[Availability]:
+    async def get_by_match_and_player(self, match_id: str, player_id: str) -> Availability | None:
         """Get availability for a specific match and player."""
         pass
 

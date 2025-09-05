@@ -9,7 +9,7 @@ import importlib
 import inspect
 import logging
 import pkgutil
-from typing import Any, Optional
+from typing import Any
 
 from kickai.core.dependency_container import DependencyContainer, get_container
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class DependencyContainerServiceDiscovery(IServiceDiscovery):
     """Service discovery using the existing dependency container."""
 
-    def __init__(self, container: Optional[DependencyContainer] = None):
+    def __init__(self, container: DependencyContainer | None = None):
         self.container = container or get_container()
 
     def discover_services(self) -> list[ServiceDefinition]:
@@ -36,26 +36,26 @@ class DependencyContainerServiceDiscovery(IServiceDiscovery):
 
         try:
             # Get all registered services from the container
-            if hasattr(self.container, '_services') and self.container._services:
+            if hasattr(self.container, "_services") and self.container._services:
                 for service_name, service_info in self.container._services.items():
                     service_type = self._classify_service_type(service_name)
 
                     definition = ServiceDefinition(
                         name=service_name,
                         service_type=service_type,
-                        interface_name=getattr(service_info, 'interface', None),
-                        implementation_class=getattr(service_info, 'implementation', None),
+                        interface_name=getattr(service_info, "interface", None),
+                        implementation_class=getattr(service_info, "implementation", None),
                         metadata={
                             "discovery_method": "dependency_container",
-                            "container_type": type(self.container).__name__
-                        }
+                            "container_type": type(self.container).__name__,
+                        },
                     )
 
                     discovered_services.append(definition)
                     logger.debug(f"✅ Discovered service: {service_name} ({service_type.value})")
 
             # Get singletons from container
-            if hasattr(self.container, '_singletons') and self.container._singletons:
+            if hasattr(self.container, "_singletons") and self.container._singletons:
                 for singleton_name, singleton_instance in self.container._singletons.items():
                     service_type = self._classify_service_type(singleton_name)
 
@@ -65,14 +65,18 @@ class DependencyContainerServiceDiscovery(IServiceDiscovery):
                         implementation_class=type(singleton_instance).__name__,
                         metadata={
                             "discovery_method": "dependency_container_singleton",
-                            "instance_type": type(singleton_instance).__name__
-                        }
+                            "instance_type": type(singleton_instance).__name__,
+                        },
                     )
 
                     discovered_services.append(definition)
-                    logger.debug(f"✅ Discovered singleton: {singleton_name} ({service_type.value})")
+                    logger.debug(
+                        f"✅ Discovered singleton: {singleton_name} ({service_type.value})"
+                    )
 
-            logger.info(f"✅ Discovered {len(discovered_services)} services from dependency container")
+            logger.info(
+                f"✅ Discovered {len(discovered_services)} services from dependency container"
+            )
 
         except Exception as e:
             logger.error(f"❌ Service discovery from dependency container failed: {e}")
@@ -90,14 +94,14 @@ class DependencyContainerServiceDiscovery(IServiceDiscovery):
                 instance = None
 
                 # Try to get from services first
-                if hasattr(self.container, 'get_service'):
+                if hasattr(self.container, "get_service"):
                     try:
                         instance = self.container.get_service(definition.name)
                     except Exception:
                         pass
 
                 # Try to get from singletons
-                if instance is None and hasattr(self.container, 'get_singleton'):
+                if instance is None and hasattr(self.container, "get_singleton"):
                     try:
                         instance = self.container.get_singleton(definition.name)
                     except Exception:
@@ -117,11 +121,11 @@ class DependencyContainerServiceDiscovery(IServiceDiscovery):
     def can_discover_service(self, service_name: str) -> bool:
         """Check if a service can be discovered."""
         try:
-            if hasattr(self.container, '_services') and self.container._services:
+            if hasattr(self.container, "_services") and self.container._services:
                 if service_name in self.container._services:
                     return True
 
-            if hasattr(self.container, '_singletons') and self.container._singletons:
+            if hasattr(self.container, "_singletons") and self.container._singletons:
                 if service_name in self.container._singletons:
                     return True
 
@@ -135,18 +139,24 @@ class DependencyContainerServiceDiscovery(IServiceDiscovery):
         service_name_lower = service_name.lower()
 
         # Core services
-        if any(keyword in service_name_lower for keyword in
-               ['datastore', 'database', 'container', 'factory']):
+        if any(
+            keyword in service_name_lower
+            for keyword in ["datastore", "database", "container", "factory"]
+        ):
             return ServiceType.CORE
 
         # External services
-        if any(keyword in service_name_lower for keyword in
-               ['telegram', 'firebase', 'llm', 'client', 'provider']):
+        if any(
+            keyword in service_name_lower
+            for keyword in ["telegram", "firebase", "llm", "client", "provider"]
+        ):
             return ServiceType.EXTERNAL
 
         # Feature services
-        if any(keyword in service_name_lower for keyword in
-               ['player', 'team', 'match', 'attendance', 'payment']):
+        if any(
+            keyword in service_name_lower
+            for keyword in ["player", "team", "match", "attendance", "payment"]
+        ):
             return ServiceType.FEATURE
 
         # Default to utility
@@ -157,11 +167,7 @@ class ModuleServiceDiscovery(IServiceDiscovery):
     """Service discovery by scanning Python modules."""
 
     def __init__(self, package_names: list[str] = None):
-        self.package_names = package_names or [
-            'kickai.features',
-            'kickai.core',
-            'kickai.database'
-        ]
+        self.package_names = package_names or ["kickai.features", "kickai.core", "kickai.database"]
 
     def discover_services(self) -> list[ServiceDefinition]:
         """Discover services by scanning modules for service classes."""
@@ -183,8 +189,9 @@ class ModuleServiceDiscovery(IServiceDiscovery):
         try:
             package = importlib.import_module(package_name)
 
-            for importer, modname, ispkg in pkgutil.iter_modules(package.__path__,
-                                                                package.__name__ + "."):
+            for importer, modname, ispkg in pkgutil.iter_modules(
+                package.__path__, package.__name__ + "."
+            ):
                 try:
                     module = importlib.import_module(modname)
                     services.extend(self._scan_module(module))
@@ -208,10 +215,7 @@ class ModuleServiceDiscovery(IServiceDiscovery):
                     name=name,
                     service_type=service_type,
                     implementation_class=f"{module.__name__}.{name}",
-                    metadata={
-                        "discovery_method": "module_scan",
-                        "module": module.__name__
-                    }
+                    metadata={"discovery_method": "module_scan", "module": module.__name__},
                 )
 
                 services.append(definition)
@@ -222,13 +226,20 @@ class ModuleServiceDiscovery(IServiceDiscovery):
     def _is_service_class(self, name: str, obj: type) -> bool:
         """Check if a class is a service class."""
         # Skip abstract base classes and test classes
-        if name.startswith('Abstract') or name.startswith('Test') or name.startswith('Mock'):
+        if name.startswith("Abstract") or name.startswith("Test") or name.startswith("Mock"):
             return False
 
         # Look for service indicators
         service_indicators = [
-            'Service', 'Repository', 'Manager', 'Handler', 'Controller',
-            'Provider', 'Client', 'Gateway', 'Adapter'
+            "Service",
+            "Repository",
+            "Manager",
+            "Handler",
+            "Controller",
+            "Provider",
+            "Client",
+            "Gateway",
+            "Adapter",
         ]
 
         return any(indicator in name for indicator in service_indicators)
@@ -238,18 +249,24 @@ class ModuleServiceDiscovery(IServiceDiscovery):
         class_name_lower = class_name.lower()
 
         # Core services
-        if any(keyword in class_name_lower for keyword in
-               ['datastore', 'database', 'container', 'factory', 'repository']):
+        if any(
+            keyword in class_name_lower
+            for keyword in ["datastore", "database", "container", "factory", "repository"]
+        ):
             return ServiceType.CORE
 
         # External services
-        if any(keyword in class_name_lower for keyword in
-               ['telegram', 'firebase', 'llm', 'client', 'provider']):
+        if any(
+            keyword in class_name_lower
+            for keyword in ["telegram", "firebase", "llm", "client", "provider"]
+        ):
             return ServiceType.EXTERNAL
 
         # Feature services
-        if any(keyword in class_name_lower for keyword in
-               ['player', 'team', 'match', 'attendance', 'payment']):
+        if any(
+            keyword in class_name_lower
+            for keyword in ["player", "team", "match", "attendance", "payment"]
+        ):
             return ServiceType.FEATURE
 
         # Default to utility
@@ -277,7 +294,7 @@ class CompositeServiceDiscovery(IServiceDiscovery):
     def __init__(self, discovery_methods: list[IServiceDiscovery] = None):
         self.discovery_methods = discovery_methods or [
             DependencyContainerServiceDiscovery(),
-            ModuleServiceDiscovery()
+            ModuleServiceDiscovery(),
         ]
 
     def discover_services(self) -> list[ServiceDefinition]:
@@ -308,21 +325,24 @@ class CompositeServiceDiscovery(IServiceDiscovery):
         for discovery_method in self.discovery_methods:
             try:
                 discovery_method.auto_register_services(registry)
-                logger.info(f"✅ Auto-registration successful with {type(discovery_method).__name__}")
+                logger.info(
+                    f"✅ Auto-registration successful with {type(discovery_method).__name__}"
+                )
                 return
             except Exception as e:
-                logger.warning(f"⚠️ Auto-registration failed with {type(discovery_method).__name__}: {e}")
+                logger.warning(
+                    f"⚠️ Auto-registration failed with {type(discovery_method).__name__}: {e}"
+                )
 
         raise ServiceDiscoveryError("All auto-registration methods failed")
 
     def can_discover_service(self, service_name: str) -> bool:
         """Check if any discovery method can find the service."""
-        return any(method.can_discover_service(service_name)
-                  for method in self.discovery_methods)
+        return any(method.can_discover_service(service_name) for method in self.discovery_methods)
 
 
 # Global discovery instance
-_global_discovery: Optional[CompositeServiceDiscovery] = None
+_global_discovery: CompositeServiceDiscovery | None = None
 
 
 def get_service_discovery() -> CompositeServiceDiscovery:
@@ -337,14 +357,14 @@ def get_service_discovery() -> CompositeServiceDiscovery:
 
 def create_service_discovery_from_config(config: dict[str, Any]) -> IServiceDiscovery:
     """Create service discovery from configuration."""
-    discovery_type = config.get('type', 'composite')
+    discovery_type = config.get("type", "composite")
 
-    if discovery_type == 'dependency_container':
+    if discovery_type == "dependency_container":
         return DependencyContainerServiceDiscovery()
-    elif discovery_type == 'module':
-        package_names = config.get('package_names')
+    elif discovery_type == "module":
+        package_names = config.get("package_names")
         return ModuleServiceDiscovery(package_names)
-    elif discovery_type == 'composite':
+    elif discovery_type == "composite":
         return CompositeServiceDiscovery()
     else:
         raise ServiceDiscoveryError(f"Unknown discovery type: {discovery_type}")

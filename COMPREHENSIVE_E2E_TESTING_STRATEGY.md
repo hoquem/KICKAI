@@ -114,9 +114,14 @@ curl -X POST http://localhost:8001/api/send_message \
 ```bash
 # Test agent initialization
 python -c "
-from kickai.agents.crew_agents import create_team_management_system
-system = create_team_management_system('KTI')
-print(f'✅ Created {len(system.agents)} agents')
+import asyncio
+from kickai.core.team_system_manager import get_team_system
+
+async def test_system():
+    system = await get_team_system('KTI')
+    print(f'✅ Created {len(system.agents)} agents')
+
+asyncio.run(test_system())
 "
 
 # Test agent routing

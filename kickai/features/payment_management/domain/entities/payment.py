@@ -1,16 +1,11 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
 class Payment:
-    id: Optional[str] = None
+    id: str | None = None
     amount: float = 0.0
     currency: str = "GBP"
     description: str = ""
-    payer_id: Optional[str] = None
-    team_id: Optional[str] = None
-
-
+    payer_id: str | None = None
+    team_id: str | None = None

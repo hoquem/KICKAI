@@ -17,7 +17,6 @@ import asyncio
 import logging
 from collections.abc import Callable
 from datetime import datetime
-from typing import Optional, Set
 
 from kickai.config.llm_config import get_llm_config
 
@@ -36,8 +35,8 @@ class LLMHealthMonitor:
     def __init__(self, check_interval_seconds: int = 300):  # Check every 5 minutes
         self.check_interval = check_interval_seconds
         self.is_running = False
-        self.shutdown_callback: Optional[Callable] = None
-        self.last_check_time: Optional[datetime] = None
+        self.shutdown_callback: Callable | None = None
+        self.last_check_time: datetime | None = None
         self.consecutive_failures = 0
         self.max_consecutive_failures = 2  # Allow 2 failures before stopping
 
@@ -87,10 +86,10 @@ class LLMHealthMonitor:
 
             # Use CrewAI LLM configuration for health checks
             llm_config = get_llm_config()
-            
+
             # Test connection using CrewAI native async method
             connection_success = await llm_config.test_connection_async()
-            
+
             if not connection_success:
                 raise Exception("CrewAI LLM connection test failed")
 
@@ -120,30 +119,30 @@ class LLMHealthMonitor:
         try:
             # Use the main LLM for testing
             test_llm = llm_config.main_llm
-            
+
             # Simple test prompt
             test_prompt = "Health check - respond with 'OK'"
 
             # Check rate limiting before making request
-            if hasattr(llm_config, 'rate_limit_handler'):
+            if hasattr(llm_config, "rate_limit_handler"):
                 if not llm_config.rate_limit_handler.can_make_request(llm_config.ai_provider):
                     wait_time = llm_config.rate_limit_handler.get_wait_time(llm_config.ai_provider)
                     if wait_time > 0:
                         logger.debug(f"Waiting {wait_time:.2f}s due to rate limiting")
                         await asyncio.sleep(wait_time)
-            
+
             # Make the request using CrewAI native async method
-            if hasattr(test_llm, 'ainvoke'):
+            if hasattr(test_llm, "ainvoke"):
                 response = await test_llm.ainvoke(test_prompt)
-            elif hasattr(test_llm, 'invoke'):
+            elif hasattr(test_llm, "invoke"):
                 # Fallback to sync method in thread pool
                 loop = asyncio.get_event_loop()
                 response = await loop.run_in_executor(None, test_llm.invoke, test_prompt)
             else:
                 raise Exception("LLM does not support invoke or ainvoke methods")
-            
+
             # Record the request for rate limiting
-            if hasattr(llm_config, 'rate_limit_handler'):
+            if hasattr(llm_config, "rate_limit_handler"):
                 llm_config.rate_limit_handler.record_request(llm_config.ai_provider)
 
             if not response or len(str(response).strip()) == 0:
@@ -166,7 +165,7 @@ class LLMHealthMonitor:
                 test_prompt = "Health check - respond with 'OK'"
                 loop = asyncio.get_event_loop()
                 response = await loop.run_in_executor(None, llm.invoke, test_prompt)
-                
+
                 if not response or len(str(response)) == 0:
                     raise Exception("Empty response from LLM")
             else:
@@ -178,7 +177,9 @@ class LLMHealthMonitor:
     async def _trigger_shutdown(self, reason: str) -> None:
         """Trigger bot shutdown due to CrewAI LLM failure."""
         logger.error(f"🚫 CRITICAL: Triggering bot shutdown due to CrewAI LLM failure: {reason}")
-        logger.error(f"📊 Health Monitor Status: consecutive_failures={self.consecutive_failures}, max_allowed={self.max_consecutive_failures}")
+        logger.error(
+            f"📊 Health Monitor Status: consecutive_failures={self.consecutive_failures}, max_allowed={self.max_consecutive_failures}"
+        )
 
         if self.shutdown_callback:
             try:
@@ -192,46 +193,50 @@ class LLMHealthMonitor:
             logger.error("🚨 Forcing system exit due to critical CrewAI LLM failure")
             # Force exit if no callback is available
             import sys
+
             sys.exit(1)
 
     def get_status(self) -> dict:
         """Get comprehensive monitor status with CrewAI integration details."""
         try:
             from kickai.config.llm_config import get_llm_config
+
             llm_config = get_llm_config()
             provider_info = {
                 "ai_provider": llm_config.ai_provider.value,
                 "model": llm_config.default_model,
-                "rate_limiting_enabled": hasattr(llm_config, 'rate_limit_handler'),
+                "rate_limiting_enabled": hasattr(llm_config, "rate_limit_handler"),
             }
         except Exception as e:
             provider_info = {
                 "ai_provider": "unknown",
-                "model": "unknown", 
+                "model": "unknown",
                 "rate_limiting_enabled": False,
-                "error": str(e)
+                "error": str(e),
             }
-            
+
         return {
             "monitor_status": {
                 "is_running": self.is_running,
-                "last_check_time": self.last_check_time.isoformat() if self.last_check_time else None,
+                "last_check_time": self.last_check_time.isoformat()
+                if self.last_check_time
+                else None,
                 "consecutive_failures": self.consecutive_failures,
                 "max_consecutive_failures": self.max_consecutive_failures,
                 "check_interval_seconds": self.check_interval,
-                "health": "healthy" if self.consecutive_failures == 0 else "unhealthy"
+                "health": "healthy" if self.consecutive_failures == 0 else "unhealthy",
             },
             "llm_provider": provider_info,
             "integration": {
                 "uses_crewai_native_calls": True,
                 "bypasses_litellm": True,
-                "rate_limiting_integrated": True
-            }
+                "rate_limiting_integrated": True,
+            },
         }
 
 
 # Global instance
-_llm_monitor: Optional[LLMHealthMonitor] = None
+_llm_monitor: LLMHealthMonitor | None = None
 
 
 def get_llm_monitor() -> LLMHealthMonitor:

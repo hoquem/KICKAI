@@ -6,15 +6,20 @@ This module registers all team administration related commands with the command 
 Each feature maintains its own command definitions for clean separation.
 """
 
-from kickai.core.command_registry import CommandType, PermissionLevel, command
-from kickai.core.enums import ChatType, MemberRole
-from kickai.core.types import TelegramMessage
-# AgenticMessageRouter import moved to function level to avoid circular imports
-from kickai.utils.constants import ERROR_MESSAGES, PLAYER_MIN_NAME_LENGTH, EMAIL_PATTERN, VALID_TEAM_MEMBER_ROLES
-from kickai.utils.validation_utils import sanitize_input
-from kickai.utils.phone_utils import is_valid_phone
+
 from loguru import logger
-import re
+
+from kickai.core.command_registry import CommandType, PermissionLevel, command
+from kickai.core.enums import ChatType
+from kickai.core.types import TelegramMessage
+
+# TelegramMessageAdapter import moved to function level to avoid circular imports
+from kickai.utils.constants import (
+    ERROR_MESSAGES,
+    PLAYER_MIN_NAME_LENGTH,
+)
+from kickai.utils.phone_utils import is_valid_phone
+from kickai.utils.validation_utils import sanitize_input
 
 # ============================================================================
 # TEAM MANAGEMENT COMMANDS
@@ -66,7 +71,6 @@ async def handle_addmember_command(update, context, **kwargs):
         Response message with member details and invite link
     """
     try:
-
         # Get message info
         message = update.message
         chat_id = str(message.chat_id)
@@ -94,7 +98,10 @@ async def handle_addmember_command(update, context, **kwargs):
         member_name, phone_number = parse_addmember_args(args_text)
 
         if not member_name or not phone_number:
-            return ERROR_MESSAGES["ADDMEMBER_INVALID_FORMAT"] + f"\n\n📝 **What you provided:** {args_text}\n🎯 **What I need:** Member name + phone number"
+            return (
+                ERROR_MESSAGES["ADDMEMBER_INVALID_FORMAT"]
+                + f"\n\n📝 What you provided: {args_text}\n🎯 What I need: Member name + phone number"
+            )
 
         # Sanitize inputs
         member_name = sanitize_input(member_name, 100)
@@ -102,20 +109,23 @@ async def handle_addmember_command(update, context, **kwargs):
 
         # Validate inputs
         if not member_name or not member_name.strip():
-            return ERROR_MESSAGES["NAME_REQUIRED"] + f"\n\n📝 **What you provided:** {args_text}"
+            return ERROR_MESSAGES["NAME_REQUIRED"] + f"\n\n📝 What you provided: {args_text}"
 
         # Validate name length
         if len(member_name.strip()) < PLAYER_MIN_NAME_LENGTH:
-            return ERROR_MESSAGES["NAME_TOO_SHORT"].format(min_length=PLAYER_MIN_NAME_LENGTH) + f"\n\n📝 **What you provided:** {args_text}"
+            return (
+                ERROR_MESSAGES["NAME_TOO_SHORT"].format(min_length=PLAYER_MIN_NAME_LENGTH)
+                + f"\n\n📝 What you provided: {args_text}"
+            )
 
         # Validate phone number format
         if not is_valid_phone(phone_number):
             return ERROR_MESSAGES["INVALID_PHONE_FORMAT"].format(phone=phone_number)
 
+        # Route to CrewAI agent via TelegramMessageAdapter
+        from kickai.agents.telegram_message_adapter import TelegramMessageAdapter
 
-        # Route to CrewAI agent via AgenticMessageRouter
-        from kickai.agents.agentic_message_router import AgenticMessageRouter
-        router = AgenticMessageRouter(team_id)
+        router = TelegramMessageAdapter(team_id)
 
         # Create structured message for the agent
         agent_message_text = f"/addmember {member_name} {phone_number}"
@@ -127,11 +137,11 @@ async def handle_addmember_command(update, context, **kwargs):
             chat_type=ChatType.LEADERSHIP,
             team_id=team_id,
             username=username,
-            raw_update=update
+            raw_update=update,
         )
 
         # Route to CrewAI system
-        response = await router.route_message(telegram_message)
+        response = await router.process_message(telegram_message)
 
         if response and response.success:
             return response.message
@@ -183,9 +193,6 @@ def parse_addmember_args(args_text: str) -> tuple[str, str]:
 
     member_name = " ".join(name_parts)
     return member_name, phone_number
-
-
-
 
 
 # Commands removed: /createteam, /teamstatus, /updateteam, /listmembers

@@ -6,7 +6,9 @@ Defines the contract for communication services in the KICKAI system.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict, Any
+from typing import Any
+
+from kickai.core.enums import ChatType
 
 
 class ICommunicationService(ABC):
@@ -14,37 +16,59 @@ class ICommunicationService(ABC):
 
     @abstractmethod
     async def send_message(
-        self,
-        chat_id: str,
-        message: str,
-        parse_mode: Optional[str] = None,
-        reply_markup: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, message: str, chat_type: str | ChatType, team_id: str, telegram_id: int | None = None
+    ) -> bool:
         """
-        Send a message to a chat.
-        
+        Send a message to a specific chat type.
+
         Args:
-            chat_id: Target chat identifier
-            message: Message content to send
-            parse_mode: Message parsing mode (HTML, Markdown, etc.)
-            reply_markup: Optional reply markup for interactive messages
-            
+            message: The message to send
+            chat_type: The chat type (ChatType enum or string)
+            team_id: The team ID
+            telegram_id: Optional Telegram user ID
+
         Returns:
-            Dictionary containing send result and message info
+            bool: True if message sent successfully, False otherwise
         """
         pass
 
     @abstractmethod
-    async def send_bulk_messages(
-        self,
-        messages: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    async def send_announcement(self, announcement: str, team_id: str) -> bool:
+        """
+        Send an announcement to the team.
+
+        Args:
+            announcement: The announcement message
+            team_id: The team ID
+
+        Returns:
+            bool: True if announcement sent successfully, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    async def send_poll(self, question: str, options: str, team_id: str) -> bool:
+        """
+        Send a poll to the team.
+
+        Args:
+            question: The poll question
+            options: Comma-separated poll options
+            team_id: The team ID
+
+        Returns:
+            bool: True if poll sent successfully, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    async def send_bulk_messages(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Send multiple messages in bulk.
-        
+
         Args:
             messages: List of message dictionaries with chat_id and content
-            
+
         Returns:
             List of send results for each message
         """
@@ -52,32 +76,29 @@ class ICommunicationService(ABC):
 
     @abstractmethod
     async def create_invite_link(
-        self,
-        chat_id: str,
-        expire_date: Optional[int] = None,
-        member_limit: Optional[int] = None
+        self, chat_id: str, expire_date: int | None = None, member_limit: int | None = None
     ) -> str:
         """
         Create an invite link for a chat.
-        
+
         Args:
             chat_id: Chat identifier to create invite for
             expire_date: Optional expiration timestamp
             member_limit: Optional member limit for the link
-            
+
         Returns:
             Generated invite link URL
         """
         pass
 
     @abstractmethod
-    async def get_chat_info(self, chat_id: str) -> Dict[str, Any]:
+    async def get_chat_info(self, chat_id: str) -> dict[str, Any]:
         """
         Get information about a chat.
-        
+
         Args:
             chat_id: Chat identifier
-            
+
         Returns:
             Dictionary containing chat information
         """
@@ -87,7 +108,7 @@ class ICommunicationService(ABC):
     def is_available(self) -> bool:
         """
         Check if communication service is available.
-        
+
         Returns:
             True if service is operational
         """

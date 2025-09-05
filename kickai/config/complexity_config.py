@@ -7,7 +7,7 @@ values out of the code to make the system more maintainable and configurable.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 @dataclass
@@ -15,20 +15,20 @@ class ComplexityFactors:
     """Configuration for complexity assessment factors."""
 
     # Intent complexity mappings
-    simple_intents: List[str]
-    moderate_intents: List[str]
-    complex_intents: List[str]
-    very_complex_intents: List[str]
+    simple_intents: list[str]
+    moderate_intents: list[str]
+    complex_intents: list[str]
+    very_complex_intents: list[str]
 
     # Entity complexity mappings
-    simple_entities: List[str]
-    moderate_entities: List[str]
-    complex_entities: List[str]
+    simple_entities: list[str]
+    moderate_entities: list[str]
+    complex_entities: list[str]
 
     # Context complexity indicators
-    simple_context: List[str]
-    moderate_context: List[str]
-    complex_context: List[str]
+    simple_context: list[str]
+    moderate_context: list[str]
+    complex_context: list[str]
 
     # Dependency complexity weights
     no_dependencies: float
@@ -62,7 +62,7 @@ class ComplexityThresholds:
 class ProcessingTimeConfig:
     """Configuration for processing time estimation."""
 
-    base_times: Dict[str, Dict, int]
+    base_times: dict[str, dict, int]
     entity_complexity_threshold: float
     entity_complexity_adjustment: int
     dependency_complexity_threshold: float
@@ -139,7 +139,7 @@ class ComplexityConfig:
         else:
             return 0.5  # Default moderate complexity
 
-    def get_entity_complexity_score(self, entities: Dict[str, Any]) -> float:
+    def get_entity_complexity_score(self, entities: dict[str, Any]) -> float:
         """Get complexity score for entities."""
         if not entities:
             return 0.1  # No entities = simple
@@ -159,7 +159,7 @@ class ComplexityConfig:
         # Return average entity complexity
         return sum(entity_scores) / len(entity_scores) if entity_scores else 0.1
 
-    def get_context_complexity_score(self, context: Dict[str, Any]) -> float:
+    def get_context_complexity_score(self, context: dict[str, Any]) -> float:
         """Get complexity score for context."""
         if not context:
             return 0.1  # No context = simple
@@ -180,7 +180,7 @@ class ComplexityConfig:
 
         return min(1.0, context_score)
 
-    def get_dependency_complexity_score(self, dependencies: List[str]) -> float:
+    def get_dependency_complexity_score(self, dependencies: list[str]) -> float:
         """Get complexity score for dependencies."""
         if not dependencies:
             return self.factors.no_dependencies
@@ -194,7 +194,7 @@ class ComplexityConfig:
         else:
             return self.factors.circular_dependencies
 
-    def calculate_overall_complexity(self, factors: Dict[str, float]) -> Tuple[float, str]:
+    def calculate_overall_complexity(self, factors: dict[str, float]) -> tuple[float, str]:
         """Calculate overall complexity score and level."""
         overall_score = 0.0
         for factor, weight in self.weights.__dict__.items():
@@ -213,7 +213,7 @@ class ComplexityConfig:
 
         return overall_score, complexity_level
 
-    def estimate_processing_time(self, complexity_level: str, factors: Dict[str, float]) -> int:
+    def estimate_processing_time(self, complexity_level: str, factors: dict[str, float]) -> int:
         """Estimate processing time based on complexity."""
         base_time = self.processing_times.base_times.get(complexity_level, 60)
         adjustments = 0

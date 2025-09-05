@@ -29,8 +29,8 @@ class SystemConstants:
 
     # Cache Settings
     DEFAULT_CACHE_TTL_SECONDS: int = 300  # 5 minutes
-    LONG_CACHE_TTL_SECONDS: int = 3600    # 1 hour
-    SHORT_CACHE_TTL_SECONDS: int = 60     # 1 minute
+    LONG_CACHE_TTL_SECONDS: int = 3600  # 1 hour
+    SHORT_CACHE_TTL_SECONDS: int = 60  # 1 minute
 
     # Pagination
     DEFAULT_PAGE_SIZE: int = 10

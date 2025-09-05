@@ -1,4 +1,3 @@
-from typing import Optional
 #!/usr/bin/env python3
 """
 Player Repository Interface
@@ -20,12 +19,12 @@ class PlayerRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_player_by_id(self, player_id: str, team_id: str) -> Optional[Player]:
+    async def get_player_by_id(self, player_id: str, team_id: str) -> Player | None:
         """Get a player by ID."""
         pass
 
     @abstractmethod
-    async def get_player_by_phone(self, phone: str, team_id: str) -> Optional[Player]:
+    async def get_player_by_phone(self, phone: str, team_id: str) -> Player | None:
         """Get a player by phone number."""
         pass
 
@@ -50,7 +49,7 @@ class PlayerRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_player_by_telegram_id(self, telegram_id: int, team_id: str) -> Optional[Player]:
+    async def get_player_by_telegram_id(self, telegram_id: int, team_id: str) -> Player | None:
         """Get a player by Telegram ID."""
         pass
 
@@ -65,11 +64,15 @@ class PlayerRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def update_player_field(self, telegram_id: int, team_id: str, field: str, value: str) -> bool:
+    async def update_player_field(
+        self, telegram_id: int, team_id: str, field: str, value: str
+    ) -> bool:
         """Update a single field for a player."""
         pass
 
     @abstractmethod
-    async def update_player_multiple_fields(self, telegram_id: int, team_id: str, updates: dict[str, str]) -> bool:
+    async def update_player_multiple_fields(
+        self, telegram_id: int, team_id: str, updates: dict[str, str]
+    ) -> bool:
         """Update multiple fields for a player."""
         pass

@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kickai.core.enums import AgentRole, AIProvider
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -21,7 +20,7 @@ class LLMConfiguration:
     temperature: float
     timeout_seconds: int
     max_retries: int
-    max_tokens: Optional[int] = None
+    max_tokens: int | None = None
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.temperature <= 2.0:
@@ -43,8 +42,9 @@ class LLMConfiguration:
     def for_data_critical_agent(cls, provider: AIProvider = AIProvider.OLLAMA) -> LLMConfiguration:
         """Create configuration optimized for data-critical agents (anti-hallucination)."""
         from kickai.core.config import get_settings
+
         settings = get_settings()
-        
+
         model_map = {
             AIProvider.OLLAMA: "llama3.2:1b",
             AIProvider.HUGGINGFACE: "microsoft/DialoGPT-small",
@@ -65,8 +65,9 @@ class LLMConfiguration:
     def for_administrative_agent(cls, provider: AIProvider = AIProvider.OLLAMA) -> LLMConfiguration:
         """Create configuration for administrative agents (balanced reasoning)."""
         from kickai.core.config import get_settings
+
         settings = get_settings()
-        
+
         model_map = {
             AIProvider.OLLAMA: "llama3.2:3b",
             AIProvider.HUGGINGFACE: "microsoft/DialoGPT-medium",
@@ -87,8 +88,9 @@ class LLMConfiguration:
     def for_creative_agent(cls, provider: AIProvider = AIProvider.OLLAMA) -> LLMConfiguration:
         """Create configuration for creative agents (analytical and creative tasks)."""
         from kickai.core.config import get_settings
+
         settings = get_settings()
-        
+
         model_map = {
             AIProvider.OLLAMA: "llama3.2:3b",
             AIProvider.HUGGINGFACE: "microsoft/DialoGPT-large",
@@ -123,7 +125,9 @@ class AgentConfiguration:
             raise ValueError("Max iterations must be positive")
 
     @classmethod
-    def for_role(cls, role: AgentRole, provider: AIProvider = AIProvider.OLLAMA) -> AgentConfiguration:
+    def for_role(
+        cls, role: AgentRole, provider: AIProvider = AIProvider.OLLAMA
+    ) -> AgentConfiguration:
         """Create appropriate configuration for a given agent role."""
 
         # Data-critical agents (require high precision, low hallucination)
@@ -148,7 +152,7 @@ class AgentConfiguration:
             llm_config = LLMConfiguration.for_data_critical_agent(provider)
             # Data-critical agents should have limited iterations to prevent elaboration
             max_iterations = 1
-            memory_enabled = False  # Disable memory to prevent hallucination
+            memory_enabled = True  # Enable memory for persistent crew continuity
         elif role in administrative_roles:
             llm_config = LLMConfiguration.for_administrative_agent(provider)
             max_iterations = 3

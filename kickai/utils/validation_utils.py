@@ -8,7 +8,6 @@ This module provides comprehensive input validation for the KICKAI system.
 import re
 
 from kickai.core.constants import LimitConstants, ValidationConstants
-from typing import List, Tuple
 
 # Valid football positions
 VALID_POSITIONS = {
@@ -46,10 +45,11 @@ VALID_POSITIONS = {
 }
 
 # Import phone utilities for proper phone validation
-from kickai.utils.phone_utils import is_valid_phone as phone_utils_is_valid, normalize_phone as phone_utils_normalize
+from kickai.utils.phone_utils import is_valid_phone as phone_utils_is_valid
+from kickai.utils.phone_utils import normalize_phone as phone_utils_normalize
 
 
-def validate_player_input(name: str, phone: str, position: str, team_id: str) -> List[str]:
+def validate_player_input(name: str, phone: str, position: str, team_id: str) -> list[str]:
     """
     Validate player input parameters.
 
@@ -68,9 +68,13 @@ def validate_player_input(name: str, phone: str, position: str, team_id: str) ->
     if not name or not name.strip():
         errors.append("Name is required")
     elif len(name.strip()) < LimitConstants.MIN_NAME_LENGTH:
-        errors.append(ValidationConstants.NAME_TOO_SHORT_MSG.format(min=LimitConstants.MIN_NAME_LENGTH))
+        errors.append(
+            ValidationConstants.NAME_TOO_SHORT_MSG.format(min=LimitConstants.MIN_NAME_LENGTH)
+        )
     elif len(name.strip()) > LimitConstants.MAX_NAME_LENGTH:
-        errors.append(ValidationConstants.NAME_TOO_LONG_MSG.format(max=LimitConstants.MAX_NAME_LENGTH))
+        errors.append(
+            ValidationConstants.NAME_TOO_LONG_MSG.format(max=LimitConstants.MAX_NAME_LENGTH)
+        )
     elif not re.match(r"^[a-zA-Z\s\-\.\']+$", name.strip()):
         errors.append("Name can only contain letters, spaces, hyphens, dots, and apostrophes")
 
@@ -90,9 +94,13 @@ def validate_player_input(name: str, phone: str, position: str, team_id: str) ->
     if not team_id or not team_id.strip():
         errors.append("Team ID is required")
     elif len(team_id.strip()) < LimitConstants.MIN_TEAM_ID_LENGTH:
-        errors.append(ValidationConstants.TEAM_ID_TOO_SHORT_MSG.format(min=LimitConstants.MIN_TEAM_ID_LENGTH))
+        errors.append(
+            ValidationConstants.TEAM_ID_TOO_SHORT_MSG.format(min=LimitConstants.MIN_TEAM_ID_LENGTH)
+        )
     elif len(team_id.strip()) > LimitConstants.MAX_TEAM_ID_LENGTH:
-        errors.append(ValidationConstants.TEAM_ID_TOO_LONG_MSG.format(max=LimitConstants.MAX_TEAM_ID_LENGTH))
+        errors.append(
+            ValidationConstants.TEAM_ID_TOO_LONG_MSG.format(max=LimitConstants.MAX_TEAM_ID_LENGTH)
+        )
     elif not re.match(ValidationConstants.TEAM_ID_PATTERN, team_id.strip()):
         errors.append("Team ID can only contain uppercase letters and numbers")
 
@@ -124,12 +132,12 @@ def normalize_phone(phone: str) -> str:
     """
     if not phone or not phone.strip():
         return phone
-    
+
     normalized = phone_utils_normalize(phone)
     return normalized if normalized else phone  # Return original if normalization fails
 
 
-def validate_team_member_input(name: str, phone: str, role: str, team_id: str) -> List[str]:
+def validate_team_member_input(name: str, phone: str, role: str, team_id: str) -> list[str]:
     """
     Validate team member input parameters.
 
@@ -199,7 +207,7 @@ def sanitize_input(text: str, max_length: int = 100) -> str:
     return sanitized
 
 
-def validate_invite_link(invite_link: str) -> Tuple[bool, str]:
+def validate_invite_link(invite_link: str) -> tuple[bool, str]:
     """
     Validate invite link format.
 
@@ -227,7 +235,7 @@ def validate_invite_link(invite_link: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def validate_team_id(team_id: str) -> Tuple[bool, str]:
+def validate_team_id(team_id: str) -> tuple[bool, str]:
     """
     Validate team ID format.
 
@@ -241,10 +249,14 @@ def validate_team_id(team_id: str) -> Tuple[bool, str]:
         return False, "Team ID is required"
 
     if len(team_id) < LimitConstants.MIN_TEAM_ID_LENGTH:
-        return False, ValidationConstants.TEAM_ID_TOO_SHORT_MSG.format(min=LimitConstants.MIN_TEAM_ID_LENGTH)
+        return False, ValidationConstants.TEAM_ID_TOO_SHORT_MSG.format(
+            min=LimitConstants.MIN_TEAM_ID_LENGTH
+        )
 
     if len(team_id) > LimitConstants.MAX_TEAM_ID_LENGTH:
-        return False, ValidationConstants.TEAM_ID_TOO_LONG_MSG.format(max=LimitConstants.MAX_TEAM_ID_LENGTH)
+        return False, ValidationConstants.TEAM_ID_TOO_LONG_MSG.format(
+            max=LimitConstants.MAX_TEAM_ID_LENGTH
+        )
 
     if not re.match(ValidationConstants.TEAM_ID_PATTERN, team_id):
         return False, "Team ID can only contain uppercase letters and numbers"

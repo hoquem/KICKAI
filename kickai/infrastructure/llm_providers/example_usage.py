@@ -10,10 +10,9 @@ import asyncio
 import logging
 import os
 import sys
-from typing import Set
 
 # Add the project root to the Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 from kickai.core.enums import AIProvider
 from kickai.infrastructure.llm_providers.factory import (
@@ -121,9 +120,7 @@ async def example_llm_usage():
     llm = provider.create_llm()
 
     # Test the LLM
-    test_messages = [
-        {"role": "user", "content": "Hello, can you help me with a question?"}
-    ]
+    test_messages = [{"role": "user", "content": "Hello, can you help me with a question?"}]
 
     response = llm.invoke(test_messages)
     logger.info(f"✅ LLM Response: {response[:100]}...")
@@ -140,7 +137,9 @@ def example_health_monitoring():
         if status.get("available", False):
             logger.info(f"✅ {provider_name}: Available")
         else:
-            logger.warning(f"⚠️  {provider_name}: Unavailable - {status.get('error', 'Unknown error')}")
+            logger.warning(
+                f"⚠️  {provider_name}: Unavailable - {status.get('error', 'Unknown error')}"
+            )
 
 
 def example_custom_provider():

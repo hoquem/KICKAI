@@ -5,20 +5,20 @@ Invite processing utilities.
 Handles invite link validation and processing for the KICKAI system.
 """
 
-from typing import Any, Optional
+from typing import Any
+
 from loguru import logger
 
 from kickai.agents.config.message_router_config import (
-    ERROR_MESSAGES,
-    WARNING_MESSAGES,
     LOG_MESSAGES,
+    WARNING_MESSAGES,
 )
 
 
 class InviteProcessor:
     """
     Handles invite link processing and validation.
-    
+
     Extracts new members and invite context from raw Telegram updates.
     """
 
@@ -41,7 +41,7 @@ class InviteProcessor:
                 and hasattr(raw_update.message, "new_chat_members")
                 and raw_update.message.new_chat_members
             )
-            
+
         except Exception as e:
             logger.error(f"❌ Error in is_new_chat_members_event: {e}")
             return False
@@ -63,13 +63,13 @@ class InviteProcessor:
                 return []
 
             return raw_update.message.new_chat_members
-            
+
         except Exception as e:
             logger.error(f"❌ Error in extract_new_members: {e}")
             return []
 
     @staticmethod
-    def extract_invite_context(raw_update: Any) -> Optional[dict]:
+    def extract_invite_context(raw_update: Any) -> dict | None:
         """
         Extract invite context from the update.
 
@@ -104,13 +104,13 @@ class InviteProcessor:
                 context["invite_link_creator"] = getattr(message.invite_link, "creator", None)
 
             return context if context else None
-            
+
         except Exception as e:
             logger.error(f"❌ Error in extract_invite_context: {e}")
             return None
 
     @staticmethod
-    def validate_invite_link(invite_link: str) -> tuple[bool, Optional[str]]:
+    def validate_invite_link(invite_link: str) -> tuple[bool, str | None]:
         """
         Validate an invite link format.
 
@@ -140,13 +140,13 @@ class InviteProcessor:
                 return False, "Invalid characters in invite link"
 
             return True, None
-            
+
         except Exception as e:
             logger.error(f"❌ Error in validate_invite_link: {e}")
             return False, "Invite link validation failed"
 
     @staticmethod
-    def process_invite_event(raw_update: Any) -> Optional[dict]:
+    def process_invite_event(raw_update: Any) -> dict | None:
         """
         Process a complete invite event from raw update.
 
@@ -196,14 +196,16 @@ class InviteProcessor:
                 "timestamp": getattr(raw_update.message, "date", None),
             }
 
-            logger.info(LOG_MESSAGES["INVITE_EVENT_PROCESSED"].format(
-                member_count=len(processed_members),
-                chat_id=context.get("chat_id"),
-                from_user=context.get("from_username")
-            ))
+            logger.info(
+                LOG_MESSAGES["INVITE_EVENT_PROCESSED"].format(
+                    member_count=len(processed_members),
+                    chat_id=context.get("chat_id"),
+                    from_user=context.get("from_username"),
+                )
+            )
 
             return result
-            
+
         except Exception as e:
             logger.error(f"❌ Error in process_invite_event: {e}")
             return None

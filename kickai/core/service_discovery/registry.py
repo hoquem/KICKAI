@@ -10,7 +10,7 @@ import logging
 import threading
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .interfaces import (
     CircuitBreakerOpenError,
@@ -84,11 +84,11 @@ class DefaultServiceHealthChecker:
                     service_name=service_name,
                     status=ServiceStatus.UNHEALTHY,
                     last_check=time.time(),
-                    error_message="Service instance is None"
+                    error_message="Service instance is None",
                 )
 
             # Check if service has a health check method
-            if hasattr(service_instance, 'health_check'):
+            if hasattr(service_instance, "health_check"):
                 try:
                     health_result = await service_instance.health_check()
                     response_time = time.time() - start_time
@@ -98,7 +98,7 @@ class DefaultServiceHealthChecker:
                         status=ServiceStatus.HEALTHY if health_result else ServiceStatus.UNHEALTHY,
                         last_check=time.time(),
                         response_time=response_time,
-                        metadata={"has_health_check": True}
+                        metadata={"has_health_check": True},
                     )
                 except Exception as e:
                     response_time = time.time() - start_time
@@ -108,7 +108,7 @@ class DefaultServiceHealthChecker:
                         last_check=time.time(),
                         response_time=response_time,
                         error_message=str(e),
-                        metadata={"has_health_check": True, "health_check_failed": True}
+                        metadata={"has_health_check": True, "health_check_failed": True},
                     )
 
             # Basic instance check - service exists
@@ -118,7 +118,7 @@ class DefaultServiceHealthChecker:
                 status=ServiceStatus.HEALTHY,
                 last_check=time.time(),
                 response_time=response_time,
-                metadata={"basic_check": True}
+                metadata={"basic_check": True},
             )
 
         except Exception as e:
@@ -126,7 +126,7 @@ class DefaultServiceHealthChecker:
                 service_name=service_name,
                 status=ServiceStatus.UNHEALTHY,
                 last_check=time.time(),
-                error_message=str(e)
+                error_message=str(e),
             )
 
     def supports_service(self, service_name: str) -> bool:
@@ -139,13 +139,13 @@ class ServiceRegistry(IServiceRegistry):
 
     def __init__(self, config: ServiceConfiguration = None):
         self.config = config or ServiceConfiguration()
-        self._services: Dict[str, Any] = {}
-        self._definitions: Dict[str, ServiceDefinition] = {}
-        self._health_status: Dict[str, ServiceHealth] = {}
-        self._circuit_breakers: Dict[str, CircuitBreaker] = {}
-        self._health_checkers: List[IServiceHealthChecker] = []
+        self._services: dict[str, Any] = {}
+        self._definitions: dict[str, ServiceDefinition] = {}
+        self._health_status: dict[str, ServiceHealth] = {}
+        self._circuit_breakers: dict[str, CircuitBreaker] = {}
+        self._health_checkers: list[IServiceHealthChecker] = []
         self._lock = threading.RLock()
-        self._health_check_tasks: Dict[str, asyncio.Task] = {}
+        self._health_check_tasks: dict[str, asyncio.Task] = {}
         self._running = False
 
         # Add default health checker
@@ -167,13 +167,12 @@ class ServiceRegistry(IServiceRegistry):
                 if self.config.circuit_breaker_enabled:
                     self._circuit_breakers[definition.name] = CircuitBreaker(
                         failure_threshold=self.config.circuit_breaker_threshold,
-                        timeout=self.config.circuit_breaker_timeout
+                        timeout=self.config.circuit_breaker_timeout,
                     )
 
                 # Initialize health status
                 self._health_status[definition.name] = ServiceHealth(
-                    service_name=definition.name,
-                    status=ServiceStatus.UNKNOWN
+                    service_name=definition.name, status=ServiceStatus.UNKNOWN
                 )
 
                 logger.info(f"✅ Service {definition.name} registered successfully")
@@ -200,28 +199,29 @@ class ServiceRegistry(IServiceRegistry):
 
             logger.info(f"🗑️ Service {service_name} unregistered")
 
-    def get_service(self, service_name: str) -> Optional[Any]:
+    def get_service(self, service_name: str) -> Any | None:
         """Get a service instance by name."""
         with self._lock:
             return self._services.get(service_name)
 
-    def get_service_definition(self, service_name: str) -> Optional[ServiceDefinition]:
+    def get_service_definition(self, service_name: str) -> ServiceDefinition | None:
         """Get service definition by name."""
         with self._lock:
             return self._definitions.get(service_name)
 
-    def list_services(self, service_type: Optional[ServiceType] = None) -> List[str]:
+    def list_services(self, service_type: ServiceType | None = None) -> list[str]:
         """List all registered services, optionally filtered by type."""
         with self._lock:
             if service_type is None:
                 return list(self._definitions.keys())
 
             return [
-                name for name, definition in self._definitions.items()
+                name
+                for name, definition in self._definitions.items()
                 if definition.service_type == service_type
             ]
 
-    def get_services_by_type(self, service_type: ServiceType) -> Dict[str, Any]:
+    def get_services_by_type(self, service_type: ServiceType) -> dict[str, Any]:
         """Get all services of a specific type."""
         with self._lock:
             result = {}
@@ -258,13 +258,12 @@ class ServiceRegistry(IServiceRegistry):
                 service_name=service_name,
                 status=ServiceStatus.UNKNOWN,
                 last_check=time.time(),
-                error_message="No health checker available"
+                error_message="No health checker available",
             )
 
         try:
             health = await asyncio.wait_for(
-                health_checker.check_health(service_name, instance),
-                timeout=definition.timeout
+                health_checker.check_health(service_name, instance), timeout=definition.timeout
             )
 
             # Update circuit breaker
@@ -287,7 +286,7 @@ class ServiceRegistry(IServiceRegistry):
                 service_name=service_name,
                 status=ServiceStatus.UNHEALTHY,
                 last_check=time.time(),
-                error_message=f"Health check timeout after {definition.timeout}s"
+                error_message=f"Health check timeout after {definition.timeout}s",
             )
 
             # Record failure in circuit breaker
@@ -307,7 +306,7 @@ class ServiceRegistry(IServiceRegistry):
                 service_name=service_name,
                 status=ServiceStatus.UNHEALTHY,
                 last_check=time.time(),
-                error_message=str(e)
+                error_message=str(e),
             )
 
             # Record failure in circuit breaker
@@ -321,15 +320,12 @@ class ServiceRegistry(IServiceRegistry):
 
             return health
 
-    async def check_all_services_health(self) -> Dict[str, ServiceHealth]:
+    async def check_all_services_health(self) -> dict[str, ServiceHealth]:
         """Check health of all registered services."""
         service_names = self.list_services()
 
         # Use asyncio.gather for concurrent health checks
-        health_checks = [
-            self.check_service_health(service_name)
-            for service_name in service_names
-        ]
+        health_checks = [self.check_service_health(service_name) for service_name in service_names]
 
         try:
             health_results = await asyncio.gather(*health_checks, return_exceptions=True)
@@ -341,7 +337,7 @@ class ServiceRegistry(IServiceRegistry):
                         service_name=service_name,
                         status=ServiceStatus.UNHEALTHY,
                         last_check=time.time(),
-                        error_message=str(health)
+                        error_message=str(health),
                     )
                 else:
                     result[service_name] = health
@@ -365,7 +361,7 @@ class ServiceRegistry(IServiceRegistry):
         self._health_checkers.insert(0, health_checker)  # Custom checkers have priority
         logger.info("✅ Added custom health checker")
 
-    def get_service_statistics(self) -> Dict[str, Any]:
+    def get_service_statistics(self) -> dict[str, Any]:
         """Get service registry statistics."""
         with self._lock:
             stats = {
@@ -388,7 +384,7 @@ class ServiceRegistry(IServiceRegistry):
 
 
 # Global registry instance
-_global_registry: Optional[ServiceRegistry] = None
+_global_registry: ServiceRegistry | None = None
 _registry_lock = threading.Lock()
 
 

@@ -5,20 +5,23 @@ Context Validation Check
 This module provides validation for the single source of truth context system.
 """
 
-import asyncio
-from typing import Any, Dict
+from typing import Any
 
 from loguru import logger
 
+from kickai.core.context_types import (
+    StandardizedContext,
+    create_safe_context_fallback,
+    validate_context_data,
+)
 from kickai.core.startup_validation.checks.base_check import BaseCheck
-from kickai.core.startup_validation.reporting import CheckResult, CheckStatus, CheckCategory
-from kickai.core.context_types import StandardizedContext, validate_context_data, create_safe_context_fallback
+from kickai.core.startup_validation.reporting import CheckCategory, CheckResult, CheckStatus
 
 
 class ContextValidationCheck(BaseCheck):
     """
     Validates the single source of truth context system.
-    
+
     This check ensures that:
     - Context creation works properly
     - Validation functions work correctly
@@ -31,11 +34,11 @@ class ContextValidationCheck(BaseCheck):
     category = CheckCategory.SYSTEM
     description = "Validates the single source of truth context system"
 
-    async def execute(self, context: Dict[str, Any] = None) -> CheckResult:
+    async def execute(self, context: dict[str, Any] = None) -> CheckResult:
         """Execute context validation checks."""
         try:
             errors = []
-            
+
             # Test 1: Basic context creation
             try:
                 test_context = StandardizedContext.create_from_telegram_message(
@@ -45,8 +48,7 @@ class ContextValidationCheck(BaseCheck):
                     chat_type="main",
                     message_text="Hello world",
                     username="testuser",
-                    telegram_name="Test User",
-                    is_player=True
+                    is_player=True,
                 )
                 logger.info("✅ Basic context creation passed")
             except Exception as e:
@@ -81,9 +83,8 @@ class ContextValidationCheck(BaseCheck):
                     chat_type="leadership",
                     command="/addplayer",
                     username="admin",
-                    telegram_name="Admin User",
                     is_team_member=True,
-                    is_admin=True
+                    is_admin=True,
                 )
                 logger.info("✅ Command context creation passed")
             except Exception as e:
@@ -92,8 +93,7 @@ class ContextValidationCheck(BaseCheck):
             # Test 5: System context creation
             try:
                 system_context = StandardizedContext.create_system_context(
-                    team_id="TEST",
-                    operation="startup_validation"
+                    team_id="TEST", operation="startup_validation"
                 )
                 logger.info("✅ System context creation passed")
             except Exception as e:
@@ -107,7 +107,7 @@ class ContextValidationCheck(BaseCheck):
                     "chat_id": "-1001234567890",
                     "chat_type": "main",
                     "message_text": "test",
-                    "username": "testuser"
+                    "username": "testuser",
                 }
                 if validate_context_data(test_data):
                     logger.info("✅ Context data validation passed")
@@ -143,15 +143,15 @@ class ContextValidationCheck(BaseCheck):
                     category=self.category,
                     status=CheckStatus.FAILED,
                     message=f"Context validation failed with {len(errors)} errors",
-                    details={"errors": errors}
+                    details={"errors": errors},
                 )
-            
+
             return CheckResult(
                 name=self.name,
                 category=self.category,
                 status=CheckStatus.PASSED,
                 message="Single source of truth context system validated successfully",
-                details={"tests_passed": 8}
+                details={"tests_passed": 8},
             )
 
         except Exception as e:
@@ -161,5 +161,5 @@ class ContextValidationCheck(BaseCheck):
                 category=self.category,
                 status=CheckStatus.FAILED,
                 message=f"ContextValidationCheck failed: {e}",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )

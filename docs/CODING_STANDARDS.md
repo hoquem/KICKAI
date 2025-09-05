@@ -1,12 +1,12 @@
-# KICKAI Coding Standards
+# KICKAI Coding Standards - CrewAI Semantic Tool Patterns
 
-**Version:** 1.0  
-**Last Updated:** January 2025  
-**Status:** Active Standards
+**Version:** 1.1  
+**Last Updated:** September 2025  
+**Status:** Active Standards with CrewAI Semantic Patterns
 
 ## 🎯 Overview
 
-This document defines the coding standards and best practices for the KICKAI project. All code must adhere to these standards to ensure consistency, maintainability, and reliability.
+This document defines the coding standards and best practices for the KICKAI project with CrewAI semantic tool patterns. All code must adhere to these standards to ensure semantic tool selection, parameter clarity, and CrewAI intelligent routing.
 
 ## 🏗️ Core Architecture Principles
 
@@ -16,11 +16,12 @@ This document defines the coding standards and best practices for the KICKAI pro
 - **Open/Closed Principle**: Open for extension, closed for modification
 - **Interface Segregation**: Clients should not be forced to depend on interfaces they don't use
 
-### 2. **Agentic-First Design**
-- **ALL user interactions** go through CrewAI agents
-- **No direct processing** bypasses the agentic system
-- **Context-aware routing** based on user roles and chat types
-- **Single source of truth** for command registry and agent orchestration
+### 2. **CrewAI Semantic-First Design**
+- **ALL tool selection** through CrewAI semantic understanding
+- **No hardcoded routing** - trust CrewAI intelligence
+- **Semantic tool patterns** (`_self` vs `_by_identifier`)
+- **Explicit parameter naming** (`telegram_username` not `username`)
+- **Intent-based agent selection** through semantic understanding
 
 ## 📝 Code Structure Standards
 

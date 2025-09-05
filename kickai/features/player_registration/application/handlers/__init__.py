@@ -15,7 +15,7 @@ from .player_command_handlers import (
     handle_status_command,
 )
 
-__all__ = [
+_all_ = [
     "handle_addplayer_command",
     "handle_approve_command",
     "handle_reject_command",

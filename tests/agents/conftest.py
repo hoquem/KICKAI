@@ -12,7 +12,8 @@ from typing import Dict, Any, List
 
 from kickai.agents.agent_types import AgentRole, AgentContext
 from kickai.agents.configurable_agent import ConfigurableAgent
-from kickai.agents.crew_agents import TeamManagementSystem, create_team_management_system
+from kickai.agents.crew_agents import TeamManagementSystem
+from kickai.core.team_system_manager import get_team_system
 # Removed entity_specific_agents import - using simplified 5-agent architecture
 # Removed old Ollama imports - using new SimpleLLMFactory instead
 

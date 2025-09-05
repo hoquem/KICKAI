@@ -6,7 +6,7 @@ This module provides the registration service for handling player and team membe
 """
 
 from datetime import datetime
-from typing import Any, List, Dict
+from typing import Any
 
 from loguru import logger
 
@@ -36,12 +36,8 @@ class RegistrationService:
         self.id_generator = SimpleIDGenerator()
 
     async def create_pending_player(
-        self,
-        name: str,
-        phone: str,
-        position: str,
-        invited_by: str
-    ) -> Dict[str, Any]:
+        self, name: str, phone: str, position: str, invited_by: str
+    ) -> dict[str, Any]:
         """
         Create a pending player registration.
 
@@ -57,9 +53,12 @@ class RegistrationService:
         try:
             # Validate phone number
             from kickai.utils.phone_validation import validate_phone_number
+
             validation_result = validate_phone_number(phone)
             if not validation_result.is_valid:
-                raise ValueError(f"Invalid phone number format: {phone} - {validation_result.error_message}")
+                raise ValueError(
+                    f"Invalid phone number format: {phone} - {validation_result.error_message}"
+                )
 
             # Check if player already exists
             existing_player = await self.player_repository.get_player_by_phone(phone, self.team_id)
@@ -104,12 +103,8 @@ class RegistrationService:
             raise
 
     async def create_pending_team_member(
-        self,
-        name: str,
-        phone: str,
-        role: str,
-        invited_by: str
-    ) -> Dict[str, Any]:
+        self, name: str, phone: str, role: str, invited_by: str
+    ) -> dict[str, Any]:
         """
         Create a pending team member registration.
 
@@ -125,12 +120,17 @@ class RegistrationService:
         try:
             # Validate phone number
             from kickai.utils.phone_validation import validate_phone_number
+
             validation_result = validate_phone_number(phone)
             if not validation_result.is_valid:
-                raise ValueError(f"Invalid phone number format: {phone} - {validation_result.error_message}")
+                raise ValueError(
+                    f"Invalid phone number format: {phone} - {validation_result.error_message}"
+                )
 
             # Check if member already exists
-            existing_member = await self.team_repository.get_team_member_by_phone(phone, self.team_id)
+            existing_member = await self.team_repository.get_team_member_by_phone(
+                phone, self.team_id
+            )
             if existing_member:
                 raise ValueError(f"Team member with phone {phone} already exists")
 
@@ -172,11 +172,8 @@ class RegistrationService:
             raise
 
     async def complete_player_registration(
-        self,
-        phone: str,
-        telegram_id: int,
-        telegram_username: str
-    ) -> Dict[str, Any]:
+        self, phone: str, telegram_id: int, telegram_username: str
+    ) -> dict[str, Any]:
         """
         Complete player registration by linking Telegram account.
 
@@ -223,11 +220,8 @@ class RegistrationService:
             raise
 
     async def complete_team_member_registration(
-        self,
-        phone: str,
-        telegram_id: int,
-        telegram_username: str
-    ) -> Dict[str, Any]:
+        self, phone: str, telegram_id: int, telegram_username: str
+    ) -> dict[str, Any]:
         """
         Complete team member registration by linking Telegram account.
 
@@ -273,7 +267,7 @@ class RegistrationService:
             logger.error(f"❌ Failed to complete team member registration: {e}")
             raise
 
-    async def approve_player(self, player_id: str, approved_by: str) -> Dict[str, Any]:
+    async def approve_player(self, player_id: str, approved_by: str) -> dict[str, Any]:
         """
         Approve a pending player.
 
@@ -318,12 +312,7 @@ class RegistrationService:
             logger.error(f"❌ Failed to approve player: {e}")
             raise
 
-    async def reject_player(
-        self,
-        player_id: str,
-        rejected_by: str,
-        reason: str
-    ) -> Dict[str, Any]:
+    async def reject_player(self, player_id: str, rejected_by: str, reason: str) -> dict[str, Any]:
         """
         Reject a pending player.
 
@@ -371,7 +360,7 @@ class RegistrationService:
             logger.error(f"❌ Failed to reject player: {e}")
             raise
 
-    async def get_pending_players(self) -> List[Dict[str, Any]]:
+    async def get_pending_players(self) -> list[dict[str, Any]]:
         """
         Get all pending players.
 
@@ -388,7 +377,7 @@ class RegistrationService:
                     "phone": player.phone_number,
                     "position": player.position,
                     "status": player.status,
-                    "invited_by": getattr(player, 'invited_by', None),
+                    "invited_by": getattr(player, "invited_by", None),
                     "created_at": player.created_at.isoformat() if player.created_at else None,
                 }
                 for player in players
@@ -398,7 +387,7 @@ class RegistrationService:
             logger.error(f"❌ Failed to get pending players: {e}")
             return []
 
-    async def get_pending_team_members(self) -> List[Dict[str, Any]]:
+    async def get_pending_team_members(self) -> list[dict[str, Any]]:
         """
         Get all pending team members.
 
@@ -415,7 +404,7 @@ class RegistrationService:
                     "phone": member.phone_number,
                     "role": member.role,
                     "status": member.status,
-                    "invited_by": getattr(member, 'invited_by', None),
+                    "invited_by": getattr(member, "invited_by", None),
                     "created_at": member.created_at.isoformat() if member.created_at else None,
                 }
                 for member in members

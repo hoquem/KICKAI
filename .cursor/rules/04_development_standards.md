@@ -32,9 +32,12 @@ KICKAI has achieved **complete Clean Architecture compliance** through systemati
 - **✅ ALWAYS**: Use `async def` for all tool functions
 - **✅ ALWAYS**: Use direct parameter passing with type hints
 - **✅ ALWAYS**: Tools are simple, independent functions
+- **✅ ALWAYS**: Follow the 6-section docstring standard (see below)
+- **✅ ALWAYS**: Only include parameters actually used in the function
 - **❌ NEVER**: Dictionary-based parameter passing
 - **❌ NEVER**: Backward compatibility code in tools
 - **❌ NEVER**: Tools calling other tools or services directly
+- **❌ NEVER**: Unused parameters in tool signatures
 
 ```python
 # ❌ WRONG - Dictionary parameter passing (CAUSES VALIDATION ERRORS)
@@ -81,6 +84,71 @@ async def add_team_member_simplified(
     except Exception as e:
         logger.error(f"❌ Error in add_team_member_simplified: {e}")
         return create_json_response(ResponseStatus.ERROR, message="Failed to add team member")
+```
+
+### 1.1 **Tool Documentation Standards (MANDATORY)**
+
+**Official CrewAI Principle**: "Clear description for what this tool is useful for, your agent will need this information to use it"
+
+**Official KICKAI Docstring Format (Mandatory)**:
+```python
+@tool("tool_name")
+async def tool_name(
+    param1: str,
+    param2: str
+) -> str:
+    """[SEMANTIC ACTION] - What business action does this perform?
+    
+    [BUSINESS CONTEXT] - Why this action matters and its business impact
+    
+    Use when: [BUSINESS INTENT TRIGGER - when this business need arises]
+    Required: [BUSINESS PERMISSIONS/CONDITIONS - what business rules apply]
+    
+    Returns: [SEMANTIC BUSINESS OUTCOME - what business result is delivered]
+    """
+```
+
+**Documentation Quality Checklist**:
+- [ ] **Semantic Action** describes business action clearly
+- [ ] **Business Context** explains impact and value
+- [ ] **Use when** specifies business intent triggers
+- [ ] **Required** lists business permissions/conditions
+- [ ] **Returns** describes business outcome
+- [ ] No implementation details exposed
+- [ ] No command examples or UI references
+- [ ] Consistent with official KICKAI standards
+
+### 1.2 **Tool Parameter Efficiency (MANDATORY)**
+
+**Core Principle**: Tools should only have parameters they actually need to function.
+
+**Parameter Guidelines**:
+- ✅ **Include**: Parameters actually used in the function logic
+- ✅ **Include**: Parameters needed for permission/validation checks
+- ✅ **Include**: Parameters required for service routing
+- ❌ **Exclude**: Parameters not used in the function
+- ❌ **Exclude**: Context parameters available elsewhere
+- ❌ **Exclude**: Logging-only parameters that don't affect functionality
+
+**Examples of Good Parameter Usage**:
+```python
+# ✅ GOOD - Only necessary parameters
+@tool("send_team_announcement")
+async def send_team_announcement(
+    team_id: str,        # NEEDED - for service routing
+    chat_type: str,      # NEEDED - for permission check
+    announcement: str     # NEEDED - message content
+) -> str:
+
+# ❌ POOR - Unused parameters
+@tool("send_team_announcement")
+async def send_team_announcement(
+    telegram_id: str,    # NOT used in function
+    team_id: str,        # NEEDED
+    username: str,       # NOT used in function
+    chat_type: str,      # NEEDED
+    announcement: str     # NEEDED
+) -> str:
 ```
 
 ### 2. **Service Layer Architecture (MANDATORY)**

@@ -13,7 +13,7 @@ References:
 
 import os
 from dataclasses import dataclass, field
-from typing import Final, List, Tuple, Union
+from typing import Final
 
 from kickai.core.enums import ChatType, PermissionLevel
 
@@ -26,6 +26,7 @@ BOT_VERSION: Final[str] = "2.0.0"
 # =============================================================================
 # NETWORK CONSTANTS
 # =============================================================================
+
 
 class NetworkConstants:
     """Network-related constants."""
@@ -50,22 +51,21 @@ class NetworkConstants:
     def get_default_mock_telegram_url(cls) -> str:
         """Get default mock telegram URL."""
         return cls.MOCK_TELEGRAM_URL_TEMPLATE.format(
-            host=cls.DEFAULT_HOST,
-            port=cls.DEFAULT_MOCK_TELEGRAM_PORT
+            host=cls.DEFAULT_HOST, port=cls.DEFAULT_MOCK_TELEGRAM_PORT
         )
 
     @classmethod
     def get_default_ollama_url(cls) -> str:
         """Get default Ollama URL."""
         return cls.OLLAMA_URL_TEMPLATE.format(
-            host=cls.DEFAULT_OLLAMA_HOST,
-            port=cls.DEFAULT_OLLAMA_PORT
+            host=cls.DEFAULT_OLLAMA_HOST, port=cls.DEFAULT_OLLAMA_PORT
         )
 
 
 # =============================================================================
 # TIMEOUT CONSTANTS
 # =============================================================================
+
 
 class TimeoutConstants:
     """Timeout-related constants in seconds."""
@@ -98,6 +98,7 @@ class TimeoutConstants:
 # RETRY CONSTANTS
 # =============================================================================
 
+
 class RetryConstants:
     """Retry and circuit breaker constants."""
 
@@ -122,6 +123,7 @@ class RetryConstants:
 # =============================================================================
 # LIMIT CONSTANTS
 # =============================================================================
+
 
 class LimitConstants:
     """Limit and size constants."""
@@ -151,12 +153,13 @@ class LimitConstants:
 # VALIDATION CONSTANTS
 # =============================================================================
 
+
 class ValidationConstants:
     """Validation patterns and constants."""
 
     # Regular expressions
     TEAM_ID_PATTERN: Final[str] = r"^[A-Z0-9]+$"
-    PHONE_CLEANUP_PATTERN: Final[str] = r'[\x00-\x1f\x7f-\x9f]'
+    PHONE_CLEANUP_PATTERN: Final[str] = r"[\x00-\x1f\x7f-\x9f]"
 
     # UK phone number constants
     UK_COUNTRY_CODE: Final[str] = "+44"
@@ -173,6 +176,7 @@ class ValidationConstants:
 # =============================================================================
 # AI CONSTANTS
 # =============================================================================
+
 
 class AIConstants:
     """AI and LLM constants."""
@@ -191,13 +195,14 @@ class AIConstants:
 
     # Model configurations
     TOOL_CALLING_MODEL: Final[str] = "llama3.2:1b"  # For precision
-    CREATIVE_MODEL: Final[str] = "llama3.2:3b"      # For reasoning
-    ANALYTICAL_MODEL: Final[str] = "llama3.2:3b"    # For analysis
+    CREATIVE_MODEL: Final[str] = "llama3.2:3b"  # For reasoning
+    ANALYTICAL_MODEL: Final[str] = "llama3.2:3b"  # For analysis
 
 
 # =============================================================================
 # ENVIRONMENT CONSTANTS
 # =============================================================================
+
 
 class EnvironmentConstants:
     """Environment variable names and defaults."""
@@ -224,6 +229,7 @@ class EnvironmentConstants:
 # STATUS CONSTANTS
 # =============================================================================
 
+
 class StatusConstants:
     """Status codes and messages."""
 
@@ -244,6 +250,7 @@ class StatusConstants:
     STATUS_CHECKING: Final[str] = "Checking..."
     STATUS_CONNECTED: Final[str] = "Connected"
     STATUS_DISCONNECTED: Final[str] = "Disconnected"
+
 
 # =============================================================================
 # FIRESTORE CONSTANTS
@@ -275,7 +282,7 @@ class CommandDefinition:
     description: str
     permission_level: PermissionLevel
     chat_types: frozenset[ChatType]
-    examples: Tuple[str, ...] = field(default_factory=tuple)
+    examples: tuple[str, ...] = field(default_factory=tuple)
     feature: str = "shared"
 
     def __post_init__(self):
@@ -563,8 +570,13 @@ TEAM_ADMIN_COMMANDS = set()
 # =============================================================================
 
 ALL_COMMANDS = (
-    PLAYER_COMMANDS | LEADERSHIP_COMMANDS | SYSTEM_COMMANDS | MATCH_COMMANDS
-| ATTENDANCE_COMMANDS | COMMUNICATION_COMMANDS | TEAM_ADMIN_COMMANDS
+    PLAYER_COMMANDS
+    | LEADERSHIP_COMMANDS
+    | SYSTEM_COMMANDS
+    | MATCH_COMMANDS
+    | ATTENDANCE_COMMANDS
+    | COMMUNICATION_COMMANDS
+    | TEAM_ADMIN_COMMANDS
 )
 
 # =============================================================================
@@ -615,17 +627,17 @@ CHAT_TYPE_DESCRIPTIONS = {
 # =============================================================================
 
 
-def get_commands_for_chat_type(chat_type: ChatType) -> List[CommandDefinition]:
+def get_commands_for_chat_type(chat_type: ChatType) -> list[CommandDefinition]:
     """Get all commands available for a specific chat type."""
     return sorted(COMMANDS_BY_CHAT_TYPE.get(chat_type, []), key=lambda x: x.name)
 
 
-def get_commands_for_permission_level(permission_level: PermissionLevel) -> List[CommandDefinition]:
+def get_commands_for_permission_level(permission_level: PermissionLevel) -> list[CommandDefinition]:
     """Get all commands available for a specific permission level."""
     return sorted(COMMANDS_BY_PERMISSION.get(permission_level, []), key=lambda x: x.name)
 
 
-def get_commands_for_feature(feature: str) -> List[CommandDefinition]:
+def get_commands_for_feature(feature: str) -> list[CommandDefinition]:
     """Get all commands for a specific feature."""
     return sorted(COMMANDS_BY_FEATURE.get(feature, []), key=lambda x: x.name)
 
@@ -675,6 +687,7 @@ def normalize_chat_type(chat_type: str) -> ChatType:
 # UTILITY FUNCTIONS FOR CONFIGURATION
 # =============================================================================
 
+
 def get_environment_with_default(env_var: str, default: str, required: bool = False) -> str:
     """
     Get environment variable with default value (fail-fast approach).
@@ -702,23 +715,21 @@ def get_mock_telegram_url() -> str:
     """Get mock telegram URL from environment or default."""
     return get_environment_with_default(
         EnvironmentConstants.MOCK_TELEGRAM_BASE_URL,
-        NetworkConstants.get_default_mock_telegram_url()
+        NetworkConstants.get_default_mock_telegram_url(),
     )
 
 
 def get_ollama_url() -> str:
     """Get Ollama URL from environment or default."""
     return get_environment_with_default(
-        EnvironmentConstants.OLLAMA_BASE_URL,
-        NetworkConstants.get_default_ollama_url()
+        EnvironmentConstants.OLLAMA_BASE_URL, NetworkConstants.get_default_ollama_url()
     )
 
 
 def get_mock_telegram_port() -> int:
     """Get mock telegram port from environment or default (fail-fast validation)."""
     port_str = get_environment_with_default(
-        EnvironmentConstants.MOCK_TELEGRAM_PORT,
-        str(NetworkConstants.DEFAULT_MOCK_TELEGRAM_PORT)
+        EnvironmentConstants.MOCK_TELEGRAM_PORT, str(NetworkConstants.DEFAULT_MOCK_TELEGRAM_PORT)
     )
 
     try:

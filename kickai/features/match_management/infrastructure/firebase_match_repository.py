@@ -1,4 +1,3 @@
-from typing import Optional
 import logging
 from datetime import datetime
 
@@ -25,9 +24,7 @@ class FirebaseMatchRepository(MatchRepositoryInterface):
         try:
             collection_name = self._get_collection_name(match.team_id)
             await self.firebase_client.create_document(
-                collection=collection_name,
-                document_id=match.match_id,
-                data=match.to_dict()
+                collection=collection_name, document_id=match.match_id, data=match.to_dict()
             )
             logger.info(f"Created match {match.match_id} in collection {collection_name}")
             return match
@@ -35,7 +32,7 @@ class FirebaseMatchRepository(MatchRepositoryInterface):
             logger.error(f"Failed to create match {match.match_id}: {e}")
             raise
 
-    async def get_by_id(self, match_id: str) -> Optional[Match]:
+    async def get_by_id(self, match_id: str) -> Match | None:
         """Get match by ID."""
         try:
             # We need to search across all team collections to find the match
@@ -79,8 +76,7 @@ class FirebaseMatchRepository(MatchRepositoryInterface):
         try:
             collection_name = self._get_collection_name(team_id)
             docs = await self.firebase_client.query_documents(
-                collection_name,
-                filters={"status": status.value}
+                collection_name, filters={"status": status.value}
             )
             matches = [Match.from_dict(doc) for doc in docs]
 
@@ -100,8 +96,7 @@ class FirebaseMatchRepository(MatchRepositoryInterface):
             now = datetime.utcnow()
 
             upcoming_matches = [
-                match for match in all_matches
-                if match.match_date > now and match.is_upcoming
+                match for match in all_matches if match.match_date > now and match.is_upcoming
             ]
 
             # Sort by match date (earliest first)
@@ -119,8 +114,7 @@ class FirebaseMatchRepository(MatchRepositoryInterface):
             now = datetime.utcnow()
 
             past_matches = [
-                match for match in all_matches
-                if match.match_date <= now or match.is_completed
+                match for match in all_matches if match.match_date <= now or match.is_completed
             ]
 
             # Sort by match date (newest first)
@@ -136,9 +130,7 @@ class FirebaseMatchRepository(MatchRepositoryInterface):
         try:
             collection_name = self._get_collection_name(match.team_id)
             await self.firebase_client.update_document(
-                collection=collection_name,
-                document_id=match.match_id,
-                data=match.to_dict()
+                collection=collection_name, document_id=match.match_id, data=match.to_dict()
             )
             logger.info(f"Updated match {match.match_id}")
             return match
@@ -163,7 +155,9 @@ class FirebaseMatchRepository(MatchRepositoryInterface):
             logger.error(f"Failed to delete match {match_id}: {e}")
             return False
 
-    async def get_matches_by_date_range(self, team_id: str, start_date: str, end_date: str) -> list[Match]:
+    async def get_matches_by_date_range(
+        self, team_id: str, start_date: str, end_date: str
+    ) -> list[Match]:
         """Get matches within a date range."""
         try:
             all_matches = await self.get_by_team(team_id)
@@ -171,14 +165,15 @@ class FirebaseMatchRepository(MatchRepositoryInterface):
             end_dt = datetime.fromisoformat(end_date)
 
             matches_in_range = [
-                match for match in all_matches
-                if start_dt <= match.match_date <= end_dt
+                match for match in all_matches if start_dt <= match.match_date <= end_dt
             ]
 
             # Sort by match date (earliest first)
             matches_in_range.sort(key=lambda m: m.match_date)
 
-            logger.info(f"Retrieved {len(matches_in_range)} matches in date range for team {team_id}")
+            logger.info(
+                f"Retrieved {len(matches_in_range)} matches in date range for team {team_id}"
+            )
             return matches_in_range
         except Exception as e:
             logger.error(f"Failed to get matches in date range for team {team_id}: {e}")

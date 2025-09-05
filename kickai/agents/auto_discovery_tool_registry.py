@@ -68,6 +68,7 @@ SUCCESS_MESSAGES = {
 
 class ToolType(Enum):
     """Types of tools supported by the system."""
+
     COMMUNICATION = "communication"
     PLAYER_MANAGEMENT = "player_management"
     TEAM_MANAGEMENT = "team_management"
@@ -78,6 +79,7 @@ class ToolType(Enum):
 
 class ToolCategory(Enum):
     """Categories of tools for organization."""
+
     CORE = "core"
     FEATURE = "feature"
     UTILITY = "utility"
@@ -86,6 +88,7 @@ class ToolCategory(Enum):
 @dataclass
 class AutoDiscoveredTool:
     """Auto-discovered tool information."""
+
     tool_id: str
     name: str
     description: str
@@ -175,21 +178,18 @@ class AutoDiscoveryToolRegistry:
             return tools
 
         except Exception as e:
-            logger.warning(ERROR_MESSAGES["FILE_PARSE_ERROR"].format(
-                file_path=file_path, error=str(e)
-            ))
+            logger.warning(
+                ERROR_MESSAGES["FILE_PARSE_ERROR"].format(file_path=file_path, error=str(e))
+            )
             return []
 
     def _read_file_content(self, file_path: Path) -> str:
         """Read file content with proper encoding."""
-        with open(file_path, encoding='utf-8') as f:
+        with open(file_path, encoding="utf-8") as f:
             return f.read()
 
     def _extract_tool_info_from_node(
-        self,
-        node: ast.FunctionDef,
-        content: str,
-        file_path: Path
+        self, node: ast.FunctionDef, content: str, file_path: Path
     ) -> AutoDiscoveredTool | None:
         """Extract tool information from an AST function node."""
         try:
@@ -201,9 +201,11 @@ class AutoDiscoveryToolRegistry:
             return tool_info
 
         except Exception as e:
-            logger.warning(ERROR_MESSAGES["TOOL_INFO_EXTRACTION_ERROR"].format(
-                file_path=file_path, line=node.lineno, error=str(e)
-            ))
+            logger.warning(
+                ERROR_MESSAGES["TOOL_INFO_EXTRACTION_ERROR"].format(
+                    file_path=file_path, line=node.lineno, error=str(e)
+                )
+            )
             return None
 
     def _extract_tool_name_from_decorators(self, node: ast.FunctionDef) -> str | None:
@@ -228,7 +230,9 @@ class AutoDiscoveryToolRegistry:
                 return decorator.args[0].value
         return function_name
 
-    def _create_tool_info(self, node: ast.FunctionDef, tool_name: str, file_path: Path) -> AutoDiscoveredTool:
+    def _create_tool_info(
+        self, node: ast.FunctionDef, tool_name: str, file_path: Path
+    ) -> AutoDiscoveredTool:
         """Create AutoDiscoveredTool object from function node."""
         function_name = node.name
         docstring = ast.get_docstring(node) or DEFAULT_DOCSTRING.format(function_name=function_name)
@@ -239,9 +243,11 @@ class AutoDiscoveryToolRegistry:
 
         tool_function = self._import_function_from_file(file_path, function_name)
         if not tool_function:
-            raise ValueError(ERROR_MESSAGES["FUNCTION_IMPORT_ERROR"].format(
-                function_name=function_name, file_path=file_path
-            ))
+            raise ValueError(
+                ERROR_MESSAGES["FUNCTION_IMPORT_ERROR"].format(
+                    function_name=function_name, file_path=file_path
+                )
+            )
 
         return AutoDiscoveredTool(
             tool_id=tool_name,
@@ -252,7 +258,7 @@ class AutoDiscoveryToolRegistry:
             category=category,
             feature_module=feature_module,
             file_path=str(file_path),
-            line_number=node.lineno
+            line_number=node.lineno,
         )
 
     def _determine_tool_type_from_path(self, file_path: Path) -> ToolType:
@@ -302,21 +308,25 @@ class AutoDiscoveryToolRegistry:
             if hasattr(module, function_name):
                 return getattr(module, function_name)
             else:
-                logger.warning(ERROR_MESSAGES["FUNCTION_NOT_FOUND"].format(
-                    function_name=function_name, module_path=module_path
-                ))
+                logger.warning(
+                    ERROR_MESSAGES["FUNCTION_NOT_FOUND"].format(
+                        function_name=function_name, module_path=module_path
+                    )
+                )
                 return None
 
         except Exception as e:
-            logger.warning(ERROR_MESSAGES["MODULE_IMPORT_ERROR"].format(
-                function_name=function_name, file_path=file_path, error=str(e)
-            ))
+            logger.warning(
+                ERROR_MESSAGES["MODULE_IMPORT_ERROR"].format(
+                    function_name=function_name, file_path=file_path, error=str(e)
+                )
+            )
             return None
 
     def _convert_file_path_to_module_path(self, file_path: Path) -> str:
         """Convert file path to module path."""
-        module_path = str(file_path).replace('/', '.').replace('.py', '')
-        if not module_path.startswith('kickai.'):
+        module_path = str(file_path).replace("/", ".").replace(".py", "")
+        if not module_path.startswith("kickai."):
             module_path = f"kickai.{module_path}"
         return module_path
 
@@ -327,9 +337,11 @@ class AutoDiscoveryToolRegistry:
             return
 
         self._tools[tool.tool_id] = tool
-        logger.info(LOG_MESSAGES["TOOL_REGISTERED"].format(
-            tool_id=tool.tool_id, tool_type=tool.tool_type.value
-        ))
+        logger.info(
+            LOG_MESSAGES["TOOL_REGISTERED"].format(
+                tool_id=tool.tool_id, tool_type=tool.tool_type.value
+            )
+        )
 
     def get_tool_function(self, tool_id: str) -> Callable | None:
         """Get tool function by ID."""
@@ -339,7 +351,7 @@ class AutoDiscoveryToolRegistry:
             return None
 
         tool = self._tools[tool_id]
-        if hasattr(tool.tool_function, 'func'):
+        if hasattr(tool.tool_function, "func"):
             return tool.tool_function.func
         else:
             return tool.tool_function
@@ -382,7 +394,7 @@ class AutoDiscoveryToolRegistry:
             "enabled_tools": enabled_tools,
             "tool_types": type_counts,
             "categories": category_counts,
-            "discovery_status": self._discovered
+            "discovery_status": self._discovered,
         }
 
     def get_tool_info(self, tool_id: str) -> AutoDiscoveredTool | None:
@@ -426,4 +438,3 @@ def get_tool_statistics() -> dict[str, Any]:
     """Get tool discovery statistics."""
     registry = get_auto_discovery_tool_registry()
     return registry.get_tool_statistics()
-
