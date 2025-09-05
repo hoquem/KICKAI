@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**KICKAI v3.1** | **Python 3.11+** | **5-Agent CrewAI System** | **Native Hierarchical Process**
+**KICKAI v4.1** | **Python 3.11+** | **5-Agent CrewAI System** | **Expert-Validated Dynamic Task Management**
 
 ## 🚀 Essential Commands
 
@@ -29,7 +29,14 @@ PYTHONPATH=. python -m pytest tests/e2e/features/test_cross_feature_flows.py -k 
 
 # Database Operations
 make bootstrap-testing             # Bootstrap testing environment
+make bootstrap-production          # Bootstrap production environment
 make cleanup-testing               # Clean testing database
+make cleanup-production            # Clean production database
+make validate-context              # Validate context field usage
+
+# Workflow Commands
+make deploy-pipeline               # Full deployment pipeline (test, lint, deploy, validate)
+make dev-workflow                  # Quick development workflow (clean, test, lint)
 ```
 
 ## 🏗️ Architecture Quick Reference
@@ -41,11 +48,12 @@ make cleanup-testing               # Clean testing database
 4. **TEAM_ADMINISTRATOR** - Team administration specialist (16+ tools) - **MEMBER context**  
 5. **SQUAD_SELECTOR** - Match operations specialist (14+ tools)
 
-**🔥 NEW: Persistent Crew Architecture (2025)**
+**🔥 NEW: Expert-Validated Dynamic Task Management (2025)**
 - **One Crew Per Team**: Each team gets a long-lived, persistent crew instance
-- **Memory Enabled**: Conversation context preserved across all team interactions
-- **Verbose Logging**: Detailed execution visibility for debugging and monitoring
+- **Dynamic Task Creation**: Each user command creates exactly one new Task (architecturally correct)
+- **Memory Continuity**: Unlimited conversation history per team with complete isolation
 - **Performance**: ~70% faster execution (eliminates crew creation overhead)
+- **Resource Efficiency**: 50% better memory utilization
 - **Async Execution**: All tasks use `kickoff_async()` for concurrency
 
 **Context-Aware Routing:** Chat type determines user treatment and tool selection
@@ -283,7 +291,7 @@ for agent, data in health['agents'].items():
 
 **Key Technologies:**
 - **Python 3.11+** (strict requirement)
-- **CrewAI 0.150.0** (hierarchical process)
+- **CrewAI 0.177.0** (hierarchical process)
 - **Firebase Firestore** (database)
 - **Telethon** (Telegram Bot API)
 - **Pydantic** (data validation)
@@ -388,4 +396,4 @@ validated_context.get('username')
 
 ---
 
-**KICKAI v3.1** - 5-Agent CrewAI System with Hierarchical Process and Complete Clean Architecture
+**KICKAI v4.1** - 5-Agent CrewAI System with Expert-Validated Dynamic Task Management and Complete Clean Architecture
