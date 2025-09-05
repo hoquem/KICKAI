@@ -11,6 +11,7 @@ import sys
 import subprocess
 import time
 import webbrowser
+import socket
 from pathlib import Path
 import uvicorn
 import logging
@@ -71,6 +72,21 @@ async def serve_lfc_frontend():
 # Static files are no longer needed since we serve the consolidated mock_tester.html from root
 
 
+def find_available_port(start_port: int = 8001, max_attempts: int = 10) -> int:
+    """Find an available port starting from start_port"""
+    for port_offset in range(max_attempts):
+        port = start_port + port_offset
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('0.0.0.0', port))
+                s.listen(1)
+                return port
+        except OSError:
+            continue
+    
+    raise RuntimeError(f"Could not find an available port after {max_attempts} attempts starting from {start_port}")
+
+
 def main():
     """Main startup function"""
     print("🚀 Starting Liverpool FC Mock Telegram Tester...")
@@ -93,9 +109,17 @@ def main():
         print(f"❌ Configuration error: {e}")
         sys.exit(1)
     
-    # Start the server
+    # Find an available port
     host = config.host
-    port = config.port
+    preferred_port = config.port
+    
+    try:
+        port = find_available_port(preferred_port)
+        if port != preferred_port:
+            print(f"⚠️ Port {preferred_port} is busy, using port {port} instead")
+    except RuntimeError as e:
+        print(f"❌ {e}")
+        sys.exit(1)
     
     print(f"🌐 Starting server on http://{host}:{port}")
     print(f"📱 Mock Telegram API: http://{host}:{port}/api")

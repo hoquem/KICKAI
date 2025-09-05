@@ -20,6 +20,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depe
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
 import uvicorn
+import phonenumbers
+from phonenumbers import NumberParseException
 
 # Set required environment variable for bot integration
 os.environ.setdefault("KICKAI_INVITE_SECRET_KEY", "test_secret_key_for_debugging_only_32_chars_long")
@@ -170,13 +172,52 @@ class CreateUserRequest(BaseModel):
     first_name: str = Field(..., min_length=1, max_length=64, description="First name")
     last_name: Optional[str] = Field(None, max_length=64, description="Last name")
     role: MemberRole = MemberRole.PLAYER
-    phone_number: Optional[str] = Field(None, pattern=r'^\+?[1-9]\d{1,14}$', description="Phone number")
+    phone_number: str = Field(..., description="Phone number (required for players/team members)")
     
     @validator('username')
     def validate_username(cls, v):
-        if not v.replace('_', '').replace('-', '').isalnum():
+        # Clean the username
+        cleaned = v.strip().lower()
+        if not cleaned:
+            raise ValueError("Username cannot be empty after cleaning")
+        
+        # Check if it contains only allowed characters
+        if not cleaned.replace('_', '').replace('-', '').isalnum():
             raise ValueError("Username must contain only letters, numbers, underscores, and hyphens")
-        return v.lower()
+        
+        return cleaned
+    
+    @validator('phone_number')
+    def validate_phone_number(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Phone number is required for all users")
+        
+        try:
+            # Parse the phone number - try with None region first (international format)
+            parsed_number = phonenumbers.parse(v, None)
+            
+            # Validate the parsed number
+            if not phonenumbers.is_valid_number(parsed_number):
+                raise ValueError("Invalid phone number format")
+            
+            # Return the number in international format for consistency
+            return phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.E164)
+            
+        except NumberParseException as e:
+            # If parsing fails without region, try with common regions
+            common_regions = ['US', 'GB', 'CA', 'AU']
+            for region in common_regions:
+                try:
+                    parsed_number = phonenumbers.parse(v, region)
+                    if phonenumbers.is_valid_number(parsed_number):
+                        return phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.E164)
+                except NumberParseException:
+                    continue
+            
+            # If all parsing attempts fail, provide helpful error message
+            raise ValueError(f"Invalid phone number format. Please use international format (+1234567890) or include country code. Error: {e}")
+        except Exception as e:
+            raise ValueError(f"Phone number validation error: {str(e)}")
 
 
 class ProcessInviteRequest(BaseModel):
@@ -651,11 +692,17 @@ class MockTelegramService:
         """Create a new test user"""
         with self._lock:
             if len(self.users) >= self.max_users:
-                raise HTTPException(status_code=400, detail="Maximum number of users reached")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Maximum number of users reached ({self.max_users}). Cannot create new user."
+                )
             
             # Check for duplicate username
             if any(user.username == request.username for user in self.users.values()):
-                raise HTTPException(status_code=400, detail="Username already exists")
+                raise HTTPException(
+                    status_code=422, 
+                    detail=f"Username '{request.username}' already exists. Please choose a different username."
+                )
             
             user_id = max(self.users.keys()) + 1 if self.users else 1001
             
@@ -680,11 +727,15 @@ class MockTelegramService:
                 )
                 self.chats[chat.id] = chat
                 
-                logger.info(f"Created new user: {user.first_name} (@{user.username})")
+                logger.info(f"Created new user: {user.first_name} (@{user.username}) with phone {user.phone_number}")
                 return user
                 
             except ValueError as e:
-                raise HTTPException(status_code=400, detail=str(e))
+                # This is a validation error from MockUser initialization
+                raise HTTPException(
+                    status_code=422, 
+                    detail=f"User validation failed: {str(e)}"
+                )
     
     async def process_invite_link(self, request: ProcessInviteRequest) -> Dict[str, Any]:
         """Process an invite link and create a user from invite data"""
